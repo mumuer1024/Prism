@@ -1,0 +1,17 @@
+version: '3'
+services:
+  intel-briefing:
+    build: .
+    container_name: intel-briefing
+    restart: unless-stopped
+    ports:
+      - "7860:7860"
+    volumes:
+      - ./reports:/app/reports
+      - ./.env:/app/.env
+    environment:
+      - TZ=Asia/Shanghai
+networks:
+  default:
+    name: 1panel-network
+    external: true
