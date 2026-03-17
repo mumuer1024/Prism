@@ -1,8 +1,8 @@
 <div align="center">
 
-# 🕵️ Intel Briefing - AI 情报聚合系统
+# 🕵️ Prism - 棱镜情报 - AI 情报聚合系统
 
-**每天 5 分钟，掌握全球科技圈正在发生什么。**
+**棱镜情报，Your industry, your signal.**
 
 用 AI 自动从 10+ 数据源抓取、翻译、分析情报，生成一份中文日报。
 
