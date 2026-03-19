@@ -143,7 +143,7 @@ python run_revenue_architect.py
 |:--|:--|:--|:--|
 | `GITHUB_TOKEN` | GitHub Trending (GraphQL API) | **必需** | ✅ [免费申请 PAT](https://github.com/settings/tokens) |
 | `LLM_API_KEY` | 通用 LLM 推理（营收分析等） | 推荐 | 使用任意 OpenAI 兼容端点 |
-| `XAI_API_KEY` | Grok API (X/Twitter 搜索) | 可选 | 每月 $25 免费额度 ([申请](https://console.x.ai/)) |
+| `XAI_API_KEY` | Grok API (X/Twitter 搜索) | 可选 |  ([申请](https://console.x.ai/)) |
 | `PRODUCTHUNT_TOKEN` | Product Hunt 数据 | 可选 | ✅ [免费申请](https://www.producthunt.com/v2/oauth/applications) |
 | `TRANSLATOR_API_KEY` | 中文翻译（Gemini/OpenAI） | 可选 | ✅ 免费额度充足 |
 
