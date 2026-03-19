@@ -54,17 +54,70 @@ def save_config(body: EnvUpdate):
 
 # ── Models ───────────────────────────────────────────────
 
+class ModelListRequest(BaseModel):
+    base_url: str
+    api_key: str
+    api_format: str = "openai"
+
 @app.get("/api/models")
 async def get_models(base_url: str, api_key: str, api_format: str = "openai"):
+    """获取可用模型列表"""
     import sys
     sys.path.insert(0, str(BASE_DIR))
     try:
         from llm_client import list_models
-        models = list_models(base_url, api_key, api_format)
+        # 处理 base_url：移除末尾的 /v1/chat/completions 等路径
+        processed_url = base_url.rstrip('/')
+        if '/v1/chat/completions' in processed_url:
+            processed_url = processed_url.replace('/v1/chat/completions', '/v1')
+        models = list_models(processed_url, api_key, api_format)
         return {"models": models}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ── Connection Test ─────────────────────────────────────
+
+class ConnectionTest(BaseModel):
+    base_url: str
+    api_key: str
+    api_format: str = "openai"
+
+@app.post("/api/test-connection")
+async def test_connection(body: ConnectionTest):
+    """测试 API 连接是否通畅"""
+    import time
+    start = time.time()
+
+    try:
+        # 处理 base_url：移除末尾的 /v1/chat/completions 等路径，保留到 /v1
+        base_url = body.base_url.rstrip('/')
+        if '/v1/chat/completions' in base_url:
+            base_url = base_url.replace('/v1/chat/completions', '/v1')
+        elif '/v1/' in base_url and not base_url.endswith('/v1'):
+            # 如果 URL 包含 /v1/ 子路径（如 /v1/models），只保留到 /v1
+            base_url = base_url[:base_url.index('/v1/') + 3]
+        elif not base_url.endswith('/v1'):
+            # 如果不以 /v1 结尾，尝试添加 /v1
+            base_url = base_url + '/v1'
+
+        if body.api_format == "openai":
+            headers = {"Authorization": f"Bearer {body.api_key}"}
+            async with httpx.AsyncClient() as client:
+                resp = await client.get(
+                    f"{base_url}/models",
+                    headers=headers,
+                    timeout=10.0
+                )
+                if resp.status_code == 200:
+                    latency = int((time.time() - start) * 1000)
+                    return {"ok": True, "latency": latency}
+                else:
+                    return {"ok": False, "error": f"HTTP {resp.status_code}: {resp.text[:200]}"}
+        else:
+            return {"ok": False, "error": f"暂不支持 {body.api_format} 格式的连通性测试"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # ── Scripts ──────────────────────────────────────────────
 
@@ -141,6 +194,7 @@ SOURCES_META = [
     {"key": "hn_blogs", "env_key": "SOURCE_ENABLED_HN_BLOGS", "name": "HN Top Blogs", "icon": "📝", "desc": "Hacker News 热门博客", "requires_key": None},
     {"key": "chrome", "env_key": "SOURCE_ENABLED_CHROME", "name": "Chrome 扩展雷达", "icon": "🔌", "desc": "Chrome 扩展商店趋势", "requires_key": None},
     {"key": "xhs", "env_key": "SOURCE_ENABLED_XHS", "name": "小红书", "icon": "📕", "desc": "小红书热门话题与趋势", "requires_key": None},
+    {"key": "tavily", "env_key": "SOURCE_ENABLED_TAVILY", "name": "Tavily 搜索", "icon": "🔍", "desc": "AI 驱动的实时搜索", "requires_key": "TAVILY_TOKEN"},
 ]
 
 @app.get("/api/sources")
@@ -177,6 +231,31 @@ def update_source(body: SourceUpdate):
     ENV_FILE.touch()
     set_key(str(ENV_FILE), src["env_key"], "true" if body.enabled else "false")
     return {"ok": True}
+
+
+# ── Tavily Keywords ────────────────────────────────────────
+
+class TavilyKeywords(BaseModel):
+    keywords: str
+
+@app.get("/api/tavily-keywords")
+def get_tavily_keywords():
+    """获取Tavily自定义关键词"""
+    env = dotenv_values(ENV_FILE) if ENV_FILE.exists() else {}
+    keywords = env.get("TAVILY_CUSTOM_KEYWORDS", "")
+    return {"keywords": keywords}
+
+@app.post("/api/tavily-keywords")
+def save_tavily_keywords(body: TavilyKeywords):
+    """保存Tavily自定义关键词"""
+    ENV_FILE.touch()
+    set_key(str(ENV_FILE), "TAVILY_CUSTOM_KEYWORDS", body.keywords)
+    return {"ok": True}
+
+
+# ── Static Files ─────────────────────────────────────────
+
+app.mount("/static", StaticFiles(directory=str(BASE_DIR / "ui" / "static")), name="static")
 
 
 if __name__ == "__main__":

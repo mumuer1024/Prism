@@ -34,10 +34,11 @@
 **V1.0 版本已支持：**
 - ✅ Web UI 可视化操作界面
 - ✅ 4 大分析工具（日报/赏金猎人/Alpha雷达/营收分析师）
-- ✅ 11 个数据源（可开关管理）
+- ✅ 12 个数据源（可开关管理，含 Tavily AI 搜索）
 - ✅ 多 LLM 端点配置（通用推理/X搜索/翻译分离）
 - ✅ 实时日志流式输出
 - ✅ 报告在线浏览
+- ✅ 深色/浅色主题切换
 
 **适合谁用？**
 - 想每天快速了解科技圈动态的开发者
@@ -61,6 +62,7 @@
 | 💬 社区热议 | V2EX | 中文开发者社区在讨论什么 |
 | 🐦 社交舆情 | X (Twitter) via Grok | Twitter 上的技术热话题 |
 | 📖 深度洞察 | HN Top Blogs | 热门技术博客全文分析 |
+| 🔍 AI 搜索 | Tavily | 基于自定义关键词的实时 AI 搜索 |
 | 🔗 链接验证 | 自动核查 | 每个链接都经过有效性检测 |
 
 ### 💰 赏金猎人 (`run_bounty_hunter.py`)
@@ -145,9 +147,10 @@ python run_revenue_architect.py
 | `LLM_API_KEY` | 通用 LLM 推理（营收分析等） | 推荐 | 使用任意 OpenAI 兼容端点 |
 | `XAI_API_KEY` | Grok API (X/Twitter 搜索) | 可选 |  ([申请](https://console.x.ai/)) |
 | `PRODUCTHUNT_TOKEN` | Product Hunt 数据 | 可选 | ✅ [免费申请](https://www.producthunt.com/v2/oauth/applications) |
+| `TAVILY_TOKEN` | Tavily AI 搜索 | 可选 | ✅ [免费申请](https://tavily.com/) |
 | `TRANSLATOR_API_KEY` | 中文翻译（Gemini/OpenAI） | 可选 | ✅ 免费额度充足 |
 
-> ⚠️ **最低要求：拿到 `GITHUB_TOKEN` 就能跑基础日报**（HN、GitHub Trending、ArXiv、V2EX、36Kr 等）。没有 `XAI_API_KEY` 会跳过 Twitter 舆情和需要 Grok 的功能。
+> ⚠️ **最低要求：拿到 `GITHUB_TOKEN` 就能跑基础日报**（HN、GitHub Trending、ArXiv、V2EX、36Kr 等）。其他密钥根据需求配置，没有则跳过对应数据源。
 
 ---
 
@@ -157,7 +160,15 @@ python run_revenue_architect.py
 Intel_Briefing/
 ├── server.py                   # 🌐 Web UI 入口 (FastAPI)
 ├── ui/
-│   └── index.html              # 前端页面
+│   ├── index.html              # 前端页面
+│   └── static/                 # 静态资源
+│       ├── style.css           # 样式表
+│       ├── core.js             # 核心工具函数
+│       ├── navigation.js       # 导航模块
+│       ├── console.js          # 控制台模块
+│       ├── sources.js          # 数据源管理模块
+│       ├── config.js           # 配置管理模块
+│       └── reports.js          # 报告模块
 ├── run_mission.py              # 🎯 情报日报
 ├── run_bounty_hunter.py        # 💰 赏金猎人
 ├── run_alpha_radar.py          # ⛏️ Alpha 雷达
@@ -176,7 +187,7 @@ Intel_Briefing/
 │   │   ├── v2ex_radar.py
 │   │   ├── x_grok_sensor.py
 │   │   ├── xhs_radar.py
-│   │   └── ...
+│   │   └── tavily_search.py    # Tavily AI 搜索
 │   ├── generators/
 │   ├── utils/
 │   └── external/
@@ -197,14 +208,17 @@ Intel_Briefing/
 - 一键运行四大分析工具
 - 实时查看日志输出
 - 在线浏览生成的报告
+- 深色/浅色主题切换
 
 ### 配置管理
 - LLM 端点配置（通用推理/X搜索/翻译分离）
-- API Key 管理
+- API Key 管理（支持明文查看/隐藏）
 - 模型列表自动拉取
+- 模型连通性一键测试
 
 ### 数据源管理
-- 11 个数据源独立开关
+- 12 个数据源独立开关（包括 Tavily AI 搜索）
+- Tavily 搜索支持自定义关键词
 - 显示数据源状态和 API Key 配置情况
 - 持久化到 `.env` 文件
 
@@ -212,20 +226,23 @@ Intel_Briefing/
 
 ## 🗺️ 路线图
 
-### V1.1 优化备忘录（进行中）
+### V1.1 优化（已完成）
 
-*预计发布时间：2026 Q2*
-
-- [ ] **优化 WebUI 界面** — 现代化设计，更好的移动端适配
-- [ ] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
-- [ ] **API 配置增强** —
+- [x] **优化 WebUI 界面** — 现代化设计，深色模式配色优化，更好的移动端适配
+- [x] **API 配置增强** —
   - API Key 明文查看/隐藏切换
   - 模型连通性一键测试
+  - 拉取模型列表
+- [x] **Tavily 搜索增强** — 支持自定义搜索关键词（前端存储）
+
+### V1.2 计划中
+
+- [ ] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
 - [ ] **自定义 Prompt** — 支持用户编辑各工具的 LLM Prompt
-- [ ] **自定义 数据源** — 支持用户新增数据源
+- [ ] **自定义数据源** — 支持用户新增数据源
 - [ ] **Docker 部署支持** — 提供 Dockerfile 和 docker-compose.yml
 
-### V2.0 愿景备忘录（规划中）
+### V2.0 愿景（规划中）
 
 *预计发布时间：2026 Q4*
 
@@ -317,6 +334,6 @@ TRANSLATOR_API_FORMAT=gemini
 
 **如果觉得有用，给个 ⭐ 就是最大的支持。**
 
-[提交 Bug](https://github.com/yourusername/Intel_Briefing/issues) · [功能建议](https://github.com/yourusername/Intel_Briefing/discussions)
+[提交 Bug](https://github.com/mumuer1024/Prism/issues) · [功能建议](https://github.com/mumuer1024/Prism/discussions)
 
 </div>

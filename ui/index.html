@@ -1,1129 +1,269 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Intel Briefing</title>
-<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
-<style>
-:root {
-  --bg: #0a0a0f;
-  --surface: #111118;
-  --surface2: #1a1a24;
-  --border: #2a2a3a;
-  --accent: #7c5cfc;
-  --accent2: #00d4aa;
-  --accent3: #ff6b6b;
-  --text: #e8e8f0;
-  --text2: #8888aa;
-  --text3: #4a4a6a;
-  --success: #00d4aa;
-  --error: #ff6b6b;
-  --warn: #ffaa44;
-}
-
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'Syne', sans-serif;
-  height: 100vh;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-/* ── Header ── */
-header {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 0 32px;
-  height: 60px;
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  flex-shrink: 0;
-  position: relative;
-  overflow: hidden;
-}
-
-header::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0;
-  width: 3px; height: 100%;
-  background: linear-gradient(180deg, var(--accent), var(--accent2));
-}
-
-.logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.logo-icon {
-  width: 28px; height: 28px;
-  background: linear-gradient(135deg, var(--accent), var(--accent2));
-  border-radius: 6px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 14px;
-}
-
-nav {
-  display: flex;
-  gap: 4px;
-  margin-left: 16px;
-}
-
-.nav-btn {
-  background: none;
-  border: none;
-  color: var(--text2);
-  font-family: 'Syne', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.nav-btn:hover { color: var(--text); background: var(--surface2); }
-.nav-btn.active { color: var(--accent); background: rgba(124,92,252,0.12); }
-
-/* ── Layout ── */
-.main {
-  display: flex;
-  flex: 1;
-  overflow: hidden;
-}
-
-.panel {
-  display: none;
-  flex: 1;
-  overflow: hidden;
-}
-.panel.active { display: flex; flex-direction: column; }
-
-/* ── Console Panel ── */
-.console-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  flex: 1;
-  overflow: hidden;
-}
-
-.script-list {
-  border-right: 1px solid var(--border);
-  padding: 24px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  overflow-y: auto;
-}
-
-.script-card {
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px;
-  cursor: pointer;
-  transition: all 0.2s;
-  position: relative;
-  overflow: hidden;
-}
-
-.script-card::before {
-  content: '';
-  position: absolute;
-  left: 0; top: 0;
-  width: 3px; height: 100%;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.script-card:hover { border-color: var(--accent); background: rgba(124,92,252,0.06); }
-.script-card:hover::before { opacity: 1; background: var(--accent); }
-
-.script-card.running { border-color: var(--accent2); background: rgba(0,212,170,0.06); }
-.script-card.running::before { opacity: 1; background: var(--accent2); }
-
-.script-card.done { border-color: var(--success); }
-.script-card.error { border-color: var(--error); }
-
-.script-icon { font-size: 22px; margin-bottom: 8px; }
-
-.script-name {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
-}
-
-.script-desc {
-  font-size: 11px;
-  color: var(--text2);
-  line-height: 1.5;
-}
-
-.run-btn {
-  margin-top: 12px;
-  width: 100%;
-  background: rgba(124,92,252,0.15);
-  border: 1px solid rgba(124,92,252,0.3);
-  border-radius: 6px;
-  color: var(--accent);
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 7px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.run-btn:hover { background: rgba(124,92,252,0.25); }
-.run-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.run-btn.running {
-  background: rgba(0,212,170,0.15);
-  border-color: rgba(0,212,170,0.3);
-  color: var(--accent2);
-}
-
-.status-dot {
-  display: inline-block;
-  width: 6px; height: 6px;
-  border-radius: 50%;
-  background: var(--text3);
-  margin-right: 6px;
-  vertical-align: middle;
-}
-.status-dot.running { background: var(--accent2); animation: pulse 1s infinite; }
-.status-dot.done { background: var(--success); }
-.status-dot.error { background: var(--error); }
-
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-/* ── Log ── */
-.log-pane {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.log-header {
-  padding: 16px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  font-size: 12px;
-  color: var(--text2);
-  font-family: 'JetBrains Mono', monospace;
-  flex-shrink: 0;
-}
-
-.log-label {
-  font-weight: 500;
-  color: var(--text);
-}
-
-.log-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 20px 24px;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  line-height: 1.8;
-}
-
-.log-line { color: var(--text2); }
-.log-line.err { color: var(--error); }
-.log-line.ok { color: var(--success); }
-.log-line.info { color: var(--accent); }
-.log-line.done { color: var(--warn); font-weight: 500; }
-
-.log-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text3);
-  gap: 12px;
-}
-
-.log-empty-icon { font-size: 36px; opacity: 0.4; }
-.log-empty-text { font-size: 13px; }
-
-/* ── Reports Panel ── */
-.reports-grid {
-  display: grid;
-  grid-template-columns: 260px 1fr;
-  flex: 1;
-  overflow: hidden;
-}
-
-.report-list {
-  border-right: 1px solid var(--border);
-  overflow-y: auto;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.report-folder {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text3);
-  padding: 12px 8px 4px;
-}
-
-.report-item {
-  padding: 10px 12px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.15s;
-  border: 1px solid transparent;
-}
-
-.report-item:hover { background: var(--surface2); border-color: var(--border); }
-.report-item.active { background: rgba(124,92,252,0.1); border-color: rgba(124,92,252,0.3); }
-
-.report-item-name {
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.report-item-date {
-  font-size: 10px;
-  color: var(--text3);
-  margin-top: 3px;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-.report-content {
-  flex: 1;
-  overflow-y: auto;
-  padding: 36px 48px;
-}
-
-.report-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 100%;
-  color: var(--text3);
-  gap: 12px;
-}
-
-/* ── Markdown ── */
-.md h1 { font-size: 26px; font-weight: 800; margin-bottom: 20px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 12px; }
-.md h2 { font-size: 18px; font-weight: 700; margin: 28px 0 12px; color: var(--accent2); }
-.md h3 { font-size: 15px; font-weight: 700; margin: 20px 0 8px; color: var(--text); }
-.md p { font-size: 14px; line-height: 1.8; color: var(--text2); margin-bottom: 12px; }
-.md ul, .md ol { padding-left: 20px; margin-bottom: 12px; }
-.md li { font-size: 14px; line-height: 1.8; color: var(--text2); margin-bottom: 4px; }
-.md code { font-family: 'JetBrains Mono', monospace; font-size: 12px; background: var(--surface2); padding: 2px 6px; border-radius: 4px; color: var(--accent); }
-.md pre { background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 16px; margin-bottom: 16px; overflow-x: auto; }
-.md pre code { background: none; padding: 0; color: var(--text2); }
-.md table { width: 100%; border-collapse: collapse; margin-bottom: 16px; font-size: 13px; }
-.md th { background: var(--surface2); padding: 10px 14px; text-align: left; font-weight: 700; border: 1px solid var(--border); }
-.md td { padding: 9px 14px; border: 1px solid var(--border); color: var(--text2); }
-.md tr:hover td { background: rgba(255,255,255,0.02); }
-.md a { color: var(--accent); text-decoration: none; }
-.md a:hover { text-decoration: underline; }
-.md blockquote { border-left: 3px solid var(--accent); padding: 8px 16px; background: rgba(124,92,252,0.06); margin-bottom: 12px; border-radius: 0 6px 6px 0; }
-.md hr { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
-
-/* ── Config Panel ── */
-.config-wrap {
-  flex: 1;
-  overflow-y: auto;
-  padding: 40px;
-}
-
-.config-section {
-  max-width: 680px;
-  margin: 0 auto;
-}
-
-.config-title {
-  font-size: 22px;
-  font-weight: 800;
-  margin-bottom: 6px;
-}
-
-.config-sub {
-  font-size: 13px;
-  color: var(--text2);
-  margin-bottom: 36px;
-}
-
-.config-group {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  margin-bottom: 20px;
-  overflow: hidden;
-}
-
-.config-group-header {
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text2);
-}
-
-.config-row {
-  padding: 16px 20px;
-  display: grid;
-  grid-template-columns: 200px 1fr;
-  gap: 16px;
-  align-items: start;
-  border-bottom: 1px solid var(--border);
-}
-.config-row:last-child { border-bottom: none; }
-
-.config-key {
-  font-size: 13px;
-  font-weight: 600;
-  font-family: 'JetBrains Mono', monospace;
-  color: var(--text);
-  padding-top: 8px;
-}
-
-.config-key-desc {
-  font-size: 11px;
-  color: var(--text3);
-  margin-top: 3px;
-  font-family: 'Syne', sans-serif;
-}
-
-.config-input {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  color: var(--text);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  padding: 8px 12px;
-  width: 100%;
-  transition: border-color 0.2s;
-  outline: none;
-}
-
-.config-input:focus { border-color: var(--accent); }
-
-.model-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.fetch-btn {
-  background: rgba(124,92,252,0.15);
-  border: 1px solid rgba(124,92,252,0.3);
-  border-radius: 8px;
-  color: var(--accent);
-  font-family: 'Syne', sans-serif;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: all 0.2s;
-  flex-shrink: 0;
-}
-
-.fetch-btn:hover { background: rgba(124,92,252,0.25); }
-.fetch-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-
-select.config-input {
-  cursor: pointer;
-}
-
-.save-bar {
-  position: sticky;
-  bottom: 0;
-  padding: 20px 40px;
-  background: linear-gradient(0deg, var(--bg) 70%, transparent);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-}
-
-.save-btn {
-  background: linear-gradient(135deg, var(--accent), #9b7dff);
-  border: none;
-  border-radius: 8px;
-  color: white;
-  font-family: 'Syne', sans-serif;
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  padding: 10px 28px;
-  cursor: pointer;
-  transition: opacity 0.2s;
-}
-
-.save-btn:hover { opacity: 0.85; }
-
-.toast {
-  position: fixed;
-  bottom: 24px;
-  left: 50%;
-  transform: translateX(-50%) translateY(80px);
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  padding: 12px 20px;
-  font-size: 13px;
-  font-weight: 600;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  z-index: 1000;
-  white-space: nowrap;
-}
-
-.toast.show { transform: translateX(-50%) translateY(0); }
-.toast.ok { border-color: var(--success); color: var(--success); }
-.toast.err { border-color: var(--error); color: var(--error); }
-
-/* ── Sources ── */
-.source-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 16px 20px;
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  transition: all 0.2s;
-}
-
-.source-card:hover { border-color: var(--accent); }
-
-.source-icon {
-  width: 44px; height: 44px;
-  background: var(--surface2);
-  border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 22px;
-  flex-shrink: 0;
-}
-
-.source-info { flex: 1; }
-
-.source-name {
-  font-size: 14px;
-  font-weight: 700;
-  margin-bottom: 4px;
-}
-
-.source-desc {
-  font-size: 12px;
-  color: var(--text2);
-}
-
-.source-meta {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.source-warning {
-  font-size: 11px;
-  color: var(--warn);
-  background: rgba(255,170,68,0.1);
-  padding: 4px 10px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,170,68,0.2);
-}
-
-/* Toggle Switch */
-.toggle {
-  width: 48px; height: 26px;
-  background: var(--surface2);
-  border-radius: 13px;
-  position: relative;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: 1px solid var(--border);
-}
-
-.toggle.enabled {
-  background: var(--accent);
-  border-color: var(--accent);
-}
-
-.toggle::after {
-  content: '';
-  position: absolute;
-  width: 20px; height: 20px;
-  background: white;
-  border-radius: 50%;
-  top: 2px; left: 2px;
-  transition: all 0.2s;
-}
-
-.toggle.enabled::after { left: 24px; }
-
-/* scrollbar */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text3); }
-</style>
-</head>
-<body>
-
-<header>
-  <div class="logo">
-    <div class="logo-icon">🕵️</div>
-    Intel Briefing
-  </div>
-  <nav>
-    <button class="nav-btn active" onclick="switchTab('console')">控制台</button>
-    <button class="nav-btn" onclick="switchTab('sources')">信息源</button>
-    <button class="nav-btn" onclick="switchTab('reports')">报告</button>
-    <button class="nav-btn" onclick="switchTab('config')">配置</button>
-  </nav>
-</header> 
-
-<div class="main">
-
-  <!-- ── Console ── -->
-  <div class="panel active" id="panel-console">
-    <div class="console-grid">
-      <div class="script-list">
-        <div class="script-card" id="card-mission">
-          <div class="script-icon">📊</div>
-          <div class="script-name"><span class="status-dot" id="dot-mission"></span>情报日报</div>
-          <div class="script-desc">从 10+ 数据源抓取，生成 8 大板块中文日报</div>
-          <button class="run-btn" id="btn-mission" onclick="runScript('mission')">▶ 运行</button>
-        </div>
-        <div class="script-card" id="card-bounty">
-          <div class="script-icon">💰</div>
-          <div class="script-name"><span class="status-dot" id="dot-bounty"></span>赏金猎人</div>
-          <div class="script-desc">扫描 V2EX 急单与 Chrome 扩展商店机会</div>
-          <button class="run-btn" id="btn-bounty" onclick="runScript('bounty')">▶ 运行</button>
-        </div>
-        <div class="script-card" id="card-alpha">
-          <div class="script-icon">⛏️</div>
-          <div class="script-name"><span class="status-dot" id="dot-alpha"></span>Alpha 雷达</div>
-          <div class="script-desc">搜索 X/Twitter 上 Web3 开源工具与变现机会</div>
-          <button class="run-btn" id="btn-alpha" onclick="runScript('alpha')">▶ 运行</button>
-        </div>
-        <div class="script-card" id="card-revenue">
-          <div class="script-icon">🏗️</div>
-          <div class="script-name"><span class="status-dot" id="dot-revenue"></span>营收分析师</div>
-          <div class="script-desc">分析日报内容，输出 5 类商业机会</div>
-          <button class="run-btn" id="btn-revenue" onclick="runScript('revenue')">▶ 运行</button>
-        </div>
-      </div>
-
-      <div class="log-pane">
-        <div class="log-header">
-          <span class="log-label" id="log-title">等待运行</span>
-          <span id="log-status" style="color:var(--text3)">—</span>
-        </div>
-        <div class="log-body" id="log-body">
-          <div class="log-empty">
-            <div class="log-empty-icon">⚡</div>
-            <div class="log-empty-text">选择左侧脚本，点击运行</div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-
-  <!-- ── Sources ── -->
-  <div class="panel" id="panel-sources">
-    <div class="config-wrap">
-      <div class="config-section">
-        <div class="config-title">信息源管理</div>
-        <div class="config-sub">启用或禁用数据采集源，未配置 API Key 的源将无法使用</div>
-        <div id="sources-list" style="display:flex;flex-direction:column;gap:12px;">
-          <div style="color:var(--text3);font-size:13px;padding:20px;">加载中...</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Reports ── -->
-  <div class="panel" id="panel-reports">
-    <div class="reports-grid">
-      <div class="report-list" id="report-list">
-        <div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">加载中...</div>
-      </div>
-      <div class="report-content" id="report-content">
-        <div class="report-empty">
-          <div style="font-size:36px;opacity:.4">📄</div>
-          <div style="font-size:13px">选择左侧报告查看</div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ── Config ── -->
-  <div class="panel" id="panel-config">
-    <div class="config-wrap">
-      <div class="config-section">
-        <div class="config-title">系统配置</div>
-        <div class="config-sub">配置 API 密钥、模型端点及其他参数</div>
-
-        <!-- 通用推理模型端点 -->
-        <div class="config-group">
-          <div class="config-group-header">通用推理模型（营收分析 / 通用任务）</div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">LLM_API_FORMAT</div>
-              <div class="config-key-desc">API 格式</div>
-            </div>
-            <select class="config-input" id="cfg-LLM_API_FORMAT">
-              <option value="openai">OpenAI 兼容（NewAPI / OpenRouter 等）</option>
-              <option value="gemini">Gemini 原生</option>
-              <option value="claude">Claude 原生</option>
-            </select>
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">LLM_BASE_URL</div>
-              <div class="config-key-desc">API 基础地址</div>
-            </div>
-            <input class="config-input" id="cfg-LLM_BASE_URL" type="text" placeholder="https://api.openai.com/v1/chat/completions">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">LLM_API_KEY</div>
-              <div class="config-key-desc">API 密钥</div>
-            </div>
-            <input class="config-input" id="cfg-LLM_API_KEY" type="password" placeholder="sk-...">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">LLM_MODEL</div>
-              <div class="config-key-desc">使用的模型</div>
-            </div>
-            <div class="model-row">
-              <select class="config-input" id="cfg-LLM_MODEL" style="flex:1">
-                <option value="">-- 先拉取模型列表 --</option>
-              </select>
-              <button class="fetch-btn" onclick="fetchModels('LLM')">拉取模型</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- X/Twitter 搜索端点（仅用于 Grok） -->
-        <div class="config-group">
-          <div class="config-group-header">X/Twitter 搜索端点（仅用于 Grok，必须 xAI 官方）</div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">XAI_API_FORMAT</div>
-              <div class="config-key-desc">API 格式</div>
-            </div>
-            <select class="config-input" id="cfg-XAI_API_FORMAT">
-              <option value="openai">OpenAI 兼容（xAI 官方）</option>
-              <option value="gemini">Gemini 原生</option>
-              <option value="claude">Claude 原生</option>
-            </select>
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">XAI_BASE_URL</div>
-              <div class="config-key-desc">API 基础地址</div>
-            </div>
-            <input class="config-input" id="cfg-XAI_BASE_URL" type="text" placeholder="https://api.x.ai/v1/chat/completions">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">XAI_API_KEY</div>
-              <div class="config-key-desc">API 密钥</div>
-            </div>
-            <input class="config-input" id="cfg-XAI_API_KEY" type="password" placeholder="sk-...">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">XAI_MODEL</div>
-              <div class="config-key-desc">使用的模型</div>
-            </div>
-            <div class="model-row">
-              <select class="config-input" id="cfg-XAI_MODEL" style="flex:1">
-                <option value="">-- 先拉取模型列表 --</option>
-              </select>
-              <button class="fetch-btn" onclick="fetchModels('XAI')">拉取模型</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 翻译模型端点 -->
-        <div class="config-group">
-          <div class="config-group-header">翻译模型端点（ArXiv 摘要翻译 / 博客摘要）</div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">TRANSLATOR_API_FORMAT</div>
-              <div class="config-key-desc">API 格式</div>
-            </div>
-            <select class="config-input" id="cfg-TRANSLATOR_API_FORMAT">
-              <option value="gemini">Gemini 原生</option>
-              <option value="openai">OpenAI 兼容（NewAPI / OpenRouter 等）</option>
-              <option value="claude">Claude 原生</option>
-            </select>
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">TRANSLATOR_BASE_URL</div>
-              <div class="config-key-desc">API 基础地址</div>
-            </div>
-            <input class="config-input" id="cfg-TRANSLATOR_BASE_URL" type="text" placeholder="https://generativelanguage.googleapis.com/v1beta/models">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">TRANSLATOR_API_KEY</div>
-              <div class="config-key-desc">API 密钥</div>
-            </div>
-            <input class="config-input" id="cfg-TRANSLATOR_API_KEY" type="password" placeholder="...">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">TRANSLATOR_MODEL</div>
-              <div class="config-key-desc">使用的模型</div>
-            </div>
-            <div class="model-row">
-              <select class="config-input" id="cfg-TRANSLATOR_MODEL" style="flex:1">
-                <option value="">-- 先拉取模型列表 --</option>
-              </select>
-              <button class="fetch-btn" onclick="fetchModels('TRANSLATOR')">拉取模型</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 数据源密钥 -->
-        <div class="config-group">
-          <div class="config-group-header">数据源密钥</div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">GITHUB_TOKEN</div>
-              <div class="config-key-desc">GitHub PAT（必需）</div>
-            </div>
-            <input class="config-input" id="cfg-GITHUB_TOKEN" type="password" placeholder="ghp_...">
-          </div>
-          <div class="config-row">
-            <div>
-              <div class="config-key">PRODUCTHUNT_TOKEN</div>
-              <div class="config-key-desc">Product Hunt（可选）</div>
-            </div>
-            <input class="config-input" id="cfg-PRODUCTHUNT_TOKEN" type="password" placeholder="...">
-          </div>
-        </div>
-
-      </div>
-    </div>
-    <div class="save-bar">
-      <button class="save-btn" onclick="saveConfig()">保存配置</button>
-    </div>
-  </div>
-
-</div>
-
-<div class="toast" id="toast"></div>
-
-<script>
-const SCRIPTS_META = {
-  mission: '情报日报',
-  bounty: '赏金猎人',
-  alpha: 'Alpha 雷达',
-  revenue: '营收分析师',
-}
-
-// ── Tab ──────────────────────────────────────────────────
-
-function switchTab(tab) {
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'))
-  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'))
-  document.getElementById('panel-' + tab).classList.add('active')
-  event.target.classList.add('active')
-  if (tab === 'sources') loadSources()
-  if (tab === 'reports') loadReports()
-  if (tab === 'config') loadConfig()
-}
-
-// ── Toast ─────────────────────────────────────────────────
-
-function showToast(msg, type = 'ok') {
-  const t = document.getElementById('toast')
-  t.textContent = msg
-  t.className = 'toast ' + type + ' show'
-  setTimeout(() => t.classList.remove('show'), 2500)
-}
-
-// ── Console ───────────────────────────────────────────────
-
-const scriptStates = {}
-
-function setScriptState(id, state) {
-  scriptStates[id] = state
-  const dot = document.getElementById('dot-' + id)
-  const btn = document.getElementById('btn-' + id)
-  const card = document.getElementById('card-' + id)
-  dot.className = 'status-dot ' + state
-  card.className = 'script-card ' + state
-  if (state === 'running') {
-    btn.textContent = '⏳ 运行中'
-    btn.disabled = true
-    btn.className = 'run-btn running'
-  } else {
-    btn.textContent = '▶ 运行'
-    btn.disabled = false
-    btn.className = 'run-btn'
-  }
-}
-
-function appendLog(line) {
-  const body = document.getElementById('log-body')
-  const div = document.createElement('div')
-  div.className = 'log-line'
-  const low = line.toLowerCase()
-  if (low.includes('error') || low.includes('fail') || low.includes('exception')) div.className += ' err'
-  else if (low.includes('success') || low.includes('done') || low.includes('完成') || low.includes('成功')) div.className += ' ok'
-  else if (low.includes('[done]')) div.className = 'log-line done'
-  else if (low.startsWith('=') || low.includes('===')) div.className += ' info'
-  div.textContent = line
-  body.appendChild(div)
-  body.scrollTop = body.scrollHeight
-}
-
-function runScript(id) {
-  const logBody = document.getElementById('log-body')
-  logBody.innerHTML = ''
-  document.getElementById('log-title').textContent = SCRIPTS_META[id]
-  document.getElementById('log-status').textContent = '运行中...'
-  document.getElementById('log-status').style.color = 'var(--accent2)'
-  setScriptState(id, 'running')
-
-  const es = new EventSource('/api/run/' + id)
-  es.onmessage = e => {
-    const line = e.data
-    if (line.startsWith('[DONE]')) {
-      const ok = line.includes('exit=0')
-      setScriptState(id, ok ? 'done' : 'error')
-      document.getElementById('log-status').textContent = ok ? '✓ 完成' : '✗ 出错'
-      document.getElementById('log-status').style.color = ok ? 'var(--success)' : 'var(--error)'
-      appendLog(line)
-      es.close()
-    } else {
-      appendLog(line)
-    }
-  }
-  es.onerror = () => {
-    setScriptState(id, 'error')
-    document.getElementById('log-status').textContent = '连接断开'
-    document.getElementById('log-status').style.color = 'var(--error)'
-    es.close()
-  }
-}
-
-// ── Reports ───────────────────────────────────────────────
-
-async function loadReports() {
-  const list = document.getElementById('report-list')
-  list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">加载中...</div>'
-  try {
-    const res = await fetch('/api/reports')
-    const reports = await res.json()
-    if (!reports.length) {
-      list.innerHTML = '<div style="color:var(--text3);font-size:12px;padding:20px;text-align:center">暂无报告</div>'
-      return
-    }
-    const folders = {}
-    reports.forEach(r => {
-      if (!folders[r.folder]) folders[r.folder] = []
-      folders[r.folder].push(r)
-    })
-    list.innerHTML = ''
-    Object.entries(folders).forEach(([folder, items]) => {
-      const h = document.createElement('div')
-      h.className = 'report-folder'
-      h.textContent = folder || '根目录'
-      list.appendChild(h)
-      items.forEach(r => {
-        const d = document.createElement('div')
-        d.className = 'report-item'
-        d.innerHTML = `<div class="report-item-name">${r.name}</div><div class="report-item-date">${new Date(r.mtime * 1000).toLocaleString('zh-CN')}</div>`
-        d.onclick = () => loadReport(r.path, d)
-        list.appendChild(d)
-      })
-    })
-  } catch(e) {
-    list.innerHTML = '<div style="color:var(--error);font-size:12px;padding:20px">加载失败</div>'
-  }
-}
-
-async function loadReport(path, el) {
-  document.querySelectorAll('.report-item').forEach(e => e.classList.remove('active'))
-  el.classList.add('active')
-  const content = document.getElementById('report-content')
-  content.innerHTML = '<div style="color:var(--text3);padding:40px;font-size:13px">加载中...</div>'
-  try {
-    const res = await fetch('/api/reports/content?path=' + encodeURIComponent(path))
-    const { content: md } = await res.json()
-    const div = document.createElement('div')
-    div.className = 'md'
-    div.innerHTML = marked.parse(md)
-    content.innerHTML = ''
-    content.appendChild(div)
-  } catch(e) {
-    content.innerHTML = '<div style="color:var(--error);padding:40px;font-size:13px">加载失败</div>'
-  }
-}
-
-// ── Config ────────────────────────────────────────────────
-
-const CONFIG_KEYS = [
-  'LLM_API_FORMAT', 'LLM_BASE_URL', 'LLM_API_KEY', 'LLM_MODEL',
-  'XAI_API_FORMAT', 'XAI_BASE_URL', 'XAI_API_KEY', 'XAI_MODEL',
-  'TRANSLATOR_API_FORMAT', 'TRANSLATOR_BASE_URL', 'TRANSLATOR_API_KEY', 'TRANSLATOR_MODEL',
-  'GITHUB_TOKEN', 'PRODUCTHUNT_TOKEN',
-]
-
-async function loadConfig() {
-  try {
-    const res = await fetch('/api/config')
-    const cfg = await res.json()
-    CONFIG_KEYS.forEach(k => {
-      const el = document.getElementById('cfg-' + k)
-      if (!el || !cfg[k]) return
-      if (el.tagName === 'SELECT') {
-        let opt = el.querySelector(`option[value="${cfg[k]}"]`)
-        if (!opt) {
-          opt = document.createElement('option')
-          opt.value = cfg[k]
-          opt.textContent = cfg[k]
-          el.appendChild(opt)
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Prism</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/9.1.6/marked.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              DEFAULT: '#f8fafc',
+              secondary: '#ffffff',
+              tertiary: '#f1f5f9',
+              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+            },
+            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
+            success: '#00d4aa',
+            error: '#ff6b6b',
+            warn: '#ffaa44',
+            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
+            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'SF Mono', 'monospace']
+          }
         }
-        el.value = cfg[k]
-      } else {
-        el.value = cfg[k]
       }
-    })
-  } catch(e) {}
-}
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-bg text-text h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
-async function saveConfig() {
-  const data = {}
-  CONFIG_KEYS.forEach(k => {
-    const el = document.getElementById('cfg-' + k)
-    if (el && el.value) data[k] = el.value
-  })
-  try {
-    await fetch('/api/config', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({data}) })
-    showToast('✓ 配置已保存', 'ok')
-  } catch(e) {
-    showToast('✗ 保存失败', 'err')
-  }
-}
+  <!-- Header -->
+  <header class="glass border-b border-border h-14 md:h-16 flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-50">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">🕵️</div>
+      <span class="font-bold text-base md:text-lg tracking-wide hidden sm:block" style="color: var(--text);">Prism</span>
+    </div>
+    <nav class="hidden md:flex items-center gap-1">
+      <button onclick="switchTab('console')" id="nav-console" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</button>
+      <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</button>
+      <button onclick="switchTab('sources')" id="nav-sources" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</button>
+      <button onclick="switchTab('config')" id="nav-config" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</button>
+    </nav>
+    <div class="flex items-center gap-2">
+      <!-- Theme Toggle Button -->
+      <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle" title="切换主题">
+        <svg id="theme-icon-sun" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg id="theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+      <button onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-bg-tertiary transition-colors">
+        <svg id="menu-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </header>
 
-async function fetchModels(prefix) {
-  const base = document.getElementById(`cfg-${prefix}_BASE_URL`).value
-  const key = document.getElementById(`cfg-${prefix}_API_KEY`).value
-  const fmt = document.getElementById(`cfg-${prefix}_API_FORMAT`)?.value || 'openai'
-  if (!base || !key) { showToast('请先填写 URL 和 API Key', 'err'); return }
+  <!-- Mobile Menu -->
+  <div id="mobile-menu" class="hidden md:hidden glass border-b border-border absolute top-14 left-0 right-0 z-40">
+    <nav class="flex flex-col p-2 gap-1">
+      <button onclick="switchTab('console'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</button>
+      <button onclick="switchTab('reports'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</button>
+      <button onclick="switchTab('sources'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</button>
+      <button onclick="switchTab('config'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</button>
+    </nav>
+  </div>
 
-  // 找到触发这次调用的按钮
-  const btns = document.querySelectorAll('.fetch-btn')
-  const btn = [...btns].find(b => b.getAttribute('onclick') === `fetchModels('${prefix}')`)
-  if (btn) { btn.disabled = true; btn.textContent = '拉取中...' }
+  <!-- Main Content -->
+  <main class="flex-1 overflow-hidden relative">
 
-  try {
-    const res = await fetch(`/api/models?base_url=${encodeURIComponent(base)}&api_key=${encodeURIComponent(key)}&api_format=${encodeURIComponent(fmt)}`)
-    if (!res.ok) throw new Error(await res.text())
-    const { models } = await res.json()
-    const sel = document.getElementById(`cfg-${prefix}_MODEL`)
-    const current = sel.value
-    sel.innerHTML = ''
-    models.forEach(m => {
-      const o = document.createElement('option')
-      o.value = m; o.textContent = m
-      sel.appendChild(o)
-    })
-    if (current) sel.value = current
-    showToast(`✓ 获取到 ${models.length} 个模型`, 'ok')
-  } catch(e) {
-    showToast('✗ 拉取失败，请检查 URL 和 Key', 'err')
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '拉取模型' }
-  }
-}
+    <!-- Console Panel -->
+    <div id="panel-console" class="panel h-full flex flex-col md:flex-row">
+      <!-- Script List -->
+      <div class="w-full md:w-72 lg:w-80 bg-bg-secondary border-r border-border flex flex-col flex-shrink-0">
+        <div class="p-3 md:p-4 border-b border-border"><h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">运行脚本</h2></div>
+        <div class="flex-1 overflow-y-auto p-3 space-y-3">
 
-// ── Sources ───────────────────────────────────────────────
+          <!-- Mission Card -->
+          <div id="card-mission" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(124,92,252,0.1);">📊</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="dot-mission" class="w-2 h-2 rounded-full bg-text-muted"></span>
+                  <span class="font-semibold text-sm truncate" style="color: var(--text);">情报日报</span>
+                </div>
+                <p class="text-xs text-text-secondary line-clamp-2">从 10+ 数据源抓取，生成 8 大板块中文日报</p>
+                <button id="btn-mission" onclick="runScript('mission')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
+                </button>
+              </div>
+            </div>
+          </div>
 
-async function loadSources() {
-  const list = document.getElementById('sources-list')
-  try {
-    const res = await fetch('/api/sources')
-    const sources = await res.json()
-    list.innerHTML = ''
-    sources.forEach(src => {
-      const card = document.createElement('div')
-      card.className = 'source-card'
-      const warning = src.requires_key && !src.key_configured
-        ? `<div class="source-warning">⚠️ 需配置 ${src.requires_key}</div>` : ''
-      card.innerHTML = `
-        <div class="source-icon">${src.icon}</div>
-        <div class="source-info">
-          <div class="source-name">${src.name}</div>
-          <div class="source-desc">${src.desc}</div>
+          <!-- Bounty Card -->
+          <div id="card-bounty" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(0,212,170,0.1);">💰</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="dot-bounty" class="w-2 h-2 rounded-full bg-text-muted"></span>
+                  <span class="font-semibold text-sm truncate" style="color: var(--text);">赏金猎人</span>
+                </div>
+                <p class="text-xs text-text-secondary line-clamp-2">扫描 V2EX 急单与 Chrome 扩展商店机会</p>
+                <button id="btn-bounty" onclick="runScript('bounty')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Alpha Card -->
+          <div id="card-alpha" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(255,170,68,0.1);">⛏️</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="dot-alpha" class="w-2 h-2 rounded-full bg-text-muted"></span>
+                  <span class="font-semibold text-sm truncate" style="color: var(--text);">Alpha 雷达</span>
+                </div>
+                <p class="text-xs text-text-secondary line-clamp-2">搜索 X/Twitter 上 Web3 开源工具与变现机会</p>
+                <button id="btn-alpha" onclick="runScript('alpha')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Revenue Card -->
+          <div id="card-revenue" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
+            <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div class="flex items-start gap-3">
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(255,107,107,0.1);">🏗️</div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="dot-revenue" class="w-2 h-2 rounded-full bg-text-muted"></span>
+                  <span class="font-semibold text-sm truncate" style="color: var(--text);">营收分析师</span>
+                </div>
+                <p class="text-xs text-text-secondary line-clamp-2">分析日报内容，输出 5 类商业机会</p>
+                <button id="btn-revenue" onclick="runScript('revenue')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                  <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
+                </button>
+              </div>
+            </div>
+          </div>
+
         </div>
-        <div class="source-meta">
-          ${warning}
-          <div class="toggle ${src.enabled ? 'enabled' : ''}" onclick="toggleSource('${src.key}', ${!src.enabled})"></div>
-        </div>
-      `
-      list.appendChild(card)
-    })
-  } catch(e) {
-    list.innerHTML = '<div style="color:var(--error);padding:20px;">加载失败</div>'
-  }
-}
+      </div>
 
-async function toggleSource(key, enabled) {
-  try {
-    await fetch('/api/sources', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({key, enabled})
-    })
-    loadSources()
-    showToast(enabled ? '✓ 已启用' : '✓ 已禁用', 'ok')
-  } catch(e) {
-    showToast('✗ 操作失败', 'err')
-  }
-}
-</script>
+      <!-- Log Pane -->
+      <div class="flex-1 flex flex-col min-h-0 bg-bg">
+        <div class="h-12 md:h-14 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+          <div class="flex items-center gap-3">
+            <span class="font-mono text-xs text-text-secondary uppercase tracking-wider" id="log-title">等待运行</span>
+            <span id="log-status" class="text-xs text-text-muted">—</span>
+          </div>
+          <button onclick="clearLog()" class="text-xs text-text-secondary hover:text-text px-3 py-1.5 rounded-lg hover:bg-bg-tertiary transition-colors">清空</button>
+        </div>
+        <div id="log-body" class="flex-1 overflow-y-auto p-4 font-mono text-xs space-y-1">
+          <div class="flex flex-col items-center justify-center h-full text-text-muted gap-3">
+            <div class="w-16 h-16 rounded-2xl bg-bg-tertiary flex items-center justify-center text-3xl">⚡</div>
+            <p class="text-sm">选择左侧脚本，点击运行</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Sources Panel -->
+    <div id="panel-sources" class="panel hidden h-full flex flex-col">
+      <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
+        <div>
+          <h2 class="font-semibold" style="color: var(--text);">信息源管理</h2>
+          <p class="text-xs text-text-secondary">启用或禁用数据采集源</p>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 md:p-6">
+        <div class="max-w-3xl mx-auto space-y-6">
+          <!-- Sources will be loaded dynamically -->
+          <div id="sources-list" class="space-y-3">
+            <div class="flex items-center justify-center py-12 text-text-secondary">
+              <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+              加载中...
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reports Panel -->
+    <div id="panel-reports" class="panel hidden h-full flex flex-col md:flex-row">
+      <div class="w-full md:w-72 lg:w-80 bg-bg-secondary border-r border-border flex flex-col flex-shrink-0">
+        <div class="p-3 md:p-4 border-b border-border"><h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">报告列表</h2></div>
+        <div id="report-list" class="flex-1 overflow-y-auto p-3 space-y-1">
+          <div class="text-center py-8 text-text-muted text-sm">加载中...</div>
+        </div>
+      </div>
+      <div class="flex-1 flex flex-col min-h-0 bg-bg">
+        <div id="report-content" class="flex-1 overflow-y-auto p-4 md:p-8">
+          <div class="flex flex-col items-center justify-center h-full text-text-muted gap-3">
+            <div class="w-16 h-16 rounded-2xl bg-bg-tertiary flex items-center justify-center text-3xl">📄</div>
+            <p class="text-sm">选择左侧报告查看</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- Config Panel -->
+    <div id="panel-config" class="panel hidden h-full flex flex-col">
+      <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
+        <div>
+          <h2 class="font-semibold" style="color: var(--text);">系统配置</h2>
+          <p class="text-xs text-text-secondary" style="color: var(--text);">API 密钥、模型选择和其他设置</p>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 md:p-6">
+        <div id="config-content" class="max-w-3xl mx-auto space-y-6">
+          <!-- 配置内容将由 config.js 动态加载 -->
+          <div class="flex items-center justify-center py-12 text-text-secondary">
+            <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            加载配置中...
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-bg-secondary border border-border px-4 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2 max-w-sm">
+    <span id="toast-icon"></span>
+    <span id="toast-message" class="text-sm font-medium"></span>
+  </div>
+
+  <!-- Scripts -->
+  <script src="/static/core.js"></script>
+  <script src="/static/navigation.js"></script>
+  <script src="/static/console.js"></script>
+  <script src="/static/reports.js"></script>
+  <script src="/static/config.js"></script>
+  <script src="/static/sources.js"></script>
+  <script>
+    // Initialize on load
+    window.addEventListener('resize', () => {
+      if (window.innerWidth >= 768) {
+        document.getElementById('mobile-menu')?.classList.add('hidden');
+      }
+    });
+    
+    // Initialize theme
+    document.addEventListener('DOMContentLoaded', async () => {
+      initTheme();
+    });
+    
+    switchTab('console');
+  </script>
 </body>
 </html>
