@@ -3,11 +3,13 @@ import sys
 import json
 import asyncio
 import subprocess
+import zipfile
+import io
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import HTMLResponse, StreamingResponse
+from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 import httpx
@@ -22,6 +24,13 @@ app = FastAPI()
 BASE_DIR = Path(__file__).parent.resolve()
 ENV_FILE = BASE_DIR / ".env"
 REPORTS_DIR = BASE_DIR / "reports"
+
+# ── Health Check ──────────────────────────────────────────
+
+@app.get("/api/health")
+def health_check():
+    """健康检查端点（Docker 健康检查使用）"""
+    return {"status": "ok"}
 
 SCRIPTS = {
     "mission": "run_mission.py",
@@ -156,20 +165,123 @@ def list_reports():
         return []
     result = []
     for f in sorted(REPORTS_DIR.rglob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True):
+        # 统一使用正斜杠，避免 Windows 路径在 JavaScript 中的转义问题
+        rel_path = str(f.relative_to(REPORTS_DIR)).replace("\\", "/")
         result.append({
-            "path": str(f.relative_to(REPORTS_DIR)),
+            "path": rel_path,
             "name": f.name,
-            "folder": str(f.parent.relative_to(REPORTS_DIR)),
+            "folder": str(f.parent.relative_to(REPORTS_DIR)).replace("\\", "/"),
             "mtime": f.stat().st_mtime,
         })
     return result
 
 @app.get("/api/reports/content")
 def get_report(path: str):
-    full = REPORTS_DIR / path
+    # 统一路径分隔符，确保 Windows 兼容
+    full = REPORTS_DIR / path.replace("\\", "/")
     if not full.exists() or not full.is_file():
         raise HTTPException(status_code=404)
     return {"content": full.read_text(encoding="utf-8")}
+
+
+# ── Report Download ───────────────────────────────────────
+
+@app.get("/api/reports/download")
+def download_report(path: str, format: str = "md"):
+    """单篇报告下载"""
+    # 统一路径分隔符，确保 Windows 兼容
+    full = REPORTS_DIR / path.replace("\\", "/")
+    if not full.exists() or not full.is_file():
+        raise HTTPException(status_code=404, detail="报告不存在")
+    
+    content = full.read_text(encoding="utf-8")
+    filename = full.stem  # 文件名（不含扩展名）
+    
+    if format == "txt":
+        # 转换为纯文本：移除 markdown 格式
+        import re
+        text = content
+        # 移除链接，保留文本
+        text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+        # 移除图片
+        text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', text)
+        # 移除粗体/斜体标记
+        text = re.sub(r'\*{1,2}([^\*]+)\*{1,2}', r'\1', text)
+        text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)
+        # 移除代码块标记
+        text = re.sub(r'```[\w]*\n?', '', text)
+        text = re.sub(r'`([^`]+)`', r'\1', text)
+        # 移除标题标记
+        text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+        # 移除水平线
+        text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+        # 清理多余空行
+        text = re.sub(r'\n{3,}', '\n\n', text)
+        content = text.strip()
+        
+        return Response(
+            content=content.encode('utf-8'),
+            media_type='text/plain; charset=utf-8',
+            headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
+        )
+    else:
+        return Response(
+            content=content.encode('utf-8'),
+            media_type='text/markdown; charset=utf-8',
+            headers={"Content-Disposition": f'attachment; filename="{filename}.md"'}
+        )
+
+
+@app.get("/api/reports/batch-download")
+def batch_download_reports(paths: str = Query(...), format: str = "md"):
+    """批量报告打包下载"""
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+    
+    if not path_list:
+        raise HTTPException(status_code=400, detail="未选择报告")
+    
+    # 创建内存中的 zip 文件
+    zip_buffer = io.BytesIO()
+    
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+        for path in path_list:
+            # 统一路径分隔符，确保 Windows 兼容
+            full = REPORTS_DIR / path.replace("\\", "/")
+            if not full.exists() or not full.is_file():
+                continue
+            
+            content = full.read_text(encoding="utf-8")
+            filename = full.stem
+            
+            if format == "txt":
+                # 转换为纯文本
+                import re
+                text = content
+                text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
+                text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', text)
+                text = re.sub(r'\*{1,2}([^\*]+)\*{1,2}', r'\1', text)
+                text = re.sub(r'_{1,2}([^_]+)_{1,2}', r'\1', text)
+                text = re.sub(r'```[\w]*\n?', '', text)
+                text = re.sub(r'`([^`]+)`', r'\1', text)
+                text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+                text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
+                text = re.sub(r'\n{3,}', '\n\n', text)
+                content = text.strip()
+                
+                zip_file.writestr(f"{filename}.txt", content)
+            else:
+                zip_file.writestr(f"{filename}.md", content)
+    
+    zip_buffer.seek(0)
+    
+    from datetime import datetime
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    
+    return Response(
+        content=zip_buffer.getvalue(),
+        media_type='application/zip',
+        headers={"Content-Disposition": f'attachment; filename="reports_{timestamp}.zip"'}
+    )
 
 
 # ── Frontend ─────────────────────────────────────────────
@@ -260,4 +372,5 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "ui" / "static")), nam
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    port = int(os.getenv("PORT", "8680"))
+    uvicorn.run(app, host="0.0.0.0", port=port)

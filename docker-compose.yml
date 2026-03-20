@@ -1,17 +1,34 @@
-version: '3'
+# Prism Intel Briefing - Docker Compose Configuration
+# Usage: docker-compose up -d
+
+version: '3.8'
+
 services:
-  intel-briefing:
-    build: .
-    container_name: intel-briefing
+  prism:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: prism-intel-briefing:latest
+    container_name: prism
     restart: unless-stopped
     ports:
-      - "7860:7860"
+      - "8680:8680"
     volumes:
-      - ./reports:/app/reports
-      - ./.env:/app/.env
+      # Configuration file (required)
+      - ./.env:/app/.env:ro
+      # Data persistence
+      - ./data:/app/data
     environment:
-      - TZ=Asia/Shanghai
-networks:
-  default:
-    name: 1panel-network
-    external: true
+      # Timezone (can be overridden)
+      - TZ=${TZ:-Asia/Shanghai}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8680/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

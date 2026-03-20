@@ -200,12 +200,48 @@
     <!-- Reports Panel -->
     <div id="panel-reports" class="panel hidden h-full flex flex-col md:flex-row">
       <div class="w-full md:w-72 lg:w-80 bg-bg-secondary border-r border-border flex flex-col flex-shrink-0">
-        <div class="p-3 md:p-4 border-b border-border"><h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">报告列表</h2></div>
+        <div class="p-3 md:p-4 border-b border-border flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">报告列表</h2>
+          <div class="flex items-center gap-1">
+            <button onclick="toggleSelectAll()" id="btn-select-all" class="text-xs px-2 py-1 rounded transition-colors hover:bg-bg-tertiary" style="color: var(--text-secondary);">全选</button>
+          </div>
+        </div>
         <div id="report-list" class="flex-1 overflow-y-auto p-3 space-y-1">
           <div class="text-center py-8 text-text-muted text-sm">加载中...</div>
         </div>
+        <!-- 批量操作栏 -->
+        <div id="batch-actions" class="hidden border-t border-border p-3 bg-bg-tertiary">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-xs text-text-secondary">已选择 <span id="selected-count">0</span> 篇</span>
+            <button onclick="clearSelection()" class="text-xs px-2 py-1 rounded transition-colors hover:bg-bg" style="color: var(--text-secondary);">取消</button>
+          </div>
+          <div class="flex gap-2">
+            <button onclick="downloadBatch('md')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              .md
+            </button>
+            <button onclick="downloadBatch('txt')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              .txt
+            </button>
+          </div>
+        </div>
       </div>
       <div class="flex-1 flex flex-col min-h-0 bg-bg">
+        <!-- 报告详情标题栏 -->
+        <div id="report-header" class="hidden h-12 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
+          <span id="report-title" class="font-medium text-sm truncate" style="color: var(--text);"></span>
+          <div class="flex items-center gap-2">
+            <button onclick="downloadCurrent('md')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              .md
+            </button>
+            <button onclick="downloadCurrent('txt')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+              .txt
+            </button>
+          </div>
+        </div>
         <div id="report-content" class="flex-1 overflow-y-auto p-4 md:p-8">
           <div class="flex flex-col items-center justify-center h-full text-text-muted gap-3">
             <div class="w-16 h-16 rounded-2xl bg-bg-tertiary flex items-center justify-center text-3xl">📄</div>

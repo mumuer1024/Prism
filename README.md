@@ -117,7 +117,7 @@ cp .env.example .env
 python server.py
 ```
 
-然后打开浏览器访问 http://localhost:8000
+然后打开浏览器访问 http://localhost:8680
 
 ### 5. 或命令行运行
 
@@ -136,6 +136,32 @@ python run_revenue_architect.py
 ```
 
 报告会保存在 `reports/` 目录下。
+
+### 6. Docker 部署（推荐生产环境）
+
+```bash
+# 1. 复制配置文件
+cp .env.example .env
+# 编辑 .env，填入你自己的 API Key
+
+# 2. 构建并启动
+docker-compose up -d
+
+# 3. 查看日志
+docker-compose logs -f
+
+# 4. 停止服务
+docker-compose down
+```
+
+访问地址：http://localhost:8680
+
+**Docker 部署优势：**
+- 环境隔离，无需配置 Python 环境
+- 一键启动，自动安装所有依赖
+- 数据持久化，容器重启数据不丢失
+
+> 💡 **提示**：端口可通过 `.env` 中的 `PORT` 变量修改，默认 8680
 
 ---
 
@@ -197,7 +223,10 @@ Intel_Briefing/
 │   ├── web3/                   # Alpha 雷达报告
 │   └── opportunities/          # 营收分析报告
 ├── .env.example                # API 密钥模板
-└── requirements.txt
+├── requirements.txt
+├── Dockerfile                  # Docker 镜像构建文件
+├── docker-compose.yml          # Docker Compose 编排文件
+└── .dockerignore               # Docker 构建排除文件
 ```
 
 ---
@@ -243,12 +272,15 @@ Intel_Briefing/
   - 添加超时提示信息
 - [x] **配置页面修复** — 添加全局"保存配置"按钮，修复配置无法保存的问题
 
-### V1.3 计划中
+### V1.3 已完成
 
-- [ ] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
+- [x] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
+- [x] **Docker 部署支持** — 提供 Dockerfile 和 docker-compose.yml，一键容器化部署
+
+### V1.4 计划中
+
 - [ ] **自定义 Prompt** — 支持用户编辑各工具的 LLM Prompt
 - [ ] **自定义数据源** — 支持用户新增数据源
-- [ ] **Docker 部署支持** — 提供 Dockerfile 和 docker-compose.yml
 
 ### V2.0 愿景（规划中）
 
