@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
 from src.sensors.x_grok_sensor import fetch_grok_intel
 from src.utils.verifier import verify_link
+from src.utils.gemini_translator import translate_to_chinese
 from src.config import setup_logging
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,58 @@ def parse_grok_projects(response: str) -> list:
     return projects
 
 
+def translate_projects_to_chinese(projects: list) -> list:
+    """
+    将项目信息翻译为中文。
+    保持 Grok 输入输出逻辑不变，在结果后调用翻译模型中文化。
+    """
+    if not projects:
+        return projects
+    
+    logger.info("开始翻译项目信息为中文...")
+    translated_projects = []
+    
+    for i, project in enumerate(projects):
+        translated_project = project.copy()
+        
+        # 翻译项目名称（如果需要）
+        name = project.get("name", "")
+        if name and any('\u4e00' > c or c > '\u9fff' for c in name if c.isalpha()):
+            # 如果名称包含非中文字符，尝试翻译
+            try:
+                translated_name = translate_to_chinese(f"Translate this project name to Chinese, only output the translated name: {name}")
+                if translated_name and len(translated_name) < 100:
+                    translated_project["name"] = translated_name.strip()
+            except Exception as e:
+                logger.debug(f"翻译项目名称失败: {e}")
+        
+        # 翻译描述
+        description = project.get("description", "")
+        if description:
+            try:
+                translated_desc = translate_to_chinese(f"将以下项目描述翻译成中文，保持简洁：{description}")
+                if translated_desc:
+                    translated_project["description"] = translated_desc.strip()
+                logger.info(f"  [{i+1}/{len(projects)}] 已翻译: {name}")
+            except Exception as e:
+                logger.warning(f"翻译描述失败 ({name}): {e}")
+        
+        # 翻译变现潜力
+        potential = project.get("potential", "")
+        if potential:
+            try:
+                translated_potential = translate_to_chinese(f"将以下变现潜力分析翻译成中文：{potential}")
+                if translated_potential:
+                    translated_project["potential"] = translated_potential.strip()
+            except Exception as e:
+                logger.debug(f"翻译变现潜力失败: {e}")
+        
+        translated_projects.append(translated_project)
+    
+    logger.info(f"翻译完成，共 {len(translated_projects)} 个项目")
+    return translated_projects
+
+
 def verify_project_links(projects: list) -> list:
     """验证项目的 GitHub 链接是否有效"""
     logger.info("开始验证项目链接...")
@@ -197,14 +250,22 @@ If possible, format as JSON:
 
     logger.info(f"去重后共 {len(unique_projects)} 个项目")
 
+    # 翻译项目信息为中文
+    if unique_projects:
+        unique_projects = translate_projects_to_chinese(unique_projects)
+
     # 验证 GitHub 链接
     if unique_projects:
         unique_projects = verify_project_links(unique_projects)
 
-    # 分类项目
-    solana_projects = [p for p in unique_projects if "solana" in p.get("description", "").lower() or "solana" in p.get("name", "").lower()]
-    web3_projects = [p for p in unique_projects if any(kw in p.get("description", "").lower() for kw in ["web3", "ethereum", "defi", "blockchain", "crypto"])]
-    cli_projects = [p for p in unique_projects if "cli" in p.get("description", "").lower() or "command" in p.get("description", "").lower()]
+    # 分类项目（支持中英文关键词）
+    solana_keywords = ["solana", "索拉纳", "sol", "spl"]
+    web3_keywords = ["web3", "ethereum", "defi", "blockchain", "crypto", "以太坊", "去中心化", "区块链", "加密", "智能合约", "nft", "dao"]
+    cli_keywords = ["cli", "command", "命令行", "终端工具", "脚本"]
+    
+    solana_projects = [p for p in unique_projects if any(kw in p.get("description", "").lower() or kw in p.get("name", "").lower() for kw in solana_keywords)]
+    web3_projects = [p for p in unique_projects if any(kw in p.get("description", "").lower() for kw in web3_keywords)]
+    cli_projects = [p for p in unique_projects if any(kw in p.get("description", "").lower() for kw in cli_keywords)]
     other_projects = [p for p in unique_projects if p not in solana_projects and p not in web3_projects and p not in cli_projects]
 
     # 生成报告

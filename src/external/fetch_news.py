@@ -13,6 +13,25 @@ from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
+# AI/科技领域关键词过滤（用于资本动向精准化）
+AI_TECH_KEYWORDS = [
+    # AI 相关
+    "AI", "人工智能", "机器学习", "深度学习", "大模型", "GPT", "ChatGPT", "LLM",
+    "生成式AI", "AIGC", "ChatBot", "智能体", "Agent", "RAG", "向量数据库",
+    "计算机视觉", "NLP", "自然语言处理", "语音识别", "自动驾驶",
+    # 科技公司
+    "OpenAI", "Anthropic", "Google", "微软", "Meta", "字节跳动", "阿里", "腾讯",
+    "百度", "华为", "小米", "英伟达", "NVIDIA", "AMD", "Intel",
+    # 硬件/芯片
+    "芯片", "半导体", "GPU", "CPU", "算力", "集成电路", "光刻机",
+    # 创投相关
+    "创业", "融资", "投资", "估值", "独角兽", "IPO", "上市", "并购",
+    "风投", "VC", "PE", "天使投资", "A轮", "B轮", "C轮", "融资额",
+    # 科技领域
+    "科技", "互联网", "SaaS", "云计算", "大数据", "区块链", "Web3",
+    "新能源", "电动车", "电池", "光伏", "储能", "机器人",
+]
+
 # Headers for scraping to avoid basic bot detection
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
@@ -38,6 +57,14 @@ def filter_items(items: List[Dict], keyword: Optional[str] = None) -> List[Dict]
         return items
     keywords = [k.strip() for k in keyword.split(',') if k.strip()]
     pattern = '|'.join([r'\b' + re.escape(k) + r'\b' for k in keywords])
+    regex = r'(?i)(' + pattern + r')'
+    return [item for item in items if re.search(regex, item.get('title', ''))]
+
+
+def filter_ai_tech_items(items: List[Dict]) -> List[Dict]:
+    """过滤出 AI/科技领域相关的条目（用于资本动向精准化）"""
+    # 构建正则表达式，匹配任意关键词
+    pattern = '|'.join([re.escape(k) for k in AI_TECH_KEYWORDS])
     regex = r'(?i)(' + pattern + r')'
     return [item for item in items if re.search(regex, item.get('title', ''))]
 
@@ -213,6 +240,7 @@ def fetch_github(limit: int = 5, keyword: Optional[str] = None) -> List[Dict]:
 
 
 def fetch_36kr(limit: int = 5, keyword: Optional[str] = None) -> List[Dict]:
+    """获取36氪快讯，默认过滤AI/科技领域相关内容"""
     try:
         response = requests.get("https://36kr.com/newsflashes", headers=HEADERS, timeout=10)
         soup = BeautifulSoup(response.text, 'html.parser')
@@ -230,7 +258,11 @@ def fetch_36kr(limit: int = 5, keyword: Optional[str] = None) -> List[Dict]:
                 "time": time_str,
                 "heat": ""
             })
-        return filter_items(items, keyword)[:limit]
+        # 先应用 AI/科技领域过滤，再应用用户自定义关键词过滤
+        filtered = filter_ai_tech_items(items)
+        if keyword:
+            filtered = filter_items(filtered, keyword)
+        return filtered[:limit]
     except (requests.RequestException, AttributeError, KeyError, TypeError) as e:
         logger.warning(f"36Kr fetch failed: {e}")
         return []
@@ -274,6 +306,7 @@ def fetch_tencent(limit: int = 5, keyword: Optional[str] = None) -> List[Dict]:
 
 
 def fetch_wallstreetcn(limit: int = 5, keyword: Optional[str] = None) -> List[Dict]:
+    """获取华尔街见闻资讯，默认过滤AI/科技领域相关内容"""
     try:
         url = "https://api-one.wallstcn.com/apiv1/content/information-flow?channel=global-channel&accept=article&limit=30"
         data = requests.get(url, timeout=10).json()
@@ -289,7 +322,11 @@ def fetch_wallstreetcn(limit: int = 5, keyword: Optional[str] = None) -> List[Di
                     "url": res.get('uri'),
                     "time": time_str
                 })
-        return filter_items(items, keyword)[:limit]
+        # 先应用 AI/科技领域过滤，再应用用户自定义关键词过滤
+        filtered = filter_ai_tech_items(items)
+        if keyword:
+            filtered = filter_items(filtered, keyword)
+        return filtered[:limit]
     except (requests.RequestException, ValueError, KeyError) as e:
         logger.warning(f"WallStreetCN fetch failed: {e}")
         return []

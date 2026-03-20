@@ -126,7 +126,14 @@ function renderConfig(cfg) {
     </div>
   `).join('');
   
-  container.innerHTML = html;
+  container.innerHTML = html + `
+    <div style="position:sticky;bottom:0;left:0;right:0;padding:16px 20px;background:var(--bg2);border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:12px;margin-top:24px">
+      <button onclick="saveConfig()" 
+              style="background:linear-gradient(135deg,#7c5cfc,#00d4aa);border:none;border-radius:10px;color:white;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;padding:12px 32px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(124,92,252,0.3);transform:translateX(200px);">
+        💾 保存配置
+      </button>
+    </div>
+  `;
 }
 
 /**

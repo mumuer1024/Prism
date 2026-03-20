@@ -1,4 +1,3 @@
-
 import httpx
 from bs4 import BeautifulSoup
 from dataclasses import dataclass
@@ -31,10 +30,14 @@ class ChromeRadar:
     CATEGORIES = {
         "workflow": "https://chromewebstore.google.com/category/extensions/productivity/workflow",
         "developer": "https://chromewebstore.google.com/category/extensions/productivity/developer_tools",
+        "search_tools": "https://chromewebstore.google.com/category/extensions/productivity/search_tools",
+        "communication": "https://chromewebstore.google.com/category/extensions/productivity/communication",
+        "photos": "https://chromewebstore.google.com/category/extensions/photos",
     }
     
-    MIN_USERS = 5000
-    MAX_RATING = 3.8
+    # 放宽阈值以捕获更多机会
+    MIN_USERS = 1000      # 从 5000 降至 1000
+    MAX_RATING = 4.2      # 从 3.8 提升至 4.2（评分低于4.2的都有改进空间）
     
     def __init__(self):
         self.headers = {
@@ -45,7 +48,10 @@ class ChromeRadar:
 
     def scan_opportunities(self, limit: int = 3) -> List[ChromeAssetOpportunity]:
         print(f"🛒 Scanning Chrome Web Store for 'Ugly Cash Cows'...")
+        print(f"   筛选条件: 用户数 >= {self.MIN_USERS}, 评分 <= {self.MAX_RATING}")
         opportunities = []
+        total_scanned = 0
+        total_filtered = 0
         
         for cat_name, url in self.CATEGORIES.items():
             print(f"  - Scanning category: {cat_name}...")
@@ -60,6 +66,10 @@ class ChromeRadar:
                 
                 cards = soup.select("a.UvhDdd")
                 print(f"    Found {len(cards)} items.")
+                
+                if len(cards) == 0:
+                    print(f"    ⚠️ 未找到扩展卡片，页面结构可能已变化或需要动态渲染")
+                    continue
                 
                 for card in cards:
                     try:
@@ -114,7 +124,16 @@ class ChromeRadar:
                         
             except Exception as e:
                 print(f"  ❌ Error scanning category {cat_name}: {e}")
-                
+        
+        # 总结输出
+        print(f"\n📊 Chrome 扫描总结:")
+        print(f"   - 扫描分类: {len(self.CATEGORIES)} 个")
+        print(f"   - 找到机会: {len(opportunities)} 个")
+        if len(opportunities) == 0:
+            print(f"   💡 提示: 可能原因：")
+            print(f"      1. Chrome Store 页面需要动态渲染（建议使用 Playwright/Selenium）")
+            print(f"      2. 筛选阈值过高（当前: 用户>={self.MIN_USERS}, 评分<={self.MAX_RATING}）")
+        
         return opportunities
 
     def _inspect_detail_page(self, url: str) -> (str, int, str):

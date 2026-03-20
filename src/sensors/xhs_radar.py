@@ -60,12 +60,12 @@ class XHSRadar:
             encoded_query = query.replace(" ", "%20")
             url = f"{self.BASE_URL}?keyword={encoded_query}&source=web_search_result_notes"
             
-            # Create a "Guide" Lead
+# Create a "Guide" Lead
             leads.append(Lead(
                 source="小红书-手动模式",
                 title=f"🔎 搜索指令: {query}",
                 url=url,
-                summary=f"点击查找关于 '{query}' 的帖子。重点关注标签: {', '.join(self.DESPERATION_KEYWORDS)}。",
+                summary=f"点击查找关于「{query}」的相关帖子",
                 posted_date=datetime.datetime.now().strftime("%Y-%m-%d"),
                 tags=["🔍手动执行", "🔥高信号"],
                 desperation_score=50 # Base score to ensure it shows up

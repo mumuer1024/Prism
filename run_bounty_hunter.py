@@ -40,6 +40,7 @@ def generate_bounty_report(days: int = 1):
 
     # 1. 扫描 V2EX 机会
     logger.info("[Phase 1] 扫描 V2EX 急单...")
+    logger.info("  关键词: 外包/兼职/有偿/求助/急 等")
     v2ex_radar = V2EXRadar()
     v2ex_leads = v2ex_radar.fetch_leads(days=days)
 
@@ -79,13 +80,19 @@ def generate_bounty_report(days: int = 1):
             lines.append(f"> {lead.summary[:150]}...")
             lines.append("")
     else:
-        lines.append("*暂无符合条件的赏金机会*\n")
+        lines.append("*暂无符合条件的赏金机会*")
+        lines.append("")
+        lines.append("> 💡 **诊断建议:**")
+        lines.append("> - V2EX RSS 源可能暂时无数据，建议稍后重试")
+        lines.append("> - 检查网络是否能正常访问 v2ex.com")
+        lines.append("> - 尝试增加扫描天数: `python run_bounty_hunter.py 3`")
+        lines.append("")
 
     # Chrome 扩展部分
     lines.append("---")
     lines.append("")
     lines.append("## 🛒 Chrome 扩展'丑小鸭'机会")
-    lines.append("> 筛选条件: 用户 > 5000 + 评分 < 3.8\n")
+    lines.append("> 筛选条件: 用户 >= 1000 + 评分 <= 4.2\n")
     lines.append("这些扩展用户多但满意度低，是重写竞品的绝佳机会。\n")
 
     if chrome_opps:
@@ -98,7 +105,13 @@ def generate_bounty_report(days: int = 1):
                 lines.append(f"**痛点分析:** {opp.kill_shot}")
             lines.append("")
     else:
-        lines.append("*未找到符合条件的 Chrome 扩展机会*\n")
+        lines.append("*未找到符合条件的 Chrome 扩展机会*")
+        lines.append("")
+        lines.append("> 💡 **诊断建议:**")
+        lines.append("> - Chrome Web Store 页面可能需要动态渲染（静态爬虫无法获取数据）")
+        lines.append("> - 建议使用 Playwright/Selenium 等浏览器自动化工具")
+        lines.append("> - 可手动访问 [Chrome Web Store](https://chromewebstore.google.com) 查找机会")
+        lines.append("")
 
     # 行动计划
     lines.append("---")

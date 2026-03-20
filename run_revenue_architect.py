@@ -121,8 +121,8 @@ def read_report_content(report_path: str) -> str:
     with open(report_path, "r", encoding="utf-8") as f:
         content = f.read()
 
-    # 限制内容长度，避免超出 LLM 上下文
-    max_chars = 8000
+    # 限制内容长度，避免超出 LLM 上下文（提升到 16000 以支持完整日报）
+    max_chars = 16000
     if len(content) > max_chars:
         # 保留开头和各章节的关键部分
         lines = content.split('\n')
@@ -136,7 +136,7 @@ def read_report_content(report_path: str) -> str:
             current_length += len(line) + 1
 
         content = '\n'.join(truncated)
-        content += "\n\n[内容已截断...]"
+        content += "\n\n[内容已截断，建议查看完整日报...]"
 
     return content
 
@@ -162,16 +162,49 @@ def call_llm_analysis(content: str) -> str:
                 return "错误: 未配置 LLM API Key。请设置 LLM_API_KEY 或 XAI_API_KEY。"
 
             logger.info(f"调用 LLM: {model}")
-            response = chat(
-                prompt=prompt,
-                system="你是一位资深的商业分析师和独立开发者导师。",
-                base_url=base_url,
-                api_key=api_key,
-                model=model,
-                api_format=api_format
-            )
+            
+            # deepseek-reasoner 等推理模型需要更长时间
+            timeout_seconds = 300  # 5分钟超时
+            
+            try:
+                response = chat(
+                    prompt=prompt,
+                    system="你是一位资深的商业分析师和独立开发者导师。",
+                    base_url=base_url,
+                    api_key=api_key,
+                    model=model,
+                    api_format=api_format,
+                    max_tokens=8192,  # 确保长报告不被截断
+                    timeout=timeout_seconds
+                )
+                return response
 
-            return response
+            except Exception as timeout_error:
+                # 检查是否是超时错误
+                error_str = str(timeout_error).lower()
+                if 'timeout' in error_str or '504' in error_str or 'timed out' in error_str:
+                    print("⏳ 首次请求超时，正在重试（延长等待时间）...")
+                    logger.warning(f"首次调用超时，尝试延长等待时间重试")
+                    
+                    # 第二次尝试，更长的超时时间
+                    try:
+                        response = chat(
+                            prompt=prompt,
+                            system="你是一位资深的商业分析师和独立开发者导师。",
+                            base_url=base_url,
+                            api_key=api_key,
+                            model=model,
+                            api_format=api_format,
+                            max_tokens=8192,
+                            timeout=420  # 7分钟
+                        )
+                        return response
+                    except Exception as retry_error:
+                        logger.error(f"重试也失败: {retry_error}")
+                        return f"错误: 推理模型响应时间过长，建议使用普通模型或稍后重试。({retry_error})"
+                else:
+                    # 非超时错误直接返回
+                    raise timeout_error
 
         except Exception as e:
             logger.error(f"LLM 调用失败: {e}")

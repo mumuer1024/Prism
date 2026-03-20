@@ -28,14 +28,9 @@ def fetch_grok_intel(query: str, override_prompt: str = None) -> str:
 
     print(f"🦅 Grok Sensor: contacting xAI for '{query}'...")
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {XAI_API_KEY}"
-    }
-
     today_str = datetime.datetime.now().strftime("%Y-%m-%d")
     year_str = datetime.datetime.now().strftime("%Y")
-
+    
     if override_prompt:
         system_content = f"You are an specialized Data Analyst. Current Date: {today_str}. Follow the user's instructions strictly."
         user_content = override_prompt
@@ -45,9 +40,15 @@ def fetch_grok_intel(query: str, override_prompt: str = None) -> str:
             "Your goal is to find high-signal discussions from the **LAST 24 HOURS ONLY**. "
             f"❌ CRITICAL RULE: Do NOT report events from {int(year_str)-2} or {int(year_str)-1} as 'new'. "
             "If the trend is from 2024/2025, explicitly label it as 'Historical Context'. "
-            "**IMPORTANT: You must answer in Simplified Chinese (简体中文).**"
+            "**IMPORTANT: You must answer in Simplified Chinese (简体中文).**\n\n"
+            "**⚠️ 输出格式要求（必须严格遵守）：**\n"
+            f"1. 第一行必须是：**商业情报快报 | {today_str}（过去24小时高信号X讨论）**\n"
+            "2. 空一行后，先写一段简短的总览（2-3句话）\n"
+            "3. 然后用编号列表列出具体事件，每条包含：事件标题、关键账号、核心发现\n"
+            "4. 最后用一段话总结趋势洞察\n"
+            "5. 禁止在开头写'作为商业情报分析师'等废话，直接输出内容"
         )
-        user_content = f"Search X for the latest trends about '{query}' happened in {year_str}. Focus on specific recent events. Reply in Chinese."
+        user_content = f"Search X for the latest trends about '{query}' happened in {year_str}. Focus on specific recent events. Reply in Chinese. Follow the output format strictly."
 
     headers = {
         "Content-Type": "application/json",

@@ -56,7 +56,7 @@ def generate_report(intel: dict, date_str: str) -> str:
         ""
     ]
 
-    # --- Tech Trends ---
+# --- Tech Trends ---
     lines.append("## 🛠️ 技术趋势 (Tech Trends)")
     lines.append("> Hacker News + GitHub Trending\n")
 
@@ -68,15 +68,23 @@ def generate_report(intel: dict, date_str: str) -> str:
             time_str = item.get("time", "")
             cat = item.get("category", "")
 
+            # 生成简介：使用标题翻译作为简介
+            brief = ""
+            if GEMINI_AVAILABLE and title:
+                brief = translate_to_chinese(title, max_chars=80)
+                time.sleep(GEMINI_RATE_LIMIT_DELAY)
+
             lines.append(f"### {i}. [{title}]({url})")
+            if brief:
+                lines.append(f"> ⚡ {brief}")
             lines.append(f"📍 {cat} | 🔥 {heat} | 🕒 {time_str}")
             lines.append("")
     else:
         lines.append("*暂无数据*\n")
 
-    # --- Capital Flow ---
+# --- Capital Flow ---
     lines.append("## 💰 资本动向 (Capital Flow)")
-    lines.append("> 36Kr + 华尔街见闻\n")
+    lines.append("> 36Kr + 华尔街见闻（AI/科技领域精选）\n")
 
     if intel.get("capital_flow"):
         for i, item in enumerate(intel["capital_flow"][:10], 1):
@@ -85,7 +93,15 @@ def generate_report(intel: dict, date_str: str) -> str:
             time_str = item.get("time", "")
             cat = item.get("category", "")
 
+            # 生成简介：使用标题翻译作为简介
+            brief = ""
+            if GEMINI_AVAILABLE and title:
+                brief = translate_to_chinese(title, max_chars=80)
+                time.sleep(GEMINI_RATE_LIMIT_DELAY)
+
             lines.append(f"### {i}. [{title}]({url})")
+            if brief:
+                lines.append(f"> ⚡ {brief}")
             lines.append(f"📍 {cat} | 🕒 {time_str}")
             lines.append("")
     else:
@@ -184,18 +200,17 @@ def generate_report(intel: dict, date_str: str) -> str:
     else:
         lines.append("*暂无数据*\n")
 
-    # --- XHS Directives ---
+# --- XHS Directives ---
     lines.append("## 📕 小红书雷达 (XHS Radar)")
-    lines.append("> 手动搜索指令 (点击链接进入搜索页)\n")
+    lines.append("> 手动搜索指令 (点击链接进入搜索页)")
+    lines.append("> **💡 提示:** 重点关注帖子中包含「救命」「有偿」「急」「红包」「求教」等关键词\n")
 
     if intel.get("xhs_directives"):
         for i, item in enumerate(intel["xhs_directives"][:6], 1):
             title = item.get("title", "")
             url = item.get("url", "#")
-            summary = item.get("summary", "")
 
             lines.append(f"### {i}. [{title}]({url})")
-            lines.append(f"> {summary[:80]}...")
             lines.append("")
     else:
         lines.append("*XHS 传感器不可用*\n")

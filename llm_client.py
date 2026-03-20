@@ -31,8 +31,8 @@ def chat(
     model: str = "",
     api_format: str = None,
     temperature: float = 0.3,
-    max_tokens: int = 1024,
-    timeout: int = 60,
+    max_tokens: int = 4096,  # 提升默认值以支持长报告生成
+    timeout: int = 120,  # 增加超时时间以支持长输出
 ) -> str:
     """
     统一聊天接口。自动根据格式发送请求，返回纯文本回复。

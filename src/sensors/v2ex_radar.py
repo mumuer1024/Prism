@@ -31,25 +31,34 @@ class V2EXRadar:
         "jobs": "https://www.v2ex.com/feed/tab/jobs.xml"
     }
 
-    # Keywords that signal a "Lead" (someone paying or desperate)
+# Keywords that signal a "Lead" (someone paying or desperate)
     MONEY_KEYWORDS = [
-        "外包", "兼职", "有偿", "预算", "报价", "招", "急", "付费"
+        "外包", "兼职", "有偿", "预算", "报价", "招", "急", "付费",
+        "代写", "私活", "合作", "开发", "求购", "悬赏", "报酬",
+        "价格", "费用", "多少钱", "收费", "接单", "项目", "甲方"
     ]
     
     # Keywords that signal "Pain" (opportunity for service/SaaS)
     PAIN_KEYWORDS = [
-        "求助", "帮忙", "不懂", "救命", "怎么做", "太难", "崩溃", "无法", "报错"
+        "求助", "帮忙", "不懂", "救命", "怎么做", "太难", "崩溃", "无法", "报错",
+        "不会", "求教", "求大佬", "有没有人", "小白", "新手", "搞不定",
+        "折腾", "卡住", "解决不了", "求指导", "求解答", "头疼"
     ]
     
     # "Desperation" keywords - High Emotion = High Conversion Probability
     DESPERATION_KEYWORDS = [
-        "在线等", "有偿", "急", "救命", "红包", "崩溃", "求大佬", "付费解决"
+        "在线等", "有偿", "急", "救命", "红包", "崩溃", "求大佬", "付费解决",
+        "今晚", "明天", "截止", "最后", "加急", "马上", "立刻", "紧急",
+        "求求", "跪求", "在线等", "速回"
     ]
     
     # Tech Stack matching User's capabilities
     TECH_KEYWORDS = [
         "FPGA", "Verilog", "Python", "爬虫", "脚本", "Web3", "Solana", 
-        "Rust", "图像", "视觉", "识别", "抠图", "Automation", "Bot"
+        "Rust", "图像", "视觉", "识别", "抠图", "Automation", "Bot",
+        "Vue", "React", "Node", "Java", "Go", "TypeScript", "小程序",
+        "App", "网站", "后端", "前端", "数据库", "API", "自动化",
+        "Chrome", "插件", "扩展", "爬虫", "数据采集", "机器学习", "AI"
     ]
 
     def __init__(self):
