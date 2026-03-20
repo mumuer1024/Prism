@@ -138,6 +138,9 @@ def generate_bounty_report(days: int = 1):
 
     lines.append("")
     lines.append("---")
+    lines.append("")
+    lines.append("> 🤖 **本文由 AI 生成，仅供参考。** 内容可能存在偏差，不构成任何投资或决策建议。")
+    lines.append("")
     lines.append("*报告由赏金猎人系统自动生成*")
 
     # 保存报告

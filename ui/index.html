@@ -279,8 +279,28 @@
     <span id="toast-message" class="text-sm font-medium"></span>
   </div>
 
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="footer-brand">🕵️ Prism</span>
+        <span class="footer-version" id="footer-version">v1.3.0</span>
+        <span class="footer-divider">|</span>
+        <span class="footer-author">by <a href="https://github.com/mumuer1024" target="_blank">mumuer1024</a></span>
+      </div>
+      <div class="footer-right">
+        <button onclick="openLegalModal('privacy')" class="footer-link">隐私政策</button>
+        <span class="footer-separator">·</span>
+        <button onclick="openLegalModal('terms')" class="footer-link">用户协议</button>
+        <span class="footer-separator">·</span>
+        <button onclick="openLegalModal('sources')" class="footer-link">数据来源</button>
+      </div>
+    </div>
+  </footer>
+
   <!-- Scripts -->
   <script src="/static/core.js"></script>
+  <script src="/static/legal.js"></script>
   <script src="/static/navigation.js"></script>
   <script src="/static/console.js"></script>
   <script src="/static/reports.js"></script>
@@ -297,6 +317,11 @@
     // Initialize theme
     document.addEventListener('DOMContentLoaded', async () => {
       initTheme();
+      // Set version in footer
+      const versionEl = document.getElementById('footer-version');
+      if (versionEl && window.APP_VERSION) {
+        versionEl.textContent = window.APP_VERSION;
+      }
     });
     
     switchTab('console');

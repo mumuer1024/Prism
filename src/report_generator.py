@@ -261,7 +261,10 @@ def generate_report(intel: dict, date_str: str) -> str:
     else:
         lines.append("*暂无数据 (HN Blogs 传感器不可用)*\n")
 
-    lines.append("---")
+lines.append("---")
+    lines.append("")
+    lines.append("> 🤖 **本文由 AI 生成，仅供参考。** 内容可能存在偏差，不代表原文观点，不构成任何投资或决策建议。")
+    lines.append("")
     lines.append("*报告由 Unified Intelligence Engine V2 自动生成*")
 
     return "\n".join(lines)

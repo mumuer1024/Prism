@@ -292,6 +292,9 @@ def generate_revenue_architect_report(target_report: str = None):
     lines.append("- **学习资源:** IndieHackers, Starter Story")
     lines.append("")
     lines.append("---")
+    lines.append("")
+    lines.append("> 🤖 **本文由 AI 生成，仅供参考。** 分析建议基于模型推理，不构成任何投资或决策建议。")
+    lines.append("")
     lines.append("*报告由营收分析师系统自动生成*")
 
     # 保存报告

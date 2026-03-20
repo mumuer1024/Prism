@@ -375,6 +375,9 @@ If possible, format as JSON:
     lines.append("- 面向非技术用户的简化方案")
     lines.append("")
     lines.append("---")
+    lines.append("")
+    lines.append("> 🤖 **本文由 AI 生成，仅供参考。** 内容可能存在偏差，不构成任何投资或决策建议。")
+    lines.append("")
     lines.append("*报告由 Alpha 雷达系统自动生成*")
 
     # 保存报告
