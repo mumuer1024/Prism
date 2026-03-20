@@ -169,7 +169,7 @@ const LEGAL_CONTENT = {
 <ul>
 <li>🔗 GitHub：<a href="https://github.com/mumuer1024/Prism" target="_blank">https://github.com/mumuer1024/Prism</a></li>
 </ul>
-<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2025 年 1 月</p>
+<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2026 年 3 月</p>
 </div>
 `
   },
@@ -265,7 +265,7 @@ const LEGAL_CONTENT = {
 <div class="legal-section">
 <h3>九、适用法律与争议解决</h3>
 <p>本协议的订立、履行、解释及争议解决均适用中华人民共和国法律（不包括港澳台地区法律）。因本协议引发的任何争议，双方应首先友好协商解决；协商不成的，任何一方均可向本产品开发者所在地有管辖权的人民法院提起诉讼。</p>
-<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2025 年 1 月</p>
+<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2026 年 3 月</p>
 </div>
 `
   },
@@ -379,7 +379,7 @@ const LEGAL_CONTENT = {
 <li>您的权利证明文件</li>
 </ul>
 <p>我们承诺在收到有效通知后 3 个工作日内进行初步审查，并在确认侵权后及时移除相关内容。</p>
-<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2025 年 1 月</p>
+<p style="color: var(--text-muted); font-size: 12px; margin-top: 16px;">最后更新：2026 年 3 月</p>
 </div>
 `
   }
