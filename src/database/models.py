@@ -70,7 +70,8 @@ class User(Base):
     topup_records = relationship(
         "TopupRecord", 
         back_populates="user",
-        cascade="all, delete-orphan"
+        cascade="all, delete-orphan",
+        foreign_keys="TopupRecord.user_id"
     )
     redemption_codes_used = relationship(
         "RedemptionCode",

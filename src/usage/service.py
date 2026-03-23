@@ -348,9 +348,12 @@ class UsageService:
         
         if not anonymous:
             # 创建新的匿名用户
+            today = datetime.utcnow().strftime("%Y-%m-%d")
             anonymous = AnonymousUser(
                 visitor_hash=visitor_hash,
                 ip_address=ip_address,
+                free_usage_date=today,
+                free_usage_count=0,
             )
             self.db.add(anonymous)
             self.db.commit()

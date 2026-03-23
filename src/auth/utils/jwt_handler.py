@@ -213,3 +213,48 @@ def verify_token(token: str, token_type: str = 'access') -> Optional[Dict[str, A
     elif token_type == 'refresh':
         return jwt_handler.verify_refresh_token(token)
     return None
+
+
+def verify_access_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    验证 Access Token 的便捷函数
+    
+    Args:
+        token: JWT Access Token 字符串
+        
+    Returns:
+        解码后的 payload，验证失败返回 None
+    """
+    return jwt_handler.verify_access_token(token)
+
+
+def verify_refresh_token(token: str) -> Optional[Dict[str, Any]]:
+    """
+    验证 Refresh Token 的便捷函数
+    
+    Args:
+        token: JWT Refresh Token 字符串
+        
+    Returns:
+        解码后的 payload，验证失败返回 None
+    """
+    return jwt_handler.verify_refresh_token(token)
+
+
+def create_jwt_refresh_token(
+    user_id: int,
+    device_info: str = None,
+    ip_address: str = None
+) -> tuple:
+    """
+    创建 Refresh Token 的便捷函数（别名）
+    
+    Args:
+        user_id: 用户 ID
+        device_info: 设备信息
+        ip_address: IP 地址
+        
+    Returns:
+        (refresh_token, token_hash, expires_at) 元组
+    """
+    return jwt_handler.create_refresh_token(user_id, device_info, ip_address)

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(g:\\aitools\\intel_briefing\\prism\\prism\\venv\\scripts\\python.exe *)"
+    ]
+  }
+}

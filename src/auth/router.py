@@ -23,6 +23,8 @@ from src.auth.schemas import (
     RefreshTokenRequest,
     RefreshTokenResponse,
     ResetPasswordRequest,
+    ChangePasswordRequest,
+    ChangePasswordResponse,
     LogoutResponse,
     ErrorResponse,
     OAuthAuthorizeResponse,
@@ -32,7 +34,7 @@ from src.auth.schemas import (
 )
 from src.auth.service import AuthService
 from src.auth.dependencies import get_current_user
-from src.auth.utils.jwt_handler import create_access_token, create_refresh_token
+from src.auth.utils.jwt_handler import create_access_token, create_jwt_refresh_token
 from src.auth.oauth.github import GitHubOAuthService
 from src.auth.oauth.wechat import WeChatOAuthService
 from src.auth.oauth.state import state_manager
@@ -135,7 +137,7 @@ async def register(
         )
     
     # 生成访问令牌
-    access_token = create_access_token({"sub": str(user.id)})
+    access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
     
     return RegisterResponse(
         success=True,
@@ -195,7 +197,7 @@ async def login(
         )
     
     # 生成访问令牌
-    access_token = create_access_token({"sub": str(user.id)})
+    access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
     
     return LoginResponse(
         success=True,
@@ -316,6 +318,48 @@ async def reset_password(
         )
     
     return SendCodeResponse(
+        success=True,
+        message=message,
+    )
+
+
+@router.post(
+    "/change-password",
+    response_model=ChangePasswordResponse,
+    responses={
+        400: {"model": ErrorResponse},
+        401: {"model": ErrorResponse},
+    },
+    summary="修改密码",
+    description="已登录用户修改密码",
+)
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """修改密码"""
+    # 检查功能开关
+    if not settings.FEATURE_USER_SYSTEM:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="用户系统暂未开放"
+        )
+
+    auth_service = AuthService(db)
+    success, message = await auth_service.change_password(
+        user_id=current_user.id,
+        old_password=request.old_password,
+        new_password=request.new_password,
+    )
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=message
+        )
+
+    return ChangePasswordResponse(
         success=True,
         message=message,
     )
@@ -552,14 +596,14 @@ async def github_callback(
         crud.update_last_login(db, user.id)
         
         # 生成 Token
-        access_token = create_access_token({"sub": str(user.id)})
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
+        refresh_token_jwt, token_hash, expires_at = create_jwt_refresh_token(user_id=user.id)
         
         # 存储刷新令牌
         crud.create_refresh_token(
             db=db,
             user_id=user.id,
-            token=refresh_token,
+            token=refresh_token_jwt,
         )
         
         return OAuthCallbackResponse(
@@ -567,7 +611,7 @@ async def github_callback(
             data={
                 "user": user.to_dict(),
                 "access_token": access_token,
-                "refresh_token": refresh_token,
+                "refresh_token": refresh_token_jwt,
                 "expires_in": settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
                 "is_new_user": is_new_user
             }

@@ -57,7 +57,7 @@ class RegisterRequest(BaseModel):
     """注册请求"""
     email: EmailStr = Field(..., description="邮箱地址")
     password: str = Field(..., min_length=8, max_length=64, description="密码")
-    code: str = Field(..., min_length=6, max_length=6, description="验证码")
+    code: Optional[str] = Field(None, min_length=6, max_length=6, description="验证码（可选，后续可在个人资料中验证邮箱）")
     invite_code: Optional[str] = Field(None, description="邀请码（可选）")
     
     @validator('password')
@@ -72,7 +72,8 @@ class RegisterRequest(BaseModel):
     
     @validator('code')
     def validate_code(cls, v):
-        if not v.isdigit():
+        # code 为可选字段，如果提供了则验证格式
+        if v is not None and not v.isdigit():
             raise ValueError('验证码必须是 6 位数字')
         return v
 
@@ -158,6 +159,28 @@ class ResetPasswordResponse(BaseModel):
     """重置密码响应"""
     success: bool = True
     message: str = "密码重置成功，请重新登录"
+
+
+class ChangePasswordRequest(BaseModel):
+    """修改密码请求"""
+    old_password: str = Field(..., description="当前密码")
+    new_password: str = Field(..., min_length=8, max_length=64, description="新密码")
+
+    @validator('new_password')
+    def validate_password(cls, v):
+        if len(v) < 8:
+            raise ValueError('密码长度至少需要 8 个字符')
+        if not re.search(r'[a-zA-Z]', v):
+            raise ValueError('密码需要包含至少一个字母')
+        if not re.search(r'[0-9]', v):
+            raise ValueError('密码需要包含至少一个数字')
+        return v
+
+
+class ChangePasswordResponse(BaseModel):
+    """修改密码响应"""
+    success: bool = True
+    message: str = "密码修改成功，请重新登录"
 
 
 class LogoutResponse(BaseModel):

@@ -32,9 +32,9 @@ from src.database.crud import (
     create_invite_record,
 )
 from src.database.models import User
-from src.auth.utils.jwt_handler import create_access_token, create_refresh_token
+from src.auth.utils.jwt_handler import create_access_token, create_refresh_token as create_jwt_refresh_token
 from src.auth.utils.password_handler import hash_password, verify_password, validate_password_strength
-from src.auth.utils.email_service import EmailService, generate_verification_code
+from src.auth.utils.email_service import EmailService, send_verification_code, generate_code
 from src.config import settings
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ class AuthService:
                 return False, "该邮箱未注册"
         
         # 生成验证码
-        code = generate_verification_code(settings.VERIFY_CODE_LENGTH)
+        code = generate_code(settings.VERIFY_CODE_LENGTH)
         
         # 存储验证码
         create_verification_code(
@@ -110,8 +110,8 @@ class AuthService:
         )
         
         # 发送邮件
-        success, message = await self.email_service.send_verification_email(
-            email=email,
+        success, message = await send_verification_code(
+            to_email=email,
             code=code,
             purpose=purpose,
         )
@@ -131,7 +131,7 @@ class AuthService:
         self,
         email: str,
         password: str,
-        code: str,
+        code: Optional[str] = None,
         invite_code: Optional[str] = None,
     ) -> Tuple[Optional[User], Optional[str], str]:
         """
@@ -140,7 +140,7 @@ class AuthService:
         Args:
             email: 邮箱
             password: 密码
-            code: 验证码
+            code: 验证码（可选，如果提供则验证邮箱）
             invite_code: 邀请码（可选）
         
         Returns:
@@ -153,10 +153,13 @@ class AuthService:
         if not is_valid:
             return None, None, msg
         
-        # 验证验证码
-        vc = get_valid_verification_code(self.db, email, code, "register")
-        if not vc:
-            return None, None, "验证码错误或已过期"
+        # 验证验证码（如果提供了）
+        email_verified = False
+        if code:
+            vc = get_valid_verification_code(self.db, email, code, "register")
+            if not vc:
+                return None, None, "验证码错误或已过期"
+            email_verified = True
         
         # 检查邮箱是否已注册
         existing_user = get_user_by_email(self.db, email)
@@ -184,16 +187,19 @@ class AuthService:
             invited_by=inviter_id,
         )
         
-        # 标记验证码已使用
-        mark_code_as_used(self.db, vc.id)
+        # 标记验证码已使用（如果提供了验证码）
+        if code and email_verified:
+            vc = get_valid_verification_code(self.db, email, code, "register")
+            if vc:
+                mark_code_as_used(self.db, vc.id)
         
         # 创建邀请记录
         if inviter_id:
             create_invite_record(self.db, inviter_id, user.id)
         
         # 生成 Token
-        access_token = create_access_token({"sub": str(user.id)})
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
+        refresh_token, token_hash, expires_at = create_jwt_refresh_token(user_id=user.id)
         
         # 存储刷新令牌
         create_refresh_token(
@@ -256,8 +262,8 @@ class AuthService:
         update_last_login(self.db, user.id)
         
         # 生成 Token
-        access_token = create_access_token({"sub": str(user.id)})
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
+        refresh_token, token_hash, expires_at = create_jwt_refresh_token(user_id=user.id)
         
         # 存储刷新令牌
         create_refresh_token(
@@ -318,8 +324,8 @@ class AuthService:
         update_last_login(self.db, user.id)
         
         # 生成 Token
-        access_token = create_access_token({"sub": str(user.id)})
-        refresh_token = create_refresh_token({"sub": str(user.id)})
+        access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
+        refresh_token, token_hash, expires_at = create_jwt_refresh_token(user_id=user.id)
         
         # 存储刷新令牌
         create_refresh_token(
@@ -395,8 +401,8 @@ class AuthService:
         revoke_refresh_token(self.db, rt.id)
         
         # 生成新的 Token
-        new_access_token = create_access_token({"sub": str(user.id)})
-        new_refresh_token = create_refresh_token({"sub": str(user.id)})
+        new_access_token = create_access_token(user_id=user.id, email=user.email, usage_count=user.usage_count)
+        new_refresh_token, token_hash, expires_at = create_jwt_refresh_token(user_id=user.id)
         
         # 存储新的刷新令牌
         create_refresh_token(

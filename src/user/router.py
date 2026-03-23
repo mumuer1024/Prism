@@ -17,13 +17,17 @@ from src.user.schemas import (
     RedeemResponse,
     InviteStatsResponse,
     UserOperationResponse,
+    UpdateProfileRequest,
+    UpdateProfileResponse,
+    UserStatsResponse,
+    DeleteAccountResponse,
 )
 from src.user.service import UserService
 from src.config import settings
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/user", tags=["用户管理"])
+router = APIRouter(tags=["用户管理"])
 
 
 @router.get(
@@ -174,4 +178,97 @@ async def get_usage(
         success=True,
         message="获取成功",
         data=result["data"],
+    )
+
+
+@router.put(
+    "/profile",
+    response_model=UpdateProfileResponse,
+    summary="更新用户信息",
+    description="更新当前用户的昵称或头像",
+)
+async def update_profile(
+    request: UpdateProfileRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    更新用户信息
+
+    - **nickname**: 昵称（可选）
+    - **avatar_url**: 头像URL（可选）
+    """
+    if not settings.FEATURE_USER_SYSTEM:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="用户系统暂未开放"
+        )
+
+    service = UserService(db)
+    result = await service.update_profile(current_user, request.nickname, request.avatar_url)
+
+    return UpdateProfileResponse(
+        success=True,
+        message="更新成功",
+        data=result.get("data"),
+    )
+
+
+@router.get(
+    "/stats",
+    response_model=UserStatsResponse,
+    summary="获取用户统计",
+    description="获取当前用户的使用统计信息",
+)
+async def get_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    获取用户统计
+
+    返回使用次数、邀请人数、奖励次数等统计信息。
+    """
+    if not settings.FEATURE_USER_SYSTEM:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="用户系统暂未开放"
+        )
+
+    service = UserService(db)
+    result = await service.get_user_stats(current_user)
+
+    return UserStatsResponse(
+        success=True,
+        data=result,
+    )
+
+
+@router.delete(
+    "/account",
+    response_model=DeleteAccountResponse,
+    summary="删除账户",
+    description="删除当前用户账户（不可恢复）",
+)
+async def delete_account(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """
+    删除账户
+
+    警告：此操作不可恢复！
+    """
+    if not settings.FEATURE_USER_SYSTEM:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="用户系统暂未开放"
+        )
+
+    service = UserService(db)
+    await service.delete_account(current_user)
+
+    return DeleteAccountResponse(
+        success=True,
+        message="账户已删除",
     )

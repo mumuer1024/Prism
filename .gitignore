@@ -57,3 +57,7 @@ src/generators/curator.py
 temp_*.csv
 debug_*.py
 *.bak
+
+# 数据库和数据目录
+data/
+*.db

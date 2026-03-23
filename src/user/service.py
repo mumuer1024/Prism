@@ -218,3 +218,87 @@ class UserService:
                 "has_redeemed_first": user.has_redeemed_first,
             },
         }
+
+    async def update_profile(
+        self,
+        user: User,
+        nickname: Optional[str] = None,
+        avatar_url: Optional[str] = None,
+    ) -> dict:
+        """
+        更新用户信息
+
+        Args:
+            user: 用户对象
+            nickname: 昵称
+            avatar_url: 头像URL
+
+        Returns:
+            dict: 更新结果
+        """
+        if nickname is not None:
+            user.nickname = nickname
+        if avatar_url is not None:
+            user.avatar_url = avatar_url
+
+        self.db.commit()
+        self.db.refresh(user)
+
+        logger.info(f"用户 {user.id} 更新信息成功")
+
+        return {
+            "success": True,
+            "data": {
+                "nickname": user.nickname,
+                "avatar_url": user.avatar_url,
+            },
+        }
+
+    async def get_user_stats(self, user: User) -> dict:
+        """
+        获取用户统计信息
+
+        Args:
+            user: 用户对象
+
+        Returns:
+            dict: 统计信息
+        """
+        # 获取邀请统计
+        invite_stats = crud.get_invite_stats(self.db, user.id)
+
+        # 计算加入天数
+        days_since_joined = 0
+        if user.created_at:
+            delta = datetime.utcnow() - user.created_at
+            days_since_joined = delta.days
+
+        return {
+            "usage_count": user.usage_count,
+            "total_invited": invite_stats["total_invited"],
+            "total_bonus": invite_stats["total_bonus"],
+            "days_since_joined": days_since_joined,
+        }
+
+    async def delete_account(self, user: User) -> bool:
+        """
+        删除用户账户
+
+        Args:
+            user: 用户对象
+
+        Returns:
+            bool: 是否成功
+        """
+        user_id = user.id
+
+        # 删除相关数据
+        crud.delete_user_data(self.db, user_id)
+
+        # 删除用户
+        self.db.delete(user)
+        self.db.commit()
+
+        logger.info(f"用户 {user_id} 账户已删除")
+
+        return True

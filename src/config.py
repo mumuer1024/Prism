@@ -155,6 +155,10 @@ FREE_DAILY_LIMIT = int(os.getenv("FREE_DAILY_LIMIT", "3"))
 FREE_SOURCES = os.getenv("FREE_SOURCES", "hacker_news,product_hunt,github_trending,36kr").split(",")
 FREE_TOOLS = os.getenv("FREE_TOOLS", "bounty_hunter,alpha_radar,revenue_architect,narrator").split(",")
 
+# --- 缓存配置 ---
+FREE_CACHE_HOURS = int(os.getenv("FREE_CACHE_HOURS", "6"))  # 免费用户缓存时间
+PREMIUM_CACHE_HOURS = int(os.getenv("PREMIUM_CACHE_HOURS", "1"))  # 付费用户缓存时间
+
 # --- 邀请返利配置 ---
 INVITE_BONUS_COUNT = int(os.getenv("INVITE_BONUS_COUNT", "3"))  # 邀请返利次数
 INVITEE_BONUS_COUNT = int(os.getenv("INVITEE_BONUS_COUNT", "3"))  # 被邀请人奖励次数
@@ -185,6 +189,8 @@ FEATURE_REDEMPTION_CODE = _parse_bool(os.getenv("FEATURE_REDEMPTION_CODE"), True
 
 try:
     from pydantic_settings import BaseSettings
+    from pydantic import field_validator
+    from typing import List, Union
 
     class Settings(BaseSettings):
         """应用配置类"""
@@ -228,8 +234,12 @@ try:
         
         # 免费用户配置
         FREE_DAILY_LIMIT: int = 3
-        FREE_SOURCES: list = ["hacker_news", "product_hunt", "github_trending", "36kr"]
-        FREE_TOOLS: list = ["bounty_hunter", "alpha_radar", "revenue_architect", "narrator"]
+        FREE_SOURCES: Union[str, List[str]] = "hacker_news,product_hunt,github_trending,36kr"
+        FREE_TOOLS: Union[str, List[str]] = "bounty_hunter,alpha_radar,revenue_architect,narrator"
+
+        # 缓存配置
+        FREE_CACHE_HOURS: int = 6
+        PREMIUM_CACHE_HOURS: int = 1
         
         # 邀请返利配置
         INVITE_BONUS_COUNT: int = 3
@@ -254,10 +264,22 @@ try:
         FEATURE_FREE_TIER: bool = True
         FEATURE_REDEMPTION_CODE: bool = True
         
-        class Config:
-            env_file = ".env"
-            env_file_encoding = "utf-8"
-            case_sensitive = True
+        @field_validator('FREE_SOURCES', 'FREE_TOOLS', mode='before')
+        @classmethod
+        def parse_list_field(cls, v):
+            """解析列表字段，支持逗号分隔字符串或列表"""
+            if isinstance(v, str):
+                return [item.strip() for item in v.split(',') if item.strip()]
+            if isinstance(v, list):
+                return v
+            return []
+        
+        model_config = {
+            "env_file": ".env",
+            "env_file_encoding": "utf-8",
+            "case_sensitive": True,
+            "extra": "ignore",  # 忽略 .env 中未定义的字段
+        }
 
     # 创建全局配置实例
     settings = Settings()

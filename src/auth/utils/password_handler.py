@@ -5,91 +5,114 @@
 使用 bcrypt 算法
 """
 
-from passlib.context import CryptContext
+import bcrypt
 from typing import Optional
 import re
+import secrets
+import string
 
 from src.config import settings
 
 
 class PasswordHandler:
     """密码处理类"""
-    
-    def __init__(self, schemes: list = None, deprecated: str = "auto"):
+
+    def __init__(self, rounds: int = 12):
         """
         初始化密码处理器
-        
+
         Args:
-            schemes: 支持的加密算法列表
-            deprecated: 弃用策略
+            rounds: bcrypt 加密轮数，默认 12
         """
-        self.pwd_context = CryptContext(
-            schemes=schemes or ["bcrypt"],
-            deprecated=deprecated
-        )
-    
+        self.rounds = rounds
+
     def hash_password(self, password: str) -> str:
         """
         对密码进行哈希加密
-        
+
         Args:
             password: 明文密码
-            
+
         Returns:
             哈希后的密码字符串
+
+        Note:
+            bcrypt 有 72 字节的密码长度限制，超过部分会被截断
         """
-        return self.pwd_context.hash(password)
-    
+        # bcrypt 限制密码长度为 72 字节，先截断
+        password_bytes = password.encode('utf-8')[:72]
+        # 生成盐并哈希
+        salt = bcrypt.gensalt(rounds=self.rounds)
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
+
     def verify_password(self, plain_password: str, hashed_password: str) -> bool:
         """
         验证密码是否正确
-        
+
         Args:
             plain_password: 明文密码
             hashed_password: 哈希后的密码
-            
+
         Returns:
             验证结果 True/False
+
+        Note:
+            bcrypt 有 72 字节的密码长度限制，超过部分会被截断
         """
-        return self.pwd_context.verify(plain_password, hashed_password)
-    
+        # bcrypt 限制密码长度为 72 字节，先截断
+        password_bytes = plain_password.encode('utf-8')[:72]
+        hashed_bytes = hashed_password.encode('utf-8')
+        try:
+            return bcrypt.checkpw(password_bytes, hashed_bytes)
+        except Exception:
+            return False
+
     def needs_update(self, hashed_password: str) -> bool:
         """
-        检查密码哈希是否需要更新（如算法升级）
-        
+        检查密码哈希是否需要更新（如轮数变化）
+
         Args:
             hashed_password: 哈希后的密码
-            
+
         Returns:
             是否需要更新
         """
-        return self.pwd_context.needs_update(hashed_password)
-    
+        try:
+            # 提取当前轮数
+            parts = hashed_password.split('$')
+            if len(parts) >= 3:
+                current_rounds = int(parts[2])
+                return current_rounds < self.rounds
+        except Exception:
+            pass
+        return False
+
     @staticmethod
     def validate_password_strength(password: str) -> tuple:
         """
         验证密码强度
-        
+
         要求：
         - 至少 8 个字符
         - 包含至少一个字母
         - 包含至少一个数字
-        
+
         Args:
             password: 待验证的密码
-            
+
         Returns:
             (is_valid, error_message) 元组
         """
         if len(password) < 8:
             return False, "密码长度至少需要 8 个字符"
-        
+
         if not re.search(r'[a-zA-Z]', password):
             return False, "密码需要包含至少一个字母"
-        
+
         if not re.search(r'[0-9]', password):
             return False, "密码需要包含至少一个数字"
-        
+
         # 可选：检查常见弱密码
         weak_passwords = [
             'password', 'password1', 'password123', '12345678',
@@ -97,32 +120,29 @@ class PasswordHandler:
         ]
         if password.lower() in weak_passwords:
             return False, "密码过于简单，请使用更强的密码"
-        
+
         return True, ""
-    
+
     @staticmethod
     def generate_random_password(length: int = 16) -> str:
         """
         生成随机密码
-        
+
         Args:
             length: 密码长度，默认 16
-            
+
         Returns:
             随机生成的密码
         """
-        import secrets
-        import string
-        
         alphabet = string.ascii_letters + string.digits + "!@#$%^&*"
         password = ''.join(secrets.choice(alphabet) for _ in range(length))
-        
+
         # 确保包含至少一个字母和一个数字
         if not re.search(r'[a-zA-Z]', password):
             password = secrets.choice(string.ascii_letters) + password[1:]
         if not re.search(r'[0-9]', password):
             password = password[:-1] + secrets.choice(string.digits)
-        
+
         return password
 
 
@@ -144,8 +164,12 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def validate_password(password: str) -> tuple:
     """
     验证密码强度的便捷函数
-    
+
     Returns:
         (is_valid, error_message) 元组
     """
     return PasswordHandler.validate_password_strength(password)
+
+
+# 别名，保持向后兼容
+validate_password_strength = validate_password

@@ -114,3 +114,42 @@ class UserOperationResponse(BaseModel):
     success: bool = True
     message: str
     data: Optional[dict] = None
+
+
+# ========== 更新用户信息 ==========
+
+class UpdateProfileRequest(BaseModel):
+    """更新用户信息请求"""
+    nickname: Optional[str] = Field(None, max_length=50, description="昵称")
+    avatar_url: Optional[str] = Field(None, max_length=500, description="头像URL")
+
+
+class UpdateProfileResponse(BaseModel):
+    """更新用户信息响应"""
+    success: bool = True
+    message: str = "更新成功"
+    data: Optional[dict] = None
+
+
+# ========== 用户统计 ==========
+
+class UserStatsData(BaseModel):
+    """用户统计数据"""
+    usage_count: int = 0
+    total_invited: int = 0
+    total_bonus: int = 0
+    days_since_joined: int = 0
+
+
+class UserStatsResponse(BaseModel):
+    """用户统计响应"""
+    success: bool = True
+    data: UserStatsData
+
+
+# ========== 删除账户 ==========
+
+class DeleteAccountResponse(BaseModel):
+    """删除账户响应"""
+    success: bool = True
+    message: str = "账户已删除"

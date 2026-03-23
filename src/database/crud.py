@@ -974,3 +974,42 @@ def get_invite_stats(db: Session, user_id: int) -> dict:
         "active_invited": active_invited,
         "total_bonus": total_bonus,
     }
+
+
+# ==========================================
+# 用户数据删除
+# ==========================================
+
+def delete_user_data(db: Session, user_id: int) -> bool:
+    """
+    删除用户相关数据
+
+    Args:
+        db: 数据库会话
+        user_id: 用户 ID
+
+    Returns:
+        bool: 是否成功
+    """
+    # 删除刷新令牌
+    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete()
+
+    # 删除验证码
+    user = db.query(User).filter(User.id == user_id).first()
+    if user and user.email:
+        db.query(VerificationCode).filter(VerificationCode.email == user.email).delete()
+
+    # 删除充值记录
+    db.query(TopupRecord).filter(TopupRecord.user_id == user_id).delete()
+
+    # 删除邀请记录（作为邀请人）
+    db.query(InviteRecord).filter(InviteRecord.inviter_id == user_id).delete()
+
+    # 删除邀请记录（作为被邀请人）
+    db.query(InviteRecord).filter(InviteRecord.invitee_id == user_id).delete()
+
+    db.commit()
+
+    logger.info(f"用户 {user_id} 相关数据已删除")
+
+    return True
