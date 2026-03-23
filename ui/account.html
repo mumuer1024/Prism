@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>用户中心 - Prism</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              DEFAULT: '#f8fafc',
+              secondary: '#ffffff',
+              tertiary: '#f1f5f9',
+              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+            },
+            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
+            success: '#00d4aa',
+            error: '#ff6b6b',
+            warn: '#ffaa44',
+            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
+            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'SF Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-bg text-text h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+  <!-- Header -->
+  <header class="glass border-b border-border h-14 md:h-16 flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-50">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">🕵️</div>
+        <span class="font-bold text-base md:text-lg tracking-wide hidden sm:block" style="color: var(--text);">Prism</span>
+      </a>
+    </div>
+    <nav class="hidden md:flex items-center gap-1">
+      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</a>
+      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</a>
+      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</a>
+      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</a>
+      <a href="/account" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">用户中心</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle" title="切换主题">
+        <svg id="theme-icon-sun" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg id="theme-icon-moon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+      <button onclick="toggleMobileMenu()" class="md:hidden w-10 h-10 flex items-center justify-center rounded-lg hover:bg-bg-tertiary transition-colors">
+        <svg id="menu-icon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Mobile Menu -->
+  <div id="mobile-menu" class="hidden md:hidden glass border-b border-border absolute top-14 left-0 right-0 z-40">
+    <nav class="flex flex-col p-2 gap-1">
+      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</a>
+      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</a>
+      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</a>
+      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</a>
+      <a href="/account" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all bg-accent/10" style="color: var(--accent);"><span class="w-5 text-center">👤</span> 用户中心</a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <main class="flex-1 overflow-y-auto">
+    <div class="max-w-4xl mx-auto p-4 md:p-6 space-y-6">
+
+      <!-- Loading State -->
+      <div id="loading-state" class="flex items-center justify-center py-20">
+        <svg class="w-8 h-8 animate-spin text-accent" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+      </div>
+
+      <!-- Content (hidden until loaded) -->
+      <div id="content" class="hidden space-y-6">
+
+        <!-- User Info Card -->
+        <div class="config-group">
+          <div class="config-group-header flex items-center gap-3">
+            <span>👤</span>
+            <span>用户信息</span>
+          </div>
+          <div class="p-6">
+            <div class="flex items-center gap-4 mb-6">
+              <div id="user-avatar" class="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">
+                U
+              </div>
+              <div>
+                <h2 id="user-name" class="text-lg font-semibold" style="color: var(--text);">用户</h2>
+                <p id="user-email" class="text-sm" style="color: var(--text-secondary);">user@example.com</p>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">昵称</label>
+                <div class="flex gap-2">
+                  <input type="text" id="nickname" class="config-input flex-1" placeholder="设置昵称">
+                  <button onclick="updateNickname()" class="config-btn config-btn-primary">保存</button>
+                </div>
+              </div>
+              <div>
+                <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">注册时间</label>
+                <p id="created-at" class="text-sm py-2.5" style="color: var(--text);">-</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Usage Stats Card -->
+        <div class="config-group" id="usage-section">
+          <div class="config-group-header flex items-center gap-3">
+            <span>💎</span>
+            <span>使用次数</span>
+          </div>
+          <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">付费次数</p>
+                <p id="paid-count" class="text-2xl font-bold text-accent">0</p>
+              </div>
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">今日免费</p>
+                <p id="free-count" class="text-2xl font-bold text-success">0</p>
+              </div>
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">用户类型</p>
+                <p id="user-type" class="text-2xl font-bold" style="color: var(--text);">免费用户</p>
+              </div>
+            </div>
+            
+            <!-- Redeem Code -->
+            <div class="p-4 rounded-xl border border-border">
+              <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">🎫 激活码充值</label>
+              <div class="flex gap-2">
+                <input type="text" id="redeem-code" class="config-input flex-1 font-mono" placeholder="输入激活码">
+                <button onclick="redeemCode()" class="config-btn config-btn-success">充值</button>
+              </div>
+              <p id="redeem-message" class="text-xs mt-2 hidden"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Invite Stats Card -->
+        <div class="config-group">
+          <div class="config-group-header flex items-center gap-3">
+            <span>🎁</span>
+            <span>邀请返利</span>
+          </div>
+          <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">我的邀请码</p>
+                <div class="flex items-center gap-2">
+                  <code id="invite-code" class="text-sm font-mono text-accent">-</code>
+                  <button onclick="copyInviteCode()" class="text-xs px-2 py-1 rounded bg-accent/10 text-accent hover:bg-accent hover:text-white transition-colors">复制</button>
+                </div>
+              </div>
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">已邀请人数</p>
+                <p id="invite-count" class="text-2xl font-bold text-accent">0</p>
+              </div>
+              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
+                <p class="text-sm mb-1" style="color: var(--text-secondary);">累计奖励</p>
+                <p id="invite-reward" class="text-2xl font-bold text-success">0 次</p>
+              </div>
+            </div>
+            
+            <!-- Invite Records -->
+            <div>
+              <h3 class="text-sm font-medium mb-3" style="color: var(--text-secondary);">邀请记录</h3>
+              <div id="invite-records" class="rounded-xl border border-border overflow-hidden">
+                <div class="text-center py-8 text-text-secondary text-sm">暂无邀请记录</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end">
+          <button onclick="logout()" class="px-6 py-2.5 rounded-lg text-sm font-medium bg-error/10 text-error hover:bg-error hover:text-white transition-colors">
+            🚪 退出登录
+          </button>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="footer-brand">🕵️ Prism</span>
+        <span class="footer-version">v2.0.0</span>
+      </div>
+      <div class="footer-right">
+        <button onclick="openLegalModal('privacy')" class="footer-link">隐私政策</button>
+        <span class="footer-separator">·</span>
+        <button onclick="openLegalModal('terms')" class="footer-link">用户协议</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-bg-secondary border border-border px-4 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2 max-w-sm">
+    <span id="toast-icon"></span>
+    <span id="toast-message" class="text-sm font-medium"></span>
+  </div>
+
+  <!-- Legal Modal -->
+  <div id="legal-modal" class="legal-modal">
+    <div class="legal-modal-backdrop" onclick="closeLegalModal()"></div>
+    <div class="legal-modal-content">
+      <div class="legal-modal-header">
+        <span class="legal-modal-icon">📜</span>
+        <h2 class="legal-modal-title" id="legal-modal-title">法律条款</h2>
+        <button class="legal-modal-close" onclick="closeLegalModal()">
+          <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+      <div class="legal-modal-body" id="legal-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/core.js"></script>
+  <script src="/static/legal.js"></script>
+  <script src="/static/account.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      initTheme();
+      
+      // Check auth
+      if (!AuthState.isLoggedIn()) {
+        window.location.href = '/login';
+        return;
+      }
+      
+      // Load account data
+      await loadAccountData();
+    });
+  </script>
+</body>
+</html>

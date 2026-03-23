@@ -5,21 +5,43 @@ import asyncio
 import subprocess
 import zipfile
 import io
+import logging
 from pathlib import Path
 from typing import Optional, List
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import httpx
 from dotenv import dotenv_values, set_key
+
+# 配置日志
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Windows 需要设置 ProactorEventLoop 以支持 subprocess
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
-app = FastAPI()
+app = FastAPI(
+    title="Prism API",
+    description="情报聚合系统 API",
+    version="2.0.0",
+)
+
+# ── CORS 中间件 ────────────────────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 生产环境应限制
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 BASE_DIR = Path(__file__).parent.resolve()
 ENV_FILE = BASE_DIR / ".env"
@@ -31,6 +53,63 @@ REPORTS_DIR = BASE_DIR / "reports"
 def health_check():
     """健康检查端点（Docker 健康检查使用）"""
     return {"status": "ok"}
+
+
+# ── Startup & Shutdown Events ──────────────────────────────
+
+@app.on_event("startup")
+async def startup_event():
+    """应用启动时初始化"""
+    try:
+        # 初始化数据库
+        sys.path.insert(0, str(BASE_DIR))
+        from src.database.connection import init_database
+        init_database()
+        logger.info("数据库初始化完成")
+    except Exception as e:
+        logger.error(f"数据库初始化失败: {e}")
+
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """应用关闭时清理"""
+    try:
+        from src.database.connection import close_database
+        close_database()
+        logger.info("数据库连接已关闭")
+    except Exception as e:
+        logger.error(f"数据库关闭失败: {e}")
+
+
+# ── Register Auth Router ────────────────────────────────────
+
+try:
+    from src.auth.router import router as auth_router
+    app.include_router(auth_router, prefix="/api/auth", tags=["认证"])
+    logger.info("认证路由注册成功")
+except ImportError as e:
+    logger.warning(f"认证路由注册失败: {e}")
+
+
+# ── Register User Router ────────────────────────────────────
+
+try:
+    from src.user.router import router as user_router
+    app.include_router(user_router, prefix="/api/user", tags=["用户管理"])
+    logger.info("用户路由注册成功")
+except ImportError as e:
+    logger.warning(f"用户路由注册失败: {e}")
+
+
+# ── Register Usage Router ────────────────────────────────────
+
+try:
+    from src.usage.router import router as usage_router
+    app.include_router(usage_router, prefix="/api", tags=["使用次数"])
+    logger.info("使用次数路由注册成功")
+except ImportError as e:
+    logger.warning(f"使用次数路由注册失败: {e}")
+
 
 SCRIPTS = {
     "mission": "run_mission.py",
@@ -290,6 +369,37 @@ def batch_download_reports(paths: str = Query(...), format: str = "md"):
 def index():
     return (BASE_DIR / "ui" / "index.html").read_text(encoding="utf-8")
 
+
+# ── Auth Pages ───────────────────────────────────────────
+
+@app.get("/login", response_class=HTMLResponse)
+def login_page():
+    """登录页面"""
+    return (BASE_DIR / "ui" / "login.html").read_text(encoding="utf-8")
+
+
+@app.get("/register", response_class=HTMLResponse)
+def register_page():
+    """注册页面"""
+    return (BASE_DIR / "ui" / "register.html").read_text(encoding="utf-8")
+
+
+@app.get("/forgot-password", response_class=HTMLResponse)
+def forgot_password_page():
+    """忘记密码页面"""
+    return (BASE_DIR / "ui" / "forgot-password.html").read_text(encoding="utf-8")
+
+
+@app.get("/oauth/callback", response_class=HTMLResponse)
+def oauth_callback_page():
+    """OAuth 回调页面"""
+    return (BASE_DIR / "ui" / "oauth-callback.html").read_text(encoding="utf-8")
+
+
+@app.get("/account", response_class=HTMLResponse)
+def account_page():
+    """用户中心页面"""
+    return (BASE_DIR / "ui" / "account.html").read_text(encoding="utf-8")
 
 
 # ── Sources ───────────────────────────────────────────────

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>登录 - Prism</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: {
+              DEFAULT: '#f8fafc',
+              secondary: '#ffffff',
+              tertiary: '#f1f5f9',
+              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+            },
+            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
+            success: '#00d4aa',
+            error: '#ff6b6b',
+            warn: '#ffaa44',
+            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
+            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'SF Mono', 'monospace']
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="bg-bg text-text min-h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+  <!-- Main Content -->
+  <main class="flex-1 flex items-center justify-center p-4">
+    <div class="auth-card">
+      <!-- Logo -->
+      <div class="text-center mb-8">
+        <div class="w-14 h-14 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4 shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">
+          🕵️
+        </div>
+        <h1 class="text-xl font-bold" style="color: var(--text);">登录 Prism</h1>
+        <p class="text-sm mt-1" style="color: var(--text-secondary);">开启你的情报之旅</p>
+      </div>
+
+      <!-- Login Form -->
+      <form id="login-form" class="space-y-4">
+        <!-- Email -->
+        <div>
+          <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">邮箱</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">📧</span>
+            <input 
+              type="email" 
+              id="email" 
+              placeholder="your@email.com"
+              class="auth-input pl-10"
+              required
+              autocomplete="email"
+            >
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div>
+          <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">密码</label>
+          <div class="relative">
+            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-text-muted">🔒</span>
+            <input 
+              type="password" 
+              id="password" 
+              placeholder="输入密码"
+              class="auth-input pl-10 pr-10"
+              required
+              autocomplete="current-password"
+            >
+            <button 
+              type="button" 
+              onclick="togglePasswordVisibility('password')"
+              class="absolute right-3 top-1/2 -translate-y-1/2 text-text-muted hover:text-text transition-colors"
+            >
+              <svg id="password-eye" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Remember & Forgot -->
+        <div class="flex items-center justify-between text-sm">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" id="remember" class="w-4 h-4 rounded border-border accent-accent">
+            <span style="color: var(--text-secondary);">记住我</span>
+          </label>
+          <a href="/forgot-password" class="text-accent hover:underline">忘记密码？</a>
+        </div>
+
+        <!-- Error Message -->
+        <div id="error-message" class="hidden text-sm text-error bg-error/10 border border-error/20 rounded-lg p-3">
+          <span id="error-text"></span>
+        </div>
+
+        <!-- Submit Button -->
+        <button 
+          type="submit" 
+          id="submit-btn"
+          class="auth-btn auth-btn-primary"
+        >
+          <span id="submit-text">登录</span>
+          <svg id="submit-spinner" class="hidden w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </button>
+      </form>
+
+      <!-- Divider -->
+      <div class="flex items-center gap-4 my-6">
+        <div class="flex-1 h-px bg-border"></div>
+        <span class="text-xs text-text-muted">或</span>
+        <div class="flex-1 h-px bg-border"></div>
+      </div>
+
+      <!-- OAuth Buttons -->
+      <div class="space-y-3">
+        <button 
+          onclick="loginWithGitHub()"
+          class="auth-btn auth-btn-oauth flex items-center justify-center gap-3"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+          </svg>
+          使用 GitHub 登录
+        </button>
+      </div>
+
+      <!-- Register Link -->
+      <p class="text-center text-sm mt-6" style="color: var(--text-secondary);">
+        还没有账号？
+        <a href="/register" class="text-accent font-medium hover:underline">立即注册</a>
+      </p>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-content">
+      <div class="footer-left">
+        <span class="footer-brand">🕵️ Prism</span>
+        <span class="footer-version">v2.0.0</span>
+      </div>
+      <div class="footer-right">
+        <a href="/" class="footer-link">返回首页</a>
+        <span class="footer-separator">·</span>
+        <button onclick="toggleTheme()" class="footer-link">切换主题</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Toast -->
+  <div id="toast" class="fixed bottom-4 left-1/2 -translate-x-1/2 bg-bg-secondary border border-border px-4 py-3 rounded-xl shadow-xl transform translate-y-20 opacity-0 transition-all duration-300 z-50 flex items-center gap-2 max-w-sm">
+    <span id="toast-icon"></span>
+    <span id="toast-message" class="text-sm font-medium"></span>
+  </div>
+
+  <script src="/static/core.js"></script>
+  <script src="/static/auth.js"></script>
+  <script>
+    // Initialize theme
+    document.addEventListener('DOMContentLoaded', () => {
+      initTheme();
+      
+      // Check if already logged in
+      if (AuthState.isLoggedIn()) {
+        window.location.href = '/';
+      }
+    });
+  </script>
+</body>
+</html>

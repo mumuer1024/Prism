@@ -107,3 +107,170 @@ SOURCE_ENABLED_X_GROK = _parse_bool(os.getenv("SOURCE_ENABLED_X_GROK"), True)
 SOURCE_ENABLED_HN_BLOGS = _parse_bool(os.getenv("SOURCE_ENABLED_HN_BLOGS"), True)
 SOURCE_ENABLED_CHROME = _parse_bool(os.getenv("SOURCE_ENABLED_CHROME"), True)
 SOURCE_ENABLED_XHS = _parse_bool(os.getenv("SOURCE_ENABLED_XHS"), True)
+
+
+# ============================================================
+# V2.0 用户系统配置
+# ============================================================
+
+# --- 基础配置 ---
+DEBUG = _parse_bool(os.getenv("DEBUG"), False)
+APP_NAME = os.getenv("APP_NAME", "Prism")
+APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
+
+# --- JWT 配置 ---
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "prism-secret-key-change-in-production")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "120"))  # 2 小时
+REFRESH_TOKEN_EXPIRE_DAYS = int(os.getenv("REFRESH_TOKEN_EXPIRE_DAYS", "7"))  # 7 天
+
+# --- 验证码配置 ---
+VERIFY_CODE_LENGTH = int(os.getenv("VERIFY_CODE_LENGTH", "6"))
+VERIFY_CODE_EXPIRE_MINUTES = int(os.getenv("VERIFY_CODE_EXPIRE_MINUTES", "5"))
+VERIFY_CODE_RESEND_SECONDS = int(os.getenv("VERIFY_CODE_RESEND_SECONDS", "60"))
+
+# --- 邮件配置（自建 SMTP）---
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "")
+
+# --- 腾讯云邮件配置 ---
+TENCENT_SECRET_ID = os.getenv("TENCENT_SECRET_ID", "")
+TENCENT_SECRET_KEY = os.getenv("TENCENT_SECRET_KEY", "")
+
+# --- GitHub OAuth ---
+GITHUB_CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "")
+GITHUB_CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "")
+GITHUB_REDIRECT_URI = os.getenv("GITHUB_REDIRECT_URI", "http://localhost:8000/api/auth/github/callback")
+
+# --- 微信 OAuth ---
+WECHAT_APP_ID = os.getenv("WECHAT_APP_ID", "")
+WECHAT_APP_SECRET = os.getenv("WECHAT_APP_SECRET", "")
+WECHAT_REDIRECT_URI = os.getenv("WECHAT_REDIRECT_URI", "http://localhost:8000/api/auth/wechat/callback")
+
+# --- 免费用户配置 ---
+FREE_DAILY_LIMIT = int(os.getenv("FREE_DAILY_LIMIT", "3"))
+FREE_SOURCES = os.getenv("FREE_SOURCES", "hacker_news,product_hunt,github_trending,36kr").split(",")
+FREE_TOOLS = os.getenv("FREE_TOOLS", "bounty_hunter,alpha_radar,revenue_architect,narrator").split(",")
+
+# --- 邀请返利配置 ---
+INVITE_BONUS_COUNT = int(os.getenv("INVITE_BONUS_COUNT", "3"))  # 邀请返利次数
+INVITEE_BONUS_COUNT = int(os.getenv("INVITEE_BONUS_COUNT", "3"))  # 被邀请人奖励次数
+
+# --- 兑换码配置 ---
+REDEMPTION_CODE_PREFIX = os.getenv("REDEMPTION_CODE_PREFIX", "PRISM-")
+REDEMPTION_CODE_LENGTH = int(os.getenv("REDEMPTION_CODE_LENGTH", "8"))
+
+# --- 邀请码配置 ---
+INVITE_CODE_PREFIX = os.getenv("INVITE_CODE_PREFIX", "PRISM-")
+INVITE_CODE_LENGTH = int(os.getenv("INVITE_CODE_LENGTH", "8"))
+
+# --- 数据库配置 ---
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./data/prism.db")
+
+# --- 功能开关 ---
+FEATURE_USER_SYSTEM = _parse_bool(os.getenv("FEATURE_USER_SYSTEM"), True)
+FEATURE_OAUTH_GITHUB = _parse_bool(os.getenv("FEATURE_OAUTH_GITHUB"), True)
+FEATURE_OAUTH_WECHAT = _parse_bool(os.getenv("FEATURE_OAUTH_WECHAT"), False)
+FEATURE_INVITE_SYSTEM = _parse_bool(os.getenv("FEATURE_INVITE_SYSTEM"), True)
+FEATURE_FREE_TIER = _parse_bool(os.getenv("FEATURE_FREE_TIER"), True)
+FEATURE_REDEMPTION_CODE = _parse_bool(os.getenv("FEATURE_REDEMPTION_CODE"), True)
+
+
+# ============================================================
+# Pydantic Settings 类（推荐使用）
+# ============================================================
+
+try:
+    from pydantic_settings import BaseSettings
+
+    class Settings(BaseSettings):
+        """应用配置类"""
+        
+        # 基础配置
+        APP_NAME: str = "Prism"
+        APP_VERSION: str = "2.0.0"
+        DEBUG: bool = False
+        
+        # JWT 配置
+        JWT_SECRET_KEY: str = "prism-secret-key-change-in-production"
+        JWT_ALGORITHM: str = "HS256"
+        ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
+        REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+        
+        # 验证码配置
+        VERIFY_CODE_LENGTH: int = 6
+        VERIFY_CODE_EXPIRE_MINUTES: int = 5
+        VERIFY_CODE_RESEND_SECONDS: int = 60
+        
+        # 邮件配置（自建 SMTP）
+        SMTP_HOST: str = ""
+        SMTP_PORT: int = 587
+        SMTP_USER: str = ""
+        SMTP_PASSWORD: str = ""
+        EMAIL_FROM: str = ""
+        
+        # 腾讯云邮件配置
+        TENCENT_SECRET_ID: str = ""
+        TENCENT_SECRET_KEY: str = ""
+        
+        # GitHub OAuth
+        GITHUB_CLIENT_ID: str = ""
+        GITHUB_CLIENT_SECRET: str = ""
+        GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/auth/github/callback"
+        
+        # 微信 OAuth
+        WECHAT_APP_ID: str = ""
+        WECHAT_APP_SECRET: str = ""
+        WECHAT_REDIRECT_URI: str = "http://localhost:8000/api/auth/wechat/callback"
+        
+        # 免费用户配置
+        FREE_DAILY_LIMIT: int = 3
+        FREE_SOURCES: list = ["hacker_news", "product_hunt", "github_trending", "36kr"]
+        FREE_TOOLS: list = ["bounty_hunter", "alpha_radar", "revenue_architect", "narrator"]
+        
+        # 邀请返利配置
+        INVITE_BONUS_COUNT: int = 3
+        INVITEE_BONUS_COUNT: int = 3
+        
+        # 兑换码配置
+        REDEMPTION_CODE_PREFIX: str = "PRISM-"
+        REDEMPTION_CODE_LENGTH: int = 8
+        
+        # 邀请码配置
+        INVITE_CODE_PREFIX: str = "PRISM-"
+        INVITE_CODE_LENGTH: int = 8
+        
+        # 数据库配置
+        DATABASE_URL: str = "sqlite:///./data/prism.db"
+        
+        # 功能开关
+        FEATURE_USER_SYSTEM: bool = True
+        FEATURE_OAUTH_GITHUB: bool = True
+        FEATURE_OAUTH_WECHAT: bool = False
+        FEATURE_INVITE_SYSTEM: bool = True
+        FEATURE_FREE_TIER: bool = True
+        FEATURE_REDEMPTION_CODE: bool = True
+        
+        class Config:
+            env_file = ".env"
+            env_file_encoding = "utf-8"
+            case_sensitive = True
+
+    # 创建全局配置实例
+    settings = Settings()
+
+except ImportError:
+    # 如果 pydantic-settings 未安装，使用简单的配置对象
+    class Settings:
+        """简单配置类（无验证）"""
+        pass
+    
+    settings = Settings()
+    
+    # 将所有配置变量复制到 settings 对象
+    for name, value in list(globals().items()):
+        if name.isupper() and not name.startswith('_'):
+            setattr(settings, name, value)
