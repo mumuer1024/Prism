@@ -111,36 +111,6 @@ except ImportError as e:
     logger.warning(f"使用次数路由注册失败: {e}")
 
 
-# ── Register Sources Router ────────────────────────────────────
-
-try:
-    from src.sources.router import router as sources_router
-    app.include_router(sources_router, prefix="/api/sources", tags=["信息源"])
-    logger.info("信息源路由注册成功")
-except ImportError as e:
-    logger.warning(f"信息源路由注册失败: {e}")
-
-
-# ── Register Prompts Router ────────────────────────────────────
-
-try:
-    from src.prompts.router import router as prompts_router
-    app.include_router(prompts_router, prefix="/api/prompts", tags=["Prompt模板"])
-    logger.info("Prompt路由注册成功")
-except ImportError as e:
-    logger.warning(f"Prompt路由注册失败: {e}")
-
-
-# ── Register Marketplace Router ────────────────────────────────────
-
-try:
-    from src.marketplace.router import router as marketplace_router
-    app.include_router(marketplace_router, prefix="/api/marketplace", tags=["预设广场"])
-    logger.info("预设广场路由注册成功")
-except ImportError as e:
-    logger.warning(f"预设广场路由注册失败: {e}")
-
-
 SCRIPTS = {
     "mission": "run_mission.py",
     "bounty": "run_bounty_hunter.py",
@@ -610,7 +580,6 @@ def save_tavily_keywords(body: TavilyKeywords):
 # ── Static Files ─────────────────────────────────────────
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "ui" / "static")), name="static")
-app.mount("/ui", StaticFiles(directory=str(BASE_DIR / "ui"), html=True), name="ui")
 
 
 if __name__ == "__main__":
