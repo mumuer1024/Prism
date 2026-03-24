@@ -443,3 +443,89 @@ class SchemaVersion(Base):
 
     def __repr__(self):
         return f"<SchemaVersion(version={self.version}, applied_at='{self.applied_at}')>"
+
+
+class UserPrompt(Base):
+    """
+    用户自定义Prompt配置表
+
+    存储用户为各功能模块自定义的Prompt
+    """
+    __tablename__ = "user_prompts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / bounty_chrome / alpha / revenue
+    prompt_content = Column(Text, nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_user_prompt_user", "user_id"),
+        Index("idx_user_prompt_type", "tool_type"),
+        Index("idx_user_prompt_user_type", "user_id", "tool_type", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<UserPrompt(user_id={self.user_id}, tool_type='{self.tool_type}', active={self.is_active})>"
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "tool_type": self.tool_type,
+            "prompt_content": self.prompt_content,
+            "is_active": self.is_active,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class UserSource(Base):
+    """
+    用户数据源配置表
+
+    存储用户自定义的数据源（RSS/网页）
+    """
+    __tablename__ = "user_sources"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    url = Column(String(500), nullable=False)
+    source_type = Column(String(20), nullable=False)  # rss / webpage
+    tool_type = Column(String(50), nullable=False)  # mission / alpha / bounty
+    is_enabled = Column(Boolean, default=True, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_user_source_user", "user_id"),
+        Index("idx_user_source_type", "tool_type"),
+        Index("idx_user_source_enabled", "is_enabled"),
+    )
+
+    def __repr__(self):
+        return f"<UserSource(user_id={self.user_id}, name='{self.name}', type='{self.source_type}')>"
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "url": self.url,
+            "source_type": self.source_type,
+            "tool_type": self.tool_type,
+            "is_enabled": self.is_enabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }

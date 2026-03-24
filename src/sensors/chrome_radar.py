@@ -25,7 +25,7 @@ class ChromeRadar:
     Scans Chrome Web Store for "Ugly Cash Cows": High Users (>5000) + Low Rating (<3.8).
     Extracts "Kill Shot" insights from 1-star reviews.
     """
-    
+
     # Target Categories for "SaaS Assets"
     CATEGORIES = {
         "workflow": "https://chromewebstore.google.com/category/extensions/productivity/workflow",
@@ -34,12 +34,22 @@ class ChromeRadar:
         "communication": "https://chromewebstore.google.com/category/extensions/productivity/communication",
         "photos": "https://chromewebstore.google.com/category/extensions/photos",
     }
-    
-    # 放宽阈值以捕获更多机会
-    MIN_USERS = 1000      # 从 5000 降至 1000
-    MAX_RATING = 4.2      # 从 3.8 提升至 4.2（评分低于4.2的都有改进空间）
-    
-    def __init__(self):
+
+    # 默认阈值
+    DEFAULT_MIN_USERS = 1000      # 从 5000 降至 1000
+    DEFAULT_MAX_RATING = 4.2      # 从 3.8 提升至 4.2（评分低于4.2的都有改进空间）
+
+    def __init__(self, min_users: int = None, max_rating: float = None):
+        """
+        初始化 Chrome 雷达。
+        
+        Args:
+            min_users: 最小用户数阈值，默认 1000
+            max_rating: 最大评分阈值，默认 4.2
+        """
+        self.MIN_USERS = min_users if min_users is not None else self.DEFAULT_MIN_USERS
+        self.MAX_RATING = max_rating if max_rating is not None else self.DEFAULT_MAX_RATING
+        
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             "Accept-Language": "en-US,en;q=0.9"

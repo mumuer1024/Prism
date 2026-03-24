@@ -892,3 +892,460 @@ body {
     border-radius: 16px;
   }
 }
+
+/* ===== Prompt Config Styles ===== */
+
+/* Prompt Login Notice */
+.prompt-login-notice,
+.prompt-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  text-align: center;
+}
+
+.prompt-login-notice .notice-icon,
+.prompt-error .error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.prompt-login-notice .notice-text,
+.prompt-error .error-text {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.prompt-login-notice .notice-btn,
+.prompt-error .retry-btn {
+  padding: 10px 24px;
+  background: var(--accent);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.prompt-login-notice .notice-btn:hover,
+.prompt-error .retry-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+/* Prompt List Header */
+.prompt-list-header {
+  margin-bottom: 24px;
+}
+
+.prompt-list-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.prompt-list-header p {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* Prompt Cards */
+.prompt-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.prompt-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.prompt-card:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent);
+  transform: translateX(4px);
+}
+
+.prompt-card.has-custom {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.prompt-card-icon {
+  font-size: 28px;
+  flex-shrink: 0;
+}
+
+.prompt-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.prompt-card-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 4px;
+}
+
+.custom-badge {
+  font-size: 10px;
+  padding: 2px 8px;
+  background: var(--accent);
+  color: white;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+.prompt-card-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.prompt-card-action {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.prompt-card-action .action-arrow {
+  transition: transform 0.2s;
+}
+
+.prompt-card:hover .action-arrow {
+  transform: translateX(4px);
+}
+
+/* Prompt Modal */
+.prompt-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.prompt-modal.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+.prompt-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+}
+
+.prompt-modal-content {
+  position: relative;
+  width: 90%;
+  max-width: 700px;
+  max-height: 85vh;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transform: scale(0.95) translateY(20px);
+  transition: transform 0.3s ease;
+}
+
+.prompt-modal.show .prompt-modal-content {
+  transform: scale(1) translateY(0);
+}
+
+.prompt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+
+.prompt-modal-header .header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.prompt-modal-header .tool-icon {
+  font-size: 24px;
+}
+
+.prompt-modal-header h3 {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.prompt-modal-header .close-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 18px;
+  transition: all 0.2s;
+}
+
+.prompt-modal-header .close-btn:hover {
+  background: var(--bg-tertiary);
+  color: var(--text);
+}
+
+.prompt-modal-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.editor-status {
+  margin-bottom: 16px;
+}
+
+.status-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(61, 158, 106, 0.1);
+  color: var(--success);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.status-default {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.editor-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.prompt-textarea {
+  width: 100%;
+  min-height: 300px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text);
+  resize: vertical;
+  transition: border-color 0.2s;
+}
+
+.prompt-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.editor-hint {
+  margin-top: 12px;
+  padding: 12px 16px;
+  background: var(--bg-secondary);
+  border-radius: 8px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.editor-hint strong {
+  color: var(--text);
+}
+
+.editor-hint ul {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+}
+
+.editor-hint li {
+  margin-bottom: 4px;
+}
+
+.editor-hint code {
+  background: var(--bg-tertiary);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+}
+
+.prompt-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--bg-secondary);
+}
+
+.btn-reset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 16px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-reset:hover {
+  background: var(--bg-tertiary);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.footer-right {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-cancel {
+  padding: 10px 20px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+  background: var(--bg-tertiary);
+}
+
+.btn-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 24px;
+  background: var(--accent);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-save:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-save:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Mobile Prompt Config */
+@media (max-width: 640px) {
+  .prompt-modal-content {
+    width: 95%;
+    max-height: 90vh;
+  }
+
+  .prompt-textarea {
+    min-height: 200px;
+  }
+
+  .prompt-modal-footer {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .prompt-modal-footer .footer-right {
+    width: 100%;
+    justify-content: flex-end;
+  }
+}
+
+/* ===== Config Tab Styles ===== */
+.config-tab {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.config-tab:hover {
+  color: var(--text) !important;
+}
+
+.config-tab.active {
+  font-weight: 600;
+}
+
+.config-tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

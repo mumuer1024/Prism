@@ -11,6 +11,7 @@ import os
 import argparse
 import logging
 import datetime
+from typing import Optional
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -23,12 +24,28 @@ logger = logging.getLogger(__name__)
 REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "tactical")
 
 
-def generate_bounty_report(days: int = 1):
+def generate_bounty_report(days: int = 1, user_id: Optional[int] = None):
     """
     扫描赏金机会并生成报告。
+    
+    Args:
+        days: 扫描天数
+        user_id: 用户ID，用于读取用户自定义配置。为None时使用默认配置。
     """
     setup_logging()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # 读取用户配置（如果有 user_id）
+    v2ex_prompt = None
+    chrome_prompt = None
+    if user_id:
+        try:
+            from src.config_loader import get_user_prompt
+            v2ex_prompt = get_user_prompt(user_id, "bounty_v2ex")
+            chrome_prompt = get_user_prompt(user_id, "bounty_chrome")
+            logger.info(f"使用用户配置: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"读取用户配置失败，使用默认配置: {e}")
 
     print("=" * 60)
     print("  💰 BOUNTY HUNTER - 赏金猎人")
@@ -38,24 +55,56 @@ def generate_bounty_report(days: int = 1):
     os.makedirs(REPORT_DIR, exist_ok=True)
     report_file = os.path.join(REPORT_DIR, f"Bounty_Hunter_{date_str}.md")
 
+    # 解析用户自定义配置
+    v2ex_keywords = None
+    chrome_min_users = None
+    chrome_max_rating = None
+    
+    if user_id and v2ex_prompt:
+        # 尝试从 prompt 中解析关键词（简单实现：查找"关键词:"后面的内容）
+        import re
+        keyword_match = re.search(r'关键词[：:]\s*([^\n]+)', v2ex_prompt)
+        if keyword_match:
+            keywords_str = keyword_match.group(1)
+            v2ex_keywords = {
+                'money_keywords': [k.strip() for k in keywords_str.split('、') if k.strip()]
+            }
+            logger.info(f"使用自定义 V2EX 关键词: {v2ex_keywords['money_keywords']}")
+    
+    if user_id and chrome_prompt:
+        # 尝试从 prompt 中解析筛选条件
+        import re
+        users_match = re.search(r'用户[量数][>>=]+\s*(\d+)', chrome_prompt)
+        rating_match = re.search(r'评分[<<=]+\s*([\d.]+)', chrome_prompt)
+        if users_match:
+            chrome_min_users = int(users_match.group(1))
+            logger.info(f"使用自定义 Chrome 最小用户数: {chrome_min_users}")
+        if rating_match:
+            chrome_max_rating = float(rating_match.group(1))
+            logger.info(f"使用自定义 Chrome 最大评分: {chrome_max_rating}")
+
     # 1. 扫描 V2EX 机会
     logger.info("[Phase 1] 扫描 V2EX 急单...")
     logger.info("  关键词: 外包/兼职/有偿/求助/急 等")
-    v2ex_radar = V2EXRadar()
+    v2ex_radar = V2EXRadar(custom_keywords=v2ex_keywords)
     v2ex_leads = v2ex_radar.fetch_leads(days=days)
 
     # 2. 扫描 Chrome 扩展商店
     logger.info("[Phase 2] 扫描 Chrome 扩展商店...")
-    chrome_radar = ChromeRadar()
+    chrome_radar = ChromeRadar(min_users=chrome_min_users, max_rating=chrome_max_rating)
     chrome_opps = chrome_radar.scan_opportunities(limit=5)
 
     # 3. 生成报告
+    config_note = ""
+    if user_id and (v2ex_prompt or chrome_prompt):
+        config_note = "\n> ⚙️ **使用用户自定义配置**\n"
+    
     lines = [
         f"# 💰 赏金猎人报告 (Bounty Hunter Report)",
         f"**日期:** {date_str}",
         f"**扫描范围:** 过去 {days} 天",
         f"**生成时间:** {datetime.datetime.now().strftime('%H:%M')}",
-        "",
+        config_note,
         "---",
         "",
         "## 🎯 执行摘要",
@@ -69,7 +118,10 @@ def generate_bounty_report(days: int = 1):
 
     # V2EX 部分
     lines.append("## 💼 V2EX 赏金机会")
-    lines.append("> 筛选关键词: 有偿、外包、急、求助、付费\n")
+    if v2ex_prompt:
+        lines.append(f"> 自定义筛选规则: {v2ex_prompt[:100]}...\n")
+    else:
+        lines.append("> 筛选关键词: 有偿、外包、急、求助、付费\n")
 
     if v2ex_leads:
         for i, lead in enumerate(v2ex_leads[:15], 1):
@@ -92,7 +144,10 @@ def generate_bounty_report(days: int = 1):
     lines.append("---")
     lines.append("")
     lines.append("## 🛒 Chrome 扩展'丑小鸭'机会")
-    lines.append("> 筛选条件: 用户 >= 1000 + 评分 <= 4.2\n")
+    if chrome_prompt:
+        lines.append(f"> 自定义筛选规则: {chrome_prompt[:100]}...\n")
+    else:
+        lines.append("> 筛选条件: 用户 >= 1000 + 评分 <= 4.2\n")
     lines.append("这些扩展用户多但满意度低，是重写竞品的绝佳机会。\n")
 
     if chrome_opps:
@@ -159,6 +214,7 @@ def generate_bounty_report(days: int = 1):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="赏金猎人 - 扫描 V2EX 和 Chrome 扩展商店寻找机会")
     parser.add_argument("days", nargs="?", type=int, default=1, help="扫描天数 (默认: 1)")
+    parser.add_argument("--user-id", type=int, default=None, help="用户ID，用于读取用户自定义配置")
     args = parser.parse_args()
 
-    generate_bounty_report(days=args.days)
+    generate_bounty_report(days=args.days, user_id=args.user_id)

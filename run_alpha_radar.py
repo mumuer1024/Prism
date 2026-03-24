@@ -14,6 +14,7 @@ import logging
 import datetime
 import re
 import json
+from typing import Optional, List
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -26,8 +27,8 @@ logger = logging.getLogger(__name__)
 
 REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "web3")
 
-# Alpha 雷达专用搜索查询
-ALPHA_QUERIES = [
+# Alpha 雷达专用搜索查询（默认值）
+DEFAULT_ALPHA_QUERIES = [
     "Solana CLI tools open source 2025 2026",
     "Web3 developer tools CLI GitHub",
     "crypto trading bot open source",
@@ -188,12 +189,26 @@ def verify_project_links(projects: list) -> list:
     return verified_projects
 
 
-def generate_alpha_radar_report():
+def generate_alpha_radar_report(user_id: Optional[int] = None):
     """
     扫描 Web3/Solana 开源项目并生成报告。
+    
+    Args:
+        user_id: 用户ID，用于读取用户自定义配置。为None时使用默认配置。
     """
     setup_logging()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # 读取用户配置（如果有 user_id）
+    user_prompt = None
+    alpha_queries = DEFAULT_ALPHA_QUERIES
+    if user_id:
+        try:
+            from src.config_loader import get_user_prompt
+            user_prompt = get_user_prompt(user_id, "alpha")
+            logger.info(f"使用用户配置: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"读取用户配置失败，使用默认配置: {e}")
 
     print("=" * 60)
     print("  ⛏️ ALPHA RADAR - Web3 开源项目雷达")
@@ -206,10 +221,16 @@ def generate_alpha_radar_report():
     all_projects = []
 
     # 对每个查询使用 Grok 搜索
-    for query in ALPHA_QUERIES:
+    for query in alpha_queries:
         logger.info(f"[Grok] 搜索: {query}")
 
-        prompt = f"""Search X (Twitter) and find the latest open source projects related to: {query}.
+        # 构建搜索 prompt：使用用户自定义或默认模板
+        if user_prompt:
+            # 用户自定义 prompt，替换 {query} 占位符
+            prompt = user_prompt.replace("{query}", query) if "{query}" in user_prompt else user_prompt
+        else:
+            # 默认 prompt
+            prompt = f"""Search X (Twitter) and find the latest open source projects related to: {query}.
 
 Find projects from 2025-2026 only. For each project, provide:
 1. Project name
@@ -396,6 +417,7 @@ If possible, format as JSON:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Alpha 雷达 - 扫描 Web3/Solana 开源项目")
+    parser.add_argument("--user-id", type=int, default=None, help="用户ID，用于读取用户自定义配置")
     args = parser.parse_args()
 
-    generate_alpha_radar_report()
+    generate_alpha_radar_report(user_id=args.user_id)

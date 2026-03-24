@@ -111,6 +111,16 @@ except ImportError as e:
     logger.warning(f"使用次数路由注册失败: {e}")
 
 
+# ── Register User Config Router ───────────────────────────────
+
+try:
+    from src.config_router import router as user_config_router
+    app.include_router(user_config_router, prefix="/api/user-config", tags=["用户配置"])
+    logger.info("用户配置路由注册成功")
+except ImportError as e:
+    logger.warning(f"用户配置路由注册失败: {e}")
+
+
 SCRIPTS = {
     "mission": "run_mission.py",
     "bounty": "run_bounty_hunter.py",

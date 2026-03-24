@@ -115,6 +115,8 @@ def init_database():
         Admin,
         Report,
         SchemaVersion,
+        UserPrompt,
+        UserSource,
     )
 
     # 创建所有表
@@ -152,6 +154,17 @@ def _run_migrations():
             db.add(version_record)
             db.commit()
             logger.info("数据库迁移: 版本 1 已应用")
+
+        if current_version < 2:
+            # 版本 2: 新增用户配置表（user_prompts, user_sources）
+            # 表已在 create_all 中创建，只需记录版本
+            version_record = SchemaVersion(
+                version=2,
+                description="新增用户配置表：user_prompts, user_sources"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 2 已应用")
 
     except Exception as e:
         logger.error(f"数据库迁移失败: {e}")

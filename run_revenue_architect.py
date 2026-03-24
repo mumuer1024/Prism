@@ -16,6 +16,7 @@ import logging
 import datetime
 import glob
 import re
+from typing import Optional
 
 # Windows 控制台 UTF-8 支持
 if sys.platform == "win32":
@@ -38,8 +39,8 @@ logger = logging.getLogger(__name__)
 REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "opportunities")
 DAILY_REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "daily_briefings")
 
-# 营收分析专用 Prompt
-REVENUE_ANALYSIS_PROMPT = """你是一位资深的商业分析师和独立开发者导师。请仔细阅读以下情报日报内容，并从中挖掘出具体的商业和个人品牌机会。
+# 营收分析专用 Prompt（默认值）
+DEFAULT_REVENUE_ANALYSIS_PROMPT = """你是一位资深的商业分析师和独立开发者导师。请仔细阅读以下情报日报内容，并从中挖掘出具体的商业和个人品牌机会。
 
 请将机会分为以下 5 个类别，每个类别至少提供 3 个具体的行动建议：
 
@@ -141,9 +142,15 @@ def read_report_content(report_path: str) -> str:
     return content
 
 
-def call_llm_analysis(content: str) -> str:
-    """调用 LLM 进行营收分析"""
-    prompt = REVENUE_ANALYSIS_PROMPT.format(content=content)
+def call_llm_analysis(content: str, user_prompt: Optional[str] = None) -> str:
+    """调用 LLM 进行营收分析
+    
+    Args:
+        content: 待分析的日报内容
+        user_prompt: 用户自定义Prompt，为None时使用默认Prompt
+    """
+    prompt_template = user_prompt or DEFAULT_REVENUE_ANALYSIS_PROMPT
+    prompt = prompt_template.format(content=content)
 
     if LLM_CLIENT_AVAILABLE:
         try:
@@ -213,12 +220,26 @@ def call_llm_analysis(content: str) -> str:
         return "错误: llm_client.py 不可用，无法进行 LLM 分析。"
 
 
-def generate_revenue_architect_report(target_report: str = None):
+def generate_revenue_architect_report(target_report: str = None, user_id: Optional[int] = None):
     """
     分析日报内容并生成营收机会报告。
+    
+    Args:
+        target_report: 指定要分析的日报文件路径
+        user_id: 用户ID，用于读取用户自定义配置。为None时使用默认配置。
     """
     setup_logging()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # 读取用户配置（如果有 user_id）
+    user_prompt = None
+    if user_id:
+        try:
+            from src.config_loader import get_user_prompt
+            user_prompt = get_user_prompt(user_id, "revenue")
+            logger.info(f"使用用户配置: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"读取用户配置失败，使用默认配置: {e}")
 
     print("=" * 60)
     print("  🏗️ REVENUE ARCHITECT - 营收分析师")
@@ -248,7 +269,7 @@ def generate_revenue_architect_report(target_report: str = None):
     logger.info("调用 LLM 进行营收分析...")
     print("🤖 正在分析商业机会，请稍候...")
 
-    analysis_result = call_llm_analysis(content)
+    analysis_result = call_llm_analysis(content, user_prompt=user_prompt)
 
     if analysis_result.startswith("错误:"):
         print(f"\n❌ {analysis_result}")
@@ -312,6 +333,7 @@ def generate_revenue_architect_report(target_report: str = None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="营收分析师 - 分析日报并挖掘商业机会")
     parser.add_argument("--report", "-r", type=str, help="指定要分析的日报文件路径")
+    parser.add_argument("--user-id", type=int, default=None, help="用户ID，用于读取用户自定义配置")
     args = parser.parse_args()
 
-    generate_revenue_architect_report(target_report=args.report)
+    generate_revenue_architect_report(target_report=args.report, user_id=args.user_id)

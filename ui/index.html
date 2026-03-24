@@ -299,13 +299,29 @@
           <p class="text-xs text-text-secondary" style="color: var(--text);">API 密钥、模型选择和其他设置</p>
         </div>
       </div>
+      <!-- Config Tabs -->
+      <div class="border-b border-border flex-shrink-0">
+        <div class="flex px-4 md:px-6">
+          <button onclick="switchConfigTab('system')" id="config-tab-system" class="config-tab active px-4 py-3 text-sm font-medium border-b-2 transition-all" style="color: var(--text); border-color: var(--accent);">
+            ⚙️ 系统配置
+          </button>
+          <button onclick="switchConfigTab('prompt')" id="config-tab-prompt" class="config-tab px-4 py-3 text-sm font-medium border-b-2 transition-all" style="color: var(--text-secondary); border-color: transparent;">
+            📝 Prompt 配置
+          </button>
+        </div>
+      </div>
       <div class="flex-1 overflow-y-auto p-4 md:p-6">
-        <div id="config-content" class="max-w-3xl mx-auto space-y-6">
+        <!-- System Config Content -->
+        <div id="config-content" class="config-tab-content max-w-3xl mx-auto space-y-6">
           <!-- 配置内容将由 config.js 动态加载 -->
           <div class="flex items-center justify-center py-12 text-text-secondary">
             <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             加载配置中...
           </div>
+        </div>
+        <!-- Prompt Config Content -->
+        <div id="prompt-config-content" class="config-tab-content hidden max-w-3xl mx-auto">
+          <!-- Prompt 配置内容将由 prompt-config.js 动态加载 -->
         </div>
       </div>
     </div>
@@ -346,6 +362,7 @@
   <script src="/static/reports.js"></script>
   <script src="/static/config.js"></script>
   <script src="/static/sources.js"></script>
+  <script src="/static/prompt-config.js"></script>
   <script>
     // Initialize on load
     window.addEventListener('resize', () => {
@@ -369,6 +386,38 @@
     });
 
     switchTab('console');
+
+    // Switch config tab (system / prompt)
+    function switchConfigTab(tab) {
+      const systemTab = document.getElementById('config-tab-system');
+      const promptTab = document.getElementById('config-tab-prompt');
+      const systemContent = document.getElementById('config-content');
+      const promptContent = document.getElementById('prompt-config-content');
+
+      if (tab === 'system') {
+        systemTab.classList.add('active');
+        systemTab.style.borderColor = 'var(--accent)';
+        systemTab.style.color = 'var(--text)';
+        promptTab.classList.remove('active');
+        promptTab.style.borderColor = 'transparent';
+        promptTab.style.color = 'var(--text-secondary)';
+        systemContent.classList.remove('hidden');
+        promptContent.classList.add('hidden');
+      } else {
+        promptTab.classList.add('active');
+        promptTab.style.borderColor = 'var(--accent)';
+        promptTab.style.color = 'var(--text)';
+        systemTab.classList.remove('active');
+        systemTab.style.borderColor = 'transparent';
+        systemTab.style.color = 'var(--text-secondary)';
+        promptContent.classList.remove('hidden');
+        systemContent.classList.add('hidden');
+        // Initialize prompt config when switching to prompt tab
+        if (typeof initPromptConfig === 'function') {
+          initPromptConfig();
+        }
+      }
+    }
 
     // Update user state in header
     function updateUserStateInHeader() {

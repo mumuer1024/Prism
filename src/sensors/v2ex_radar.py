@@ -25,44 +25,66 @@ class V2EXRadar:
     Scans V2EX for 'Soft-Target' leads: Outsourcing, Jobs, and Help requests.
     Uses RSS feeds to avoid heavy anti-scraping measures.
     """
-    
+
     RSS_FEEDS = {
         "global": "https://www.v2ex.com/index.xml",
         "jobs": "https://www.v2ex.com/feed/tab/jobs.xml"
     }
 
 # Keywords that signal a "Lead" (someone paying or desperate)
-    MONEY_KEYWORDS = [
+    DEFAULT_MONEY_KEYWORDS = [
         "外包", "兼职", "有偿", "预算", "报价", "招", "急", "付费",
         "代写", "私活", "合作", "开发", "求购", "悬赏", "报酬",
         "价格", "费用", "多少钱", "收费", "接单", "项目", "甲方"
     ]
-    
+
     # Keywords that signal "Pain" (opportunity for service/SaaS)
-    PAIN_KEYWORDS = [
+    DEFAULT_PAIN_KEYWORDS = [
         "求助", "帮忙", "不懂", "救命", "怎么做", "太难", "崩溃", "无法", "报错",
         "不会", "求教", "求大佬", "有没有人", "小白", "新手", "搞不定",
         "折腾", "卡住", "解决不了", "求指导", "求解答", "头疼"
     ]
-    
+
     # "Desperation" keywords - High Emotion = High Conversion Probability
-    DESPERATION_KEYWORDS = [
+    DEFAULT_DESPERATION_KEYWORDS = [
         "在线等", "有偿", "急", "救命", "红包", "崩溃", "求大佬", "付费解决",
         "今晚", "明天", "截止", "最后", "加急", "马上", "立刻", "紧急",
         "求求", "跪求", "在线等", "速回"
     ]
-    
+
     # Tech Stack matching User's capabilities
-    TECH_KEYWORDS = [
-        "FPGA", "Verilog", "Python", "爬虫", "脚本", "Web3", "Solana", 
+    DEFAULT_TECH_KEYWORDS = [
+        "FPGA", "Verilog", "Python", "爬虫", "脚本", "Web3", "Solana",
         "Rust", "图像", "视觉", "识别", "抠图", "Automation", "Bot",
         "Vue", "React", "Node", "Java", "Go", "TypeScript", "小程序",
         "App", "网站", "后端", "前端", "数据库", "API", "自动化",
         "Chrome", "插件", "扩展", "爬虫", "数据采集", "机器学习", "AI"
     ]
 
-    def __init__(self):
+    def __init__(self, custom_keywords: dict = None):
+        """
+        初始化 V2EX 雷达。
+        
+        Args:
+            custom_keywords: 自定义关键词字典，可包含：
+                - money_keywords: 付费关键词列表
+                - pain_keywords: 痛点关键词列表
+                - desperation_keywords: 紧急程度关键词列表
+                - tech_keywords: 技术栈关键词列表
+        """
         self.client = httpx.Client(timeout=15.0)
+        
+        # 支持自定义关键词，无则使用默认值
+        if custom_keywords:
+            self.MONEY_KEYWORDS = custom_keywords.get('money_keywords', self.DEFAULT_MONEY_KEYWORDS)
+            self.PAIN_KEYWORDS = custom_keywords.get('pain_keywords', self.DEFAULT_PAIN_KEYWORDS)
+            self.DESPERATION_KEYWORDS = custom_keywords.get('desperation_keywords', self.DEFAULT_DESPERATION_KEYWORDS)
+            self.TECH_KEYWORDS = custom_keywords.get('tech_keywords', self.DEFAULT_TECH_KEYWORDS)
+        else:
+            self.MONEY_KEYWORDS = self.DEFAULT_MONEY_KEYWORDS
+            self.PAIN_KEYWORDS = self.DEFAULT_PAIN_KEYWORDS
+            self.DESPERATION_KEYWORDS = self.DEFAULT_DESPERATION_KEYWORDS
+            self.TECH_KEYWORDS = self.DEFAULT_TECH_KEYWORDS
 
     def fetch_leads(self, days: int = 1) -> List[Lead]:
         print(f"📡 Scanning V2EX for Leads (Past {days} days)...")
