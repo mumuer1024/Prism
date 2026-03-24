@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 from typing import Optional, List
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, StreamingResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -111,6 +111,36 @@ except ImportError as e:
     logger.warning(f"使用次数路由注册失败: {e}")
 
 
+# ── Register Sources Router ────────────────────────────────────
+
+try:
+    from src.sources.router import router as sources_router
+    app.include_router(sources_router, prefix="/api/sources", tags=["信息源"])
+    logger.info("信息源路由注册成功")
+except ImportError as e:
+    logger.warning(f"信息源路由注册失败: {e}")
+
+
+# ── Register Prompts Router ────────────────────────────────────
+
+try:
+    from src.prompts.router import router as prompts_router
+    app.include_router(prompts_router, prefix="/api/prompts", tags=["Prompt模板"])
+    logger.info("Prompt路由注册成功")
+except ImportError as e:
+    logger.warning(f"Prompt路由注册失败: {e}")
+
+
+# ── Register Marketplace Router ────────────────────────────────────
+
+try:
+    from src.marketplace.router import router as marketplace_router
+    app.include_router(marketplace_router, prefix="/api/marketplace", tags=["预设广场"])
+    logger.info("预设广场路由注册成功")
+except ImportError as e:
+    logger.warning(f"预设广场路由注册失败: {e}")
+
+
 SCRIPTS = {
     "mission": "run_mission.py",
     "bounty": "run_bounty_hunter.py",
@@ -209,12 +239,114 @@ async def test_connection(body: ConnectionTest):
 
 # ── Scripts ──────────────────────────────────────────────
 
+# script_id 到 tool_type 的映射
+SCRIPT_TOOL_MAP = {
+    "mission": "narrator",  # 每日简报
+    "bounty": "bounty_hunter",  # 赏金猎人
+    "alpha": "alpha_radar",  # Alpha 雷达
+    "revenue": "revenue_architect",  # 营收架构师
+}
+
+
+def get_client_ip(request: Request) -> str:
+    """获取客户端 IP 地址"""
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    real_ip = request.headers.get("X-Real-IP")
+    if real_ip:
+        return real_ip
+    if request.client:
+        return request.client.host
+    return "127.0.0.1"
+
+
 @app.get("/api/run/{script_id}")
-async def run_script(script_id: str):
+async def run_script(
+    script_id: str,
+    request: Request,
+    visitor_id: str = None,
+    token: str = None,  # 通过查询参数传递的 token
+):
+    """运行脚本（带使用次数检查和扣减）"""
     if script_id not in SCRIPTS:
         raise HTTPException(status_code=404, detail="Unknown script")
 
     script = SCRIPTS[script_id]
+    tool_type = SCRIPT_TOOL_MAP.get(script_id)
+
+    # 检查并扣减使用次数
+    try:
+        from src.database.connection import get_db
+        from src.usage.service import UsageService
+        from src.config import settings
+
+        if settings.FEATURE_USER_SYSTEM:
+            # 获取数据库会话
+            db_gen = get_db()
+            db = next(db_gen)
+            try:
+                # 尝试从请求中获取用户
+                user = None
+                
+                # 优先使用查询参数中的 token
+                auth_token = token
+                if not auth_token:
+                    auth_header = request.headers.get("Authorization")
+                    if auth_header and auth_header.startswith("Bearer "):
+                        auth_token = auth_header.replace("Bearer ", "")
+                
+                if auth_token:
+                    try:
+                        from src.auth.utils import verify_token
+                        payload = verify_token(auth_token)
+                        if payload:
+                            from src.database import crud
+                            user_id = payload.get("user_id") or payload.get("sub")
+                            if user_id:
+                                user = crud.get_user_by_id(db, int(user_id))
+                    except Exception:
+                        pass
+
+                # 获取客户端 IP
+                ip_address = get_client_ip(request)
+
+                # 检查使用权限
+                service = UsageService(db)
+                check_result = service.check_usage(
+                    user=user,
+                    visitor_id=visitor_id,
+                    ip_address=ip_address,
+                    tool_type=tool_type,
+                )
+
+                if not check_result.get("can_use"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=check_result.get("message", "无使用权限")
+                    )
+
+                # 扣减使用次数
+                deduct_result = service.deduct_usage(
+                    user=user,
+                    visitor_id=visitor_id,
+                    ip_address=ip_address,
+                    tool_type=tool_type,
+                    amount=1,
+                )
+
+                if not deduct_result.get("success"):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=deduct_result.get("message", "扣减失败")
+                    )
+
+            finally:
+                db.close()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.warning(f"使用次数检查失败，跳过: {e}")
 
     async def stream():
         proc = await asyncio.create_subprocess_exec(
@@ -478,6 +610,7 @@ def save_tavily_keywords(body: TavilyKeywords):
 # ── Static Files ─────────────────────────────────────────
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "ui" / "static")), name="static")
+app.mount("/ui", StaticFiles(directory=str(BASE_DIR / "ui"), html=True), name="ui")
 
 
 if __name__ == "__main__":

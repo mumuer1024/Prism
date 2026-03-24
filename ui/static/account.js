@@ -18,33 +18,46 @@ async function loadAccountData() {
       AuthAPI.getUsageBalance(),
       AuthAPI.getInviteStats()
     ]);
-    
+
     // Hide loading, show content
     document.getElementById('loading-state').classList.add('hidden');
     document.getElementById('content').classList.remove('hidden');
-    
+
     // Render profile
-    if (profileResult.success) {
-      renderProfile(profileResult.data);
+    if (profileResult.success && profileResult.data && profileResult.data.user) {
+      renderProfile(profileResult.data.user);
+    } else {
+      console.error('Profile data invalid:', profileResult);
     }
-    
+
     // Render usage
-    if (usageResult.success) {
+    if (usageResult.success && usageResult.data) {
       renderUsage(usageResult.data);
+    } else {
+      console.error('Usage data invalid:', usageResult);
     }
-    
+
     // Render invite stats
-    if (inviteResult.success) {
+    if (inviteResult.success && inviteResult.data) {
       renderInviteStats(inviteResult.data);
+    } else {
+      console.error('Invite stats data invalid:', inviteResult);
     }
-    
+
   } catch (err) {
     console.error('Failed to load account data:', err);
-    showToast('加载数据失败', 'error');
-    
+
+    // Hide loading, show content with error
+    document.getElementById('loading-state').classList.add('hidden');
+    document.getElementById('content').classList.remove('hidden');
+
+    showToast('加载数据失败: ' + err.message, 'error');
+
     // If unauthorized, redirect to login
-    if (err.message?.includes('401') || err.message?.includes('Unauthorized')) {
-      AuthState.logout();
+    if (err.message?.includes('401')) {
+      setTimeout(() => {
+        AuthState.logout();
+      }, 1500);
     }
   }
 }
@@ -127,22 +140,22 @@ function renderInviteStats(data) {
   if (inviteCode) {
     inviteCode.textContent = data.invite_code || '-';
   }
-  
+
   // Invite count
   const inviteCount = document.getElementById('invite-count');
   if (inviteCount) {
-    inviteCount.textContent = data.invite_count || 0;
+    inviteCount.textContent = data.total_invited || 0;
   }
-  
+
   // Total reward
   const inviteReward = document.getElementById('invite-reward');
   if (inviteReward) {
-    inviteReward.textContent = `${data.total_reward || 0} 次`;
+    inviteReward.textContent = `${data.total_bonus || 0} 次`;
   }
-  
+
   // Invite records
   const recordsContainer = document.getElementById('invite-records');
-  if (recordsContainer && data.records && data.records.length > 0) {
+  if (recordsContainer && data.invite_records && data.invite_records.length > 0) {
     recordsContainer.innerHTML = `
       <table class="w-full text-sm">
         <thead>
@@ -153,11 +166,11 @@ function renderInviteStats(data) {
           </tr>
         </thead>
         <tbody>
-          ${data.records.map(record => `
+          ${data.invite_records.map(record => `
             <tr class="border-b border-border last:border-0 hover:bg-bg-tertiary transition-colors">
-              <td class="px-4 py-3" style="color: var(--text-secondary);">${maskEmail(record.email)}</td>
+              <td class="px-4 py-3" style="color: var(--text-secondary);">${maskEmail(record.invitee_email)}</td>
               <td class="px-4 py-3" style="color: var(--text-secondary);">${formatDate(record.created_at)}</td>
-              <td class="px-4 py-3 text-right text-success font-medium">+${record.reward} 次</td>
+              <td class="px-4 py-3 text-right text-success font-medium">+${record.bonus_count || 0} 次</td>
             </tr>
           `).join('')}
         </tbody>

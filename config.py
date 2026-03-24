@@ -7,7 +7,8 @@ import logging
 import sys
 from dotenv import load_dotenv
 
-load_dotenv()
+# 使用 override=True 确保 .env 文件优先于系统环境变量
+load_dotenv(override=True)
 
 # --- Logging ---
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

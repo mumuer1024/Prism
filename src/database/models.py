@@ -431,15 +431,401 @@ class Report(Base):
 class SchemaVersion(Base):
     """
     数据库版本记录表
-    
+
     用于跟踪数据库迁移版本
     """
     __tablename__ = "schema_version"
-    
+
     id = Column(Integer, primary_key=True, autoincrement=True)
     version = Column(Integer, nullable=False, unique=True)
     applied_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     description = Column(Text, nullable=True)
-    
+
     def __repr__(self):
         return f"<SchemaVersion(version={self.version}, applied_at='{self.applied_at}')>"
+
+
+# ============================================================
+# V2.0 第二阶段：自定义信息源、自定义 Prompt、预设广场
+# ============================================================
+
+class PresetSource(Base):
+    """
+    预设信息源表（平台提供）
+
+    存储平台预设的信息源配置，用户可直接订阅使用
+    """
+    __tablename__ = "preset_sources"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 基本信息
+    key = Column(String(50), unique=True, nullable=False)  # hacker_news, github_trending
+    name = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=True)  # tech, finance, social, research
+    description = Column(Text, nullable=True)
+    icon = Column(String(50), nullable=True)
+
+    # 配置
+    source_type = Column(String(50), nullable=False)  # rss, api, scraper
+    config = Column(Text, nullable=False)  # JSON 配置
+    parse_config = Column(Text, nullable=True)  # 解析规则
+
+    # 权限
+    is_free = Column(Boolean, default=False, nullable=False)  # 是否免费用户可用
+    requires_api_key = Column(Boolean, default=False, nullable=False)
+    api_key_env = Column(String(50), nullable=True)  # GITHUB_TOKEN, PRODUCTHUNT_TOKEN
+
+    # 状态
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+
+    # 统计
+    usage_count = Column(Integer, default=0, nullable=False)
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 索引
+    __table_args__ = (
+        Index("idx_preset_source_key", "key"),
+        Index("idx_preset_source_category", "category"),
+        Index("idx_preset_source_active", "is_active"),
+    )
+
+    def __repr__(self):
+        return f"<PresetSource(key='{self.key}', name='{self.name}')>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "key": self.key,
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "icon": self.icon,
+            "source_type": self.source_type,
+            "is_free": self.is_free,
+            "requires_api_key": self.requires_api_key,
+            "is_active": self.is_active,
+            "usage_count": self.usage_count,
+        }
+
+
+class CustomSource(Base):
+    """
+    自定义信息源表
+
+    用户自定义的信息源配置
+    """
+    __tablename__ = "custom_sources"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # 基本信息
+    name = Column(String(100), nullable=False)
+    source_type = Column(String(50), nullable=False)  # rss, api, web_scraper
+    description = Column(Text, nullable=True)
+    icon = Column(String(50), nullable=True)
+
+    # 配置（JSON）
+    config = Column(Text, nullable=False)  # 类型特定的配置
+    parse_config = Column(Text, nullable=True)  # 数据解析规则
+
+    # 状态
+    is_active = Column(Boolean, default=True, nullable=False)
+    last_fetch_at = Column(DateTime, nullable=True)
+    last_error = Column(Text, nullable=True)
+    fetch_count = Column(Integer, default=0, nullable=False)
+
+    # 广场相关（V2.1 预留）
+    is_public = Column(Boolean, default=False, nullable=False)  # 是否公开到广场
+    public_usage_count = Column(Integer, default=0, nullable=False)  # 被使用次数
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_custom_source_user", "user_id"),
+        Index("idx_custom_source_type", "source_type"),
+        Index("idx_custom_source_public", "is_public"),
+    )
+
+    def __repr__(self):
+        return f"<CustomSource(id={self.id}, name='{self.name}', user_id={self.user_id})>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "source_type": self.source_type,
+            "description": self.description,
+            "icon": self.icon,
+            "config": self.config,
+            "parse_config": self.parse_config,
+            "is_active": self.is_active,
+            "last_fetch_at": self.last_fetch_at.isoformat() if self.last_fetch_at else None,
+            "last_error": self.last_error,
+            "fetch_count": self.fetch_count,
+            "is_public": self.is_public,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class PresetPrompt(Base):
+    """
+    预设 Prompt 模板表（平台提供）
+
+    存储平台预设的 Prompt 模板
+    """
+    __tablename__ = "preset_prompts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 基本信息
+    key = Column(String(50), unique=True, nullable=False)  # daily_report, tech_summary
+    name = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=False)  # report, summary, analysis, translate
+    description = Column(Text, nullable=True)
+
+    # 模板
+    template_content = Column(Text, nullable=False)
+    variables = Column(Text, nullable=True)  # JSON: 变量定义
+    example_input = Column(Text, nullable=True)
+    example_output = Column(Text, nullable=True)
+
+    # 权限
+    is_free = Column(Boolean, default=False, nullable=False)
+
+    # 状态
+    is_active = Column(Boolean, default=True, nullable=False)
+    sort_order = Column(Integer, default=0, nullable=False)
+
+    # 统计
+    usage_count = Column(Integer, default=0, nullable=False)
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 索引
+    __table_args__ = (
+        Index("idx_preset_prompt_key", "key"),
+        Index("idx_preset_prompt_category", "category"),
+        Index("idx_preset_prompt_active", "is_active"),
+    )
+
+    def __repr__(self):
+        return f"<PresetPrompt(key='{self.key}', name='{self.name}')>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "key": self.key,
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "template_content": self.template_content,
+            "variables": self.variables,
+            "is_free": self.is_free,
+            "is_active": self.is_active,
+            "usage_count": self.usage_count,
+        }
+
+
+class CustomPrompt(Base):
+    """
+    自定义 Prompt 模板表
+
+    用户自定义的 Prompt 模板
+    """
+    __tablename__ = "custom_prompts"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # 基本信息
+    name = Column(String(100), nullable=False)
+    category = Column(String(50), nullable=False)  # report, summary, analysis, translate
+    description = Column(Text, nullable=True)
+
+    # 模板内容
+    template_content = Column(Text, nullable=False)
+    variables = Column(Text, nullable=True)  # JSON: 变量定义
+    example_input = Column(Text, nullable=True)
+    example_output = Column(Text, nullable=True)
+
+    # 状态
+    is_active = Column(Boolean, default=True, nullable=False)
+
+    # 广场相关（V2.1 预留）
+    is_public = Column(Boolean, default=False, nullable=False)
+    public_usage_count = Column(Integer, default=0, nullable=False)
+    like_count = Column(Integer, default=0, nullable=False)
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_custom_prompt_user", "user_id"),
+        Index("idx_custom_prompt_category", "category"),
+        Index("idx_custom_prompt_public", "is_public"),
+    )
+
+    def __repr__(self):
+        return f"<CustomPrompt(id={self.id}, name='{self.name}', user_id={self.user_id})>"
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "name": self.name,
+            "category": self.category,
+            "description": self.description,
+            "template_content": self.template_content,
+            "variables": self.variables,
+            "is_active": self.is_active,
+            "is_public": self.is_public,
+            "public_usage_count": self.public_usage_count,
+            "like_count": self.like_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserSourceSubscription(Base):
+    """
+    用户信息源订阅表
+
+    记录用户订阅的信息源（预设或自定义）
+    """
+    __tablename__ = "user_source_subscriptions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # 来源
+    source_type = Column(String(20), nullable=False)  # preset, custom
+    source_id = Column(Integer, nullable=False)  # preset_source.id 或 custom_source.id
+
+    # 自定义配置覆盖
+    custom_config = Column(Text, nullable=True)  # 覆盖默认配置
+
+    # 状态
+    enabled = Column(Boolean, default=True, nullable=False)
+    priority = Column(Integer, default=0, nullable=False)  # 显示顺序
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_subscription_user", "user_id"),
+        UniqueConstraint("user_id", "source_type", "source_id", name="uq_user_source_subscription"),
+    )
+
+    def __repr__(self):
+        return f"<UserSourceSubscription(user_id={self.user_id}, source_type='{self.source_type}', source_id={self.source_id})>"
+
+
+class MarketplaceCategory(Base):
+    """
+    预设广场分类表
+
+    信息源和 Prompt 的分类
+    """
+    __tablename__ = "marketplace_categories"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    name = Column(String(50), nullable=False)
+    type = Column(String(20), nullable=False)  # source, prompt
+    icon = Column(String(50), nullable=True)
+    description = Column(Text, nullable=True)
+    sort_order = Column(Integer, default=0, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 索引
+    __table_args__ = (
+        Index("idx_marketplace_category_type", "type"),
+    )
+
+    def __repr__(self):
+        return f"<MarketplaceCategory(name='{self.name}', type='{self.type}')>"
+
+
+class MarketplaceLike(Base):
+    """
+    预设广场点赞记录表
+
+    记录用户对广场内容的点赞
+    """
+    __tablename__ = "marketplace_likes"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    item_type = Column(String(20), nullable=False)  # source, prompt
+    item_id = Column(Integer, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_like_user", "user_id"),
+        Index("idx_like_item", "item_type", "item_id"),
+        UniqueConstraint("user_id", "item_type", "item_id", name="uq_user_like"),
+    )
+
+    def __repr__(self):
+        return f"<MarketplaceLike(user_id={self.user_id}, item_type='{self.item_type}', item_id={self.item_id})>"
+
+
+class MarketplaceFavorite(Base):
+    """
+    预设广场收藏记录表
+
+    记录用户对广场内容的收藏
+    """
+    __tablename__ = "marketplace_favorites"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    item_type = Column(String(20), nullable=False)  # source, prompt
+    item_id = Column(Integer, nullable=False)
+
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_favorite_user", "user_id"),
+        Index("idx_favorite_item", "item_type", "item_id"),
+        UniqueConstraint("user_id", "item_type", "item_id", name="uq_user_favorite"),
+    )
+
+    def __repr__(self):
+        return f"<MarketplaceFavorite(user_id={self.user_id}, item_type='{self.item_type}', item_id={self.item_id})>"

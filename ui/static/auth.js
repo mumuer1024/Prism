@@ -121,6 +121,9 @@ const AuthAPI = {
     const resp = await fetch('/api/user/profile', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
     return resp.json();
   },
 
@@ -164,6 +167,9 @@ const AuthAPI = {
     const resp = await fetch('/api/user/invite-stats', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
     return resp.json();
   },
 
@@ -177,6 +183,9 @@ const AuthAPI = {
       headers['Authorization'] = `Bearer ${token}`;
     }
     const resp = await fetch('/api/usage/balance', { headers });
+    if (!resp.ok) {
+      throw new Error(`HTTP ${resp.status}`);
+    }
     return resp.json();
   },
 
@@ -212,7 +221,7 @@ async function handleLogin(event) {
     
     if (result.success) {
       // Save auth data
-      AuthState.setAuth(result.data.token, result.data.user);
+      AuthState.setAuth(result.data.access_token, result.data.user);
       
       // Show success message
       showToast('登录成功', 'ok');
@@ -264,7 +273,7 @@ async function handleRegister(event) {
     
     if (result.success) {
       // Save auth data
-      AuthState.setAuth(result.data.token, result.data.user);
+      AuthState.setAuth(result.data.access_token, result.data.user);
       
       // Show success message
       showToast('注册成功', 'ok');
@@ -320,7 +329,7 @@ async function handleOAuthCallback(code, state) {
     const result = await AuthAPI.handleOAuthCallback(code, state);
     
     if (result.success) {
-      AuthState.setAuth(result.data.token, result.data.user);
+      AuthState.setAuth(result.data.access_token, result.data.user);
       return { success: true };
     } else {
       return { success: false, message: result.message || 'OAuth 认证失败' };
@@ -480,6 +489,13 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 });
 
+/**
+ * Logout user (global function)
+ */
+function logout() {
+  AuthState.logout();
+}
+
 // Export for global access
 window.AuthState = AuthState;
 window.AuthAPI = AuthAPI;
@@ -488,3 +504,4 @@ window.handleOAuthCallback = handleOAuthCallback;
 window.togglePasswordVisibility = togglePasswordVisibility;
 window.checkPasswordStrength = checkPasswordStrength;
 window.checkPasswordMatch = checkPasswordMatch;
+window.logout = logout;

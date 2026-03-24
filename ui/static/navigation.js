@@ -63,6 +63,9 @@ function loadTabData(tab) {
     case 'sources':
       loadSources();
       break;
+    case 'prompts':
+      loadPromptsPreview();
+      break;
     case 'reports':
       loadReports();
       break;
@@ -72,5 +75,67 @@ function loadTabData(tab) {
     default:
       // console tab doesn't need data loading
       break;
+  }
+}
+
+/**
+ * Load prompts preview for the prompts tab
+ * 加载 Prompt 预览
+ */
+async function loadPromptsPreview() {
+  const token = localStorage.getItem('token');
+  const headers = {
+    'Content-Type': 'application/json',
+  };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
+  // 加载预设模板
+  try {
+    const presetRes = await fetch('/api/prompts/preset', { headers });
+    const presetData = await presetRes.json();
+    
+    const presetContainer = document.getElementById('preset-prompts-list');
+    if (presetData.success && presetData.data.length > 0) {
+      presetContainer.innerHTML = presetData.data.slice(0, 5).map(p => `
+        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+          <div>
+            <div class="font-medium text-sm" style="color: var(--text);">${p.name}</div>
+            <div class="text-xs text-text-muted">${p.category}</div>
+          </div>
+          <span class="text-xs px-2 py-0.5 rounded ${p.is_free ? 'bg-success/10 text-success' : 'bg-warn/10 text-warn'}">${p.is_free ? '免费' : '付费'}</span>
+        </div>
+      `).join('');
+    } else {
+      presetContainer.innerHTML = '<div class="text-center py-4 text-text-muted text-sm">暂无预设模板</div>';
+    }
+  } catch (e) {
+    console.error('加载预设模板失败:', e);
+  }
+
+  // 加载我的模板
+  if (!token) {
+    return; // 未登录不加载
+  }
+
+  try {
+    const myRes = await fetch('/api/prompts/custom', { headers });
+    const myData = await myRes.json();
+    
+    const myContainer = document.getElementById('my-prompts-list');
+    if (myData.success && myData.data.length > 0) {
+      myContainer.innerHTML = myData.data.slice(0, 5).map(p => `
+        <div class="flex items-center justify-between p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+          <div>
+            <div class="font-medium text-sm" style="color: var(--text);">${p.name}</div>
+            <div class="text-xs text-text-muted">${p.category}</div>
+          </div>
+          <span class="text-xs ${p.is_active ? 'text-success' : 'text-text-muted'}">${p.is_active ? '启用' : '禁用'}</span>
+        </div>
+      `).join('');
+    }
+  } catch (e) {
+    console.error('加载我的模板失败:', e);
   }
 }

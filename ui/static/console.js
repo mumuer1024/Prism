@@ -139,8 +139,31 @@ function runScript(id) {
 
   setScriptState(id, 'running');
 
+  // 构建请求 URL，添加认证参数
+  let url = '/api/run/' + id;
+  const params = new URLSearchParams();
+  
+  // 添加 token（如果已登录）
+  const token = localStorage.getItem('prism_token');
+  if (token) {
+    params.append('token', token);
+  }
+  
+  // 添加 visitor_id（用于匿名用户）
+  let visitorId = localStorage.getItem('prism_visitor_id');
+  if (!visitorId) {
+    // 生成简单的设备指纹
+    visitorId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('prism_visitor_id', visitorId);
+  }
+  params.append('visitor_id', visitorId);
+  
+  if (params.toString()) {
+    url += '?' + params.toString();
+  }
+
   // Connect to event source
-  const es = new EventSource('/api/run/' + id);
+  const es = new EventSource(url);
 
   es.onmessage = (e) => {
     const line = e.data;
