@@ -53,6 +53,7 @@
       <button onclick="switchTab('console')" id="nav-console" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</button>
       <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</button>
       <button onclick="switchTab('sources')" id="nav-sources" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</button>
+      <button onclick="switchTab('marketplace')" id="nav-marketplace" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">广场</button>
       <button onclick="switchTab('config')" id="nav-config" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</button>
     </nav>
     <div class="flex items-center gap-2" id="header-right">
@@ -107,6 +108,7 @@
       <button onclick="switchTab('console'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</button>
       <button onclick="switchTab('reports'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</button>
       <button onclick="switchTab('sources'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</button>
+      <button onclick="switchTab('marketplace'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">🏪</span> 广场</button>
       <button onclick="switchTab('config'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</button>
     </nav>
   </div>
@@ -291,6 +293,45 @@
     </div>
 
 
+    <!-- Marketplace Panel -->
+    <div id="panel-marketplace" class="panel hidden h-full flex flex-col">
+      <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
+        <div>
+          <h2 class="font-semibold" style="color: var(--text);">预设广场</h2>
+          <p class="text-xs text-text-secondary" style="color: var(--text);">官方 Prompt 模板库，一键导入到配置</p>
+        </div>
+      </div>
+      <!-- Channel Tabs -->
+      <div class="border-b border-border flex-shrink-0 overflow-x-auto">
+        <div class="flex px-4 md:px-6 min-w-max">
+          <button onclick="switchMarketplaceChannel('mission')" id="marketplace-tab-mission" class="marketplace-tab active px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text); border-color: var(--accent);">
+            📊 情报日报
+          </button>
+          <button onclick="switchMarketplaceChannel('alpha')" id="marketplace-tab-alpha" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            ⛏️ Alpha雷达
+          </button>
+          <button onclick="switchMarketplaceChannel('bounty_v2ex')" id="marketplace-tab-bounty_v2ex" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            💰 赏金·V2EX
+          </button>
+          <button onclick="switchMarketplaceChannel('bounty_chrome')" id="marketplace-tab-bounty_chrome" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            🔌 赏金·Chrome
+          </button>
+          <button onclick="switchMarketplaceChannel('revenue')" id="marketplace-tab-revenue" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            🏗️ 营收分析
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 md:p-6">
+        <div id="marketplace-content" class="max-w-4xl mx-auto">
+          <!-- 模板内容将由 marketplace.js 动态加载 -->
+          <div class="flex items-center justify-center py-12 text-text-secondary">
+            <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            加载模板中...
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Config Panel -->
     <div id="panel-config" class="panel hidden h-full flex flex-col">
       <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
@@ -363,6 +404,7 @@
   <script src="/static/config.js"></script>
   <script src="/static/sources.js"></script>
   <script src="/static/prompt-config.js"></script>
+  <script src="/static/marketplace.js"></script>
   <script>
     // Initialize on load
     window.addEventListener('resize', () => {

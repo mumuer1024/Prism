@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from src.database.connection import get_db
 from src.database.crud import get_user_by_id
-from src.database.models import User
+from src.database.models import User, Admin
 from src.auth.utils.jwt_handler import verify_access_token
 from src.config import settings
 
@@ -206,14 +206,42 @@ async def get_user_with_usage(
 class RateLimiter:
     """
     简单的速率限制器
-    
+
     用于限制 API 调用频率
     """
-    
+
     def __init__(self, requests_per_minute: int = 10):
         self.requests_per_minute = requests_per_minute
         # TODO: 实现基于 Redis 的速率限制
-    
+
     async def __call__(self, current_user: User = Depends(get_current_user)):
         # 暂时不做限制
         return current_user
+
+
+async def get_current_admin(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> Admin:
+    """
+    获取当前管理员
+
+    Args:
+        current_user: 当前用户
+        db: 数据库会话
+
+    Returns:
+        Admin: 管理员对象
+
+    Raises:
+        HTTPException: 用户不是管理员
+    """
+    admin = db.query(Admin).filter(Admin.user_id == current_user.id).first()
+
+    if not admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+
+    return admin

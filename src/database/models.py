@@ -529,3 +529,58 @@ class UserSource(Base):
             "is_enabled": self.is_enabled,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
+
+
+class MarketplaceTemplate(Base):
+    """
+    预设广场模板表
+
+    存储官方维护的 Prompt 模板，供用户浏览和导入
+    """
+    __tablename__ = "marketplace_templates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    title = Column(String(255), nullable=False)
+    description = Column(Text, nullable=False)
+    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / bounty_chrome / alpha / revenue
+    prompt_content = Column(Text, nullable=False)
+    tags = Column(Text, nullable=True)  # JSON 数组，如 ["科技", "日报", "中文"]
+    is_official = Column(Boolean, default=True, nullable=False)
+    is_published = Column(Boolean, default=True, nullable=False)
+    import_count = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 索引
+    __table_args__ = (
+        Index("idx_template_tool_type", "tool_type"),
+        Index("idx_template_published", "is_published"),
+        Index("idx_template_official", "is_official"),
+    )
+
+    def __repr__(self):
+        return f"<MarketplaceTemplate(id={self.id}, title='{self.title}', tool_type='{self.tool_type}')>"
+
+    def to_dict(self):
+        """转换为字典"""
+        import json
+        tags = []
+        if self.tags:
+            try:
+                tags = json.loads(self.tags)
+            except (json.JSONDecodeError, TypeError):
+                tags = []
+
+        return {
+            "id": self.id,
+            "title": self.title,
+            "description": self.description,
+            "tool_type": self.tool_type,
+            "prompt_content": self.prompt_content,
+            "tags": tags,
+            "is_official": self.is_official,
+            "is_published": self.is_published,
+            "import_count": self.import_count,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }

@@ -121,6 +121,26 @@ except ImportError as e:
     logger.warning(f"用户配置路由注册失败: {e}")
 
 
+# ── Register Marketplace Router ───────────────────────────────
+
+try:
+    from src.marketplace.router import router as marketplace_router
+    app.include_router(marketplace_router, prefix="/api/marketplace", tags=["预设广场"])
+    logger.info("预设广场路由注册成功")
+except ImportError as e:
+    logger.warning(f"预设广场路由注册失败: {e}")
+
+
+# ── Register Admin Router ───────────────────────────────
+
+try:
+    from src.admin.router import router as admin_router
+    app.include_router(admin_router, prefix="/api/admin", tags=["管理员"])
+    logger.info("管理员路由注册成功")
+except ImportError as e:
+    logger.warning(f"管理员路由注册失败: {e}")
+
+
 SCRIPTS = {
     "mission": "run_mission.py",
     "bounty": "run_bounty_hunter.py",

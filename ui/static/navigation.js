@@ -69,6 +69,11 @@ function loadTabData(tab) {
     case 'config':
       loadConfig();
       break;
+    case 'marketplace':
+      if (typeof initMarketplace === 'function') {
+        initMarketplace();
+      }
+      break;
     default:
       // console tab doesn't need data loading
       break;
