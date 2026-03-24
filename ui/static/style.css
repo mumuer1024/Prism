@@ -1,33 +1,41 @@
 /* Intel Briefing - Modern UI Styles */
 
 :root {
-  /* Light Theme (Default) */
-  --bg: #f8fafc;
-  --bg-secondary: #ffffff;
-  --bg-tertiary: #f1f5f9;
-  --border: #e2e8f0;
-  --accent: #7c5cfc;
-  --success: #00d4aa;
-  --error: #ff6b6b;
-  --warn: #ffaa44;
-  --text: #1e293b;
-  --text-secondary: #64748b;
-  --text-muted: #94a3b8;
+  /* 浅色方案 - 象牙暖米系 */
+  --bg: #FDFAF4;
+  --bg-secondary: #F3EAD5;
+  --bg-tertiary: #E7D0A9;
+  --border: rgba(90, 65, 30, 0.10);
+  --border-strong: rgba(90, 65, 30, 0.18);
+  --accent: #F0C06D;
+  --accent-text: #6B3D00;
+  --accent-bg: rgba(240, 192, 109, 0.12);
+  --accent-bg-strong: rgba(240, 192, 109, 0.22);
+  --success: #3D9E6A;
+  --error: #C0392B;
+  --warn: #B8730A;
+  --text: #3E2E1B;
+  --text-secondary: #6B4E2E;
+  --text-muted: #A8896A;
 }
 
-/* Dark Theme */
 .dark {
-  --bg: #0a0a0f;
-  --bg-secondary: #141420;
-  --bg-tertiary: #1e1e2e;
-  --border: #3a3a5a;
-  --accent: #7c5cfc;
-  --success: #00d4aa;
-  --error: #ff6b6b;
-  --warn: #ffaa44;
-  --text: #f0f0f5;
-  --text-secondary: #a0a0c0;
-  --text-muted: #6a6a8a;
+  /* 深色方案 - 炭棕蜂蜜系 */
+  --bg: #1C1A16;
+  --bg-secondary: #252118;
+  --bg-tertiary: #352D1E;
+  --border: rgba(240, 192, 109, 0.08);
+  --border-strong: rgba(240, 192, 109, 0.16);
+  --accent: #F0C06D;
+  --accent-text: #3E2E1B;
+  --accent-bg: rgba(240, 192, 109, 0.10);
+  --accent-bg-strong: rgba(240, 192, 109, 0.18);
+  --success: #4CAF7D;
+  --error: #E05C5C;
+  --warn: #F0C06D;
+  --text: #F0E8D4;
+  --text-secondary: #C8A87A;
+  --text-muted: #7A6448;
 }
 
 /* Smooth theme transition */
@@ -71,7 +79,7 @@ body {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3a3a4a; }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
 
 /* Markdown */
 .md h1 { font-size: 1.5rem; font-weight: 700; margin-bottom: 1rem; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; }
@@ -89,7 +97,7 @@ body {
 .md tr:hover td { background: rgba(255,255,255,0.02); }
 .md a { color: var(--accent); text-decoration: none; }
 .md a:hover { text-decoration: underline; }
-.md blockquote { border-left: 3px solid var(--accent); padding: 0.5rem 1rem; background: rgba(124,92,252,0.06); margin-bottom: 0.75rem; border-radius: 0 0.375rem 0.375rem 0; }
+.md blockquote { border-left: 3px solid var(--accent); padding: 0.5rem 1rem; background: var(--accent-bg); margin-bottom: 0.75rem; border-radius: 0 0.375rem 0.375rem 0; }
 .md hr { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
 
 /* Toggle Switch */
@@ -100,18 +108,18 @@ body {
 
 /* Card Hover */
 .card-hover { transition: all 0.2s ease; }
-.card-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,92,252,0.15); }
+.card-hover:hover { transform: translateY(-1px); box-shadow: 0 4px 20px var(--accent-bg-strong); }
 
 /* Log Animation */
 .log-line { animation: fadeIn 0.15s ease-out; }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* Navigation */
-.nav-btn.active { color: var(--accent) !important; background: rgba(124,92,252,0.1) !important; }
+.nav-btn.active { color: var(--accent) !important; background: var(--accent-bg) !important; }
 
 /* Glass Effect */
 .glass { background: rgba(255,255,255,0.8); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.dark .glass { background: rgba(17,17,24,0.8); }
+.dark .glass { background: rgba(28, 26, 22, 0.8); }
 
 /* Additional fixes for dark mode backgrounds */
 .dark .bg-bg { background: var(--bg); }
@@ -207,7 +215,7 @@ body {
 .config-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124,92,252,0.1);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
 .model-row {
@@ -230,8 +238,8 @@ body {
 }
 
 .config-btn-primary {
-  background: rgba(124,92,252,0.1);
-  border-color: rgba(124,92,252,0.3);
+  background: var(--accent-bg);
+  border-color: var(--border-strong);
   color: var(--accent);
 }
 .config-btn-primary:hover {
@@ -240,8 +248,8 @@ body {
 }
 
 .config-btn-success {
-  background: rgba(0,212,170,0.1);
-  border-color: rgba(0,212,170,0.3);
+  background: rgba(61, 158, 106, 0.1);
+  border-color: rgba(61, 158, 106, 0.3);
   color: var(--success);
 }
 .config-btn-success:hover {
@@ -274,7 +282,7 @@ body {
 }
 .source-card:hover {
   border-color: var(--accent);
-  box-shadow: 0 4px 12px rgba(124,92,252,0.08);
+  box-shadow: 0 4px 12px var(--accent-bg);
 }
 
 .source-icon {
@@ -312,7 +320,7 @@ body {
   font-size: 11px;
   padding: 4px 8px;
   border-radius: 6px;
-  background: rgba(255,170,68,0.1);
+  background: rgba(184, 115, 10, 0.1);
   color: var(--warn);
   margin-top: 6px;
 }
@@ -376,8 +384,8 @@ body {
 }
 
 .report-item.selected {
-  background: rgba(124,92,252,0.1);
-  border: 1px solid rgba(124,92,252,0.3);
+  background: var(--accent-bg);
+  border: 1px solid var(--border-strong);
 }
 
 /* Fix for report list titles in light mode */
@@ -519,7 +527,7 @@ body {
 
 .footer-link:hover {
   color: var(--accent);
-  background: rgba(124, 92, 252, 0.1);
+  background: var(--accent-bg);
 }
 
 .footer-separator {
@@ -532,12 +540,12 @@ body {
     height: auto;
     padding: 12px 16px;
   }
-  
+
   .footer-content {
     flex-direction: column;
     gap: 8px;
   }
-  
+
   .footer-left, .footer-right {
     justify-content: center;
   }
@@ -752,7 +760,7 @@ body {
 .auth-input:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 92, 252, 0.1);
+  box-shadow: 0 0 0 3px var(--accent-bg);
 }
 
 .auth-input::placeholder {
@@ -780,7 +788,7 @@ body {
 }
 
 .auth-btn-primary {
-  background: linear-gradient(135deg, #7c5cfc, #00d4aa);
+  background: var(--accent);
   color: white;
 }
 
@@ -797,7 +805,7 @@ body {
 
 .auth-btn-oauth:hover {
   border-color: var(--accent);
-  background: rgba(124, 92, 252, 0.1);
+  background: var(--accent-bg);
 }
 
 /* ===== User Menu Dropdown ===== */
@@ -863,17 +871,17 @@ body {
 }
 
 .usage-badge.free {
-  background: rgba(0, 212, 170, 0.1);
+  background: rgba(61, 158, 106, 0.1);
   color: var(--success);
 }
 
 .usage-badge.paid {
-  background: rgba(124, 92, 252, 0.1);
+  background: var(--accent-bg);
   color: var(--accent);
 }
 
 .usage-badge.limited {
-  background: rgba(255, 170, 68, 0.1);
+  background: rgba(184, 115, 10, 0.1);
   color: var(--warn);
 }
 

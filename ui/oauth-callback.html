@@ -12,17 +12,22 @@
         extend: {
           colors: {
             bg: {
-              DEFAULT: '#f8fafc',
-              secondary: '#ffffff',
-              tertiary: '#f1f5f9',
-              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+              DEFAULT: '#FDFAF4',
+              secondary: '#F3EAD5',
+              tertiary: '#E7D0A9',
+              dark: { DEFAULT: '#1C1A16', secondary: '#252118', tertiary: '#352D1E' }
             },
-            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
-            success: '#00d4aa',
-            error: '#ff6b6b',
-            warn: '#ffaa44',
-            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
-            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+            accent: { DEFAULT: '#F0C06D', light: '#F5CC85', dark: '#D4A84E', text: '#6B3D00' },
+            success: '#3D9E6A',
+            error: '#C0392B',
+            warn: '#B8730A',
+            border: { DEFAULT: 'var(--border)', light: 'rgba(90,65,30,0.10)', dark: 'var(--border)' },
+            text: {
+              DEFAULT: '#3E2E1B',
+              secondary: '#6B4E2E',
+              muted: '#A8896A',
+              dark: { DEFAULT: '#F0E8D4', secondary: '#C8A87A', muted: '#7A6448' }
+            }
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -42,7 +47,7 @@
     <div class="auth-card text-center">
       <!-- Loading State -->
       <div id="loading-state">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6 shadow-lg" style="background: var(--accent);">
           🕵️
         </div>
         <div class="flex items-center justify-center gap-3 mb-4">
@@ -57,7 +62,7 @@
 
       <!-- Error State -->
       <div id="error-state" class="hidden">
-        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6" style="background: rgba(255,107,107,0.1);">
+        <div class="w-16 h-16 rounded-2xl flex items-center justify-center text-3xl mx-auto mb-6" style="background: rgba(192, 57, 43, 0.1);">
           ❌
         </div>
         <h2 class="text-lg font-medium mb-2" style="color: var(--text);">登录失败</h2>
@@ -82,27 +87,27 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       initTheme();
-      
+
       // Parse OAuth callback
       const urlParams = new URLSearchParams(window.location.search);
       const code = urlParams.get('code');
       const state = urlParams.get('state');
       const error = urlParams.get('error');
-      
+
       if (error) {
         showError('OAuth 授权被拒绝');
         return;
       }
-      
+
       if (!code) {
         showError('无效的回调参数');
         return;
       }
-      
+
       try {
         // Handle OAuth callback
         const result = await handleOAuthCallback(code, state);
-        
+
         if (result.success) {
           // Redirect to home
           window.location.href = '/';
@@ -113,7 +118,7 @@
         showError(err.message || '网络错误，请重试');
       }
     });
-    
+
     function showError(message) {
       document.getElementById('loading-state').classList.add('hidden');
       document.getElementById('error-state').classList.remove('hidden');

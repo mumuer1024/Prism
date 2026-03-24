@@ -12,17 +12,22 @@
         extend: {
           colors: {
             bg: {
-              DEFAULT: '#f8fafc',
-              secondary: '#ffffff',
-              tertiary: '#f1f5f9',
-              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+              DEFAULT: '#FDFAF4',
+              secondary: '#F3EAD5',
+              tertiary: '#E7D0A9',
+              dark: { DEFAULT: '#1C1A16', secondary: '#252118', tertiary: '#352D1E' }
             },
-            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
-            success: '#00d4aa',
-            error: '#ff6b6b',
-            warn: '#ffaa44',
-            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
-            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+            accent: { DEFAULT: '#F0C06D', light: '#F5CC85', dark: '#D4A84E', text: '#6B3D00' },
+            success: '#3D9E6A',
+            error: '#C0392B',
+            warn: '#B8730A',
+            border: { DEFAULT: 'var(--border)', light: 'rgba(90,65,30,0.10)', dark: 'var(--border)' },
+            text: {
+              DEFAULT: '#3E2E1B',
+              secondary: '#6B4E2E',
+              muted: '#A8896A',
+              dark: { DEFAULT: '#F0E8D4', secondary: '#C8A87A', muted: '#7A6448' }
+            }
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -41,7 +46,7 @@
   <header class="glass border-b border-border h-14 md:h-16 flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-50">
     <div class="flex items-center gap-3">
       <a href="/" class="flex items-center gap-3 hover:opacity-80 transition-opacity">
-        <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">🕵️</div>
+        <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: var(--accent);">🕵️</div>
         <span class="font-bold text-base md:text-lg tracking-wide hidden sm:block" style="color: var(--text);">Prism</span>
       </a>
     </div>
@@ -97,7 +102,7 @@
           </div>
           <div class="p-6">
             <div class="flex items-center gap-4 mb-6">
-              <div id="user-avatar" class="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">
+              <div id="user-avatar" class="w-16 h-16 rounded-xl flex items-center justify-center text-2xl font-bold text-white" style="background: var(--accent);">
                 U
               </div>
               <div>
@@ -142,7 +147,7 @@
                 <p id="user-type" class="text-2xl font-bold" style="color: var(--text);">免费用户</p>
               </div>
             </div>
-            
+
             <!-- Redeem Code -->
             <div class="p-4 rounded-xl border border-border">
               <label class="block text-sm font-medium mb-2" style="color: var(--text-secondary);">🎫 激活码充值</label>
@@ -179,7 +184,7 @@
                 <p id="invite-reward" class="text-2xl font-bold text-success">0 次</p>
               </div>
             </div>
-            
+
             <!-- Invite Records -->
             <div>
               <h3 class="text-sm font-medium mb-3" style="color: var(--text-secondary);">邀请记录</h3>
@@ -243,13 +248,13 @@
   <script>
     document.addEventListener('DOMContentLoaded', async () => {
       initTheme();
-      
+
       // Check auth
       if (!AuthState.isLoggedIn()) {
         window.location.href = '/login';
         return;
       }
-      
+
       // Load account data
       await loadAccountData();
     });
