@@ -413,3 +413,211 @@ def get_user_config_summary(user_id: int) -> Dict[str, Any]:
             "enabled": sum(1 for s in sources if s.get("is_enabled")),
         },
     }
+
+
+# ============================================================================
+# DailyHotApi 分类配置相关函数
+# ============================================================================
+
+# 默认启用的分类
+DEFAULT_DAILYHOT_CATEGORIES = ["tech", "dev"]
+
+
+def get_user_dailyhot_categories(user_id: int) -> List[str]:
+    """
+    获取用户启用的 DailyHotApi 分类列表
+
+    Args:
+        user_id: 用户 ID
+
+    Returns:
+        启用的分类列表，如 ["tech", "dev"]。无配置时返回默认值。
+    """
+    from src.database.models import DailyHotCategoryConfig
+
+    try:
+        with get_db_context() as db:
+            configs = db.query(DailyHotCategoryConfig).filter(
+                DailyHotCategoryConfig.user_id == user_id,
+                DailyHotCategoryConfig.is_enabled == True,
+            ).all()
+
+            if configs:
+                categories = [c.category for c in configs]
+                logger.debug(f"用户 DailyHot 分类配置: user_id={user_id}, categories={categories}")
+                return categories
+
+            # 无配置时返回默认值
+            logger.debug(f"用户无 DailyHot 分类配置，使用默认值: user_id={user_id}")
+            return DEFAULT_DAILYHOT_CATEGORIES.copy()
+
+    except Exception as e:
+        logger.error(f"获取用户 DailyHot 分类配置失败: {e}")
+        return DEFAULT_DAILYHOT_CATEGORIES.copy()
+
+
+def get_user_dailyhot_categories_detail(user_id: int) -> List[Dict[str, Any]]:
+    """
+    获取用户 DailyHotApi 分类配置详情（包含启用状态）
+
+    Args:
+        user_id: 用户 ID
+
+    Returns:
+        分类配置列表，每项包含 category 和 is_enabled
+    """
+    from src.database.models import DailyHotCategoryConfig
+
+    try:
+        with get_db_context() as db:
+            configs = db.query(DailyHotCategoryConfig).filter(
+                DailyHotCategoryConfig.user_id == user_id,
+            ).all()
+
+            # 如果没有任何配置，返回默认值
+            if not configs:
+                return [
+                    {"category": "tech", "is_enabled": True},
+                    {"category": "dev", "is_enabled": True},
+                    {"category": "news", "is_enabled": False},
+                    {"category": "entertainment", "is_enabled": False},
+                ]
+
+            # 转换为字典方便查询
+            config_map = {c.category: c.is_enabled for c in configs}
+
+            # 返回所有分类的状态
+            all_categories = ["tech", "dev", "news", "entertainment"]
+            result = []
+            for cat in all_categories:
+                result.append({
+                    "category": cat,
+                    "is_enabled": config_map.get(cat, False),
+                })
+
+            return result
+
+    except Exception as e:
+        logger.error(f"获取用户 DailyHot 分类详情失败: {e}")
+        # 返回默认配置
+        return [
+            {"category": "tech", "is_enabled": True},
+            {"category": "dev", "is_enabled": True},
+            {"category": "news", "is_enabled": False},
+            {"category": "entertainment", "is_enabled": False},
+        ]
+
+
+def update_user_dailyhot_categories(
+    user_id: int,
+    categories: List[str],
+) -> bool:
+    """
+    更新用户的 DailyHotApi 分类启用状态
+
+    Args:
+        user_id: 用户 ID
+        categories: 要启用的分类列表，如 ["tech", "dev", "news"]
+
+    Returns:
+        是否更新成功
+    """
+    from src.database.models import DailyHotCategoryConfig
+
+    # 验证分类有效性
+    valid_categories = ["tech", "dev", "news", "entertainment"]
+    for cat in categories:
+        if cat not in valid_categories:
+            logger.warning(f"无效的分类: {cat}")
+            return False
+
+    # 至少保留一个分类
+    if not categories:
+        logger.warning("至少需要启用一个分类")
+        return False
+
+    try:
+        with get_db_context() as db:
+            # 获取现有配置
+            existing_configs = db.query(DailyHotCategoryConfig).filter(
+                DailyHotCategoryConfig.user_id == user_id,
+            ).all()
+
+            existing_map = {c.category: c for c in existing_configs}
+
+            # 更新或创建配置
+            for cat in valid_categories:
+                is_enabled = cat in categories
+
+                if cat in existing_map:
+                    # 更新现有记录
+                    existing_map[cat].is_enabled = is_enabled
+                else:
+                    # 创建新记录
+                    new_config = DailyHotCategoryConfig(
+                        user_id=user_id,
+                        category=cat,
+                        is_enabled=is_enabled,
+                    )
+                    db.add(new_config)
+
+            db.commit()
+            logger.info(f"更新用户 DailyHot 分类配置: user_id={user_id}, enabled={categories}")
+            return True
+
+    except Exception as e:
+        logger.error(f"更新用户 DailyHot 分类配置失败: {e}")
+        return False
+
+
+def init_user_dailyhot_categories(user_id: int) -> bool:
+    """
+    初始化用户的 DailyHotApi 分类配置（新用户调用）
+
+    默认启用 tech 和 dev 分类
+
+    Args:
+        user_id: 用户 ID
+
+    Returns:
+        是否初始化成功
+    """
+    from src.database.models import DailyHotCategoryConfig
+
+    try:
+        with get_db_context() as db:
+            # 检查是否已有配置
+            existing = db.query(DailyHotCategoryConfig).filter(
+                DailyHotCategoryConfig.user_id == user_id,
+            ).first()
+
+            if existing:
+                logger.debug(f"用户已有 DailyHot 分类配置，跳过初始化: user_id={user_id}")
+                return True
+
+            # 创建默认配置
+            for cat in DEFAULT_DAILYHOT_CATEGORIES:
+                config = DailyHotCategoryConfig(
+                    user_id=user_id,
+                    category=cat,
+                    is_enabled=True,
+                )
+                db.add(config)
+
+            # 为其他分类创建禁用记录
+            for cat in ["news", "entertainment"]:
+                if cat not in DEFAULT_DAILYHOT_CATEGORIES:
+                    config = DailyHotCategoryConfig(
+                        user_id=user_id,
+                        category=cat,
+                        is_enabled=False,
+                    )
+                    db.add(config)
+
+            db.commit()
+            logger.info(f"初始化用户 DailyHot 分类配置: user_id={user_id}")
+            return True
+
+    except Exception as e:
+        logger.error(f"初始化用户 DailyHot 分类配置失败: {e}")
+        return False

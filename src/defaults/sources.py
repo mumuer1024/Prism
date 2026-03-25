@@ -112,17 +112,6 @@ DEFAULT_SOURCES = [
         "is_official": True,
     },
     {
-        "key": "xhs",
-        "name": "小红书",
-        "icon": "📕",
-        "desc": "小红书热门话题与趋势",
-        "source_type": "webpage",
-        "tool_type": "mission",
-        "url": "https://www.xiaohongshu.com",
-        "requires_key": None,
-        "is_official": True,
-    },
-    {
         "key": "tavily",
         "name": "Tavily 搜索",
         "icon": "🔍",

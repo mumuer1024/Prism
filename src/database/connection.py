@@ -118,6 +118,7 @@ def init_database():
         UserPrompt,
         UserSource,
         MarketplaceTemplate,
+        DailyHotCategoryConfig,
     )
 
     # 创建所有表
@@ -177,6 +178,17 @@ def _run_migrations():
             db.add(version_record)
             db.commit()
             logger.info("数据库迁移: 版本 3 已应用")
+
+        if current_version < 4:
+            # 版本 4: 新增 DailyHotApi 分类配置表 + user_sources 字段扩展
+            # 表和字段已在 create_all 中创建，只需记录版本
+            version_record = SchemaVersion(
+                version=4,
+                description="新增 DailyHotApi 分类配置表：dailyhot_category_config，user_sources 新增 is_preset/category 字段"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 4 已应用")
 
     except Exception as e:
         logger.error(f"数据库迁移失败: {e}")

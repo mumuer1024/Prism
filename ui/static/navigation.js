@@ -74,6 +74,12 @@ function loadTabData(tab) {
         initMarketplace();
       }
       break;
+    case 'console':
+      // Initialize user panel when switching to console tab
+      if (typeof initUserPanel === 'function') {
+        initUserPanel();
+      }
+      break;
     default:
       // console tab doesn't need data loading
       break;

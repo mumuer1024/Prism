@@ -50,7 +50,7 @@ def generate_report(intel: dict, date_str: str) -> str:
         f"# 🌐 全球情报日报 (Global Intel Briefing)",
         f"**日期:** {date_str}",
         f"**生成时间:** {datetime.now().strftime('%H:%M')}",
-        f"**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X, XHS",
+        f"**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X, XHS, DailyHot",
         "",
         "---",
         ""
@@ -214,6 +214,41 @@ def generate_report(intel: dict, date_str: str) -> str:
             lines.append("")
     else:
         lines.append("*XHS 传感器不可用*\n")
+
+    # --- DailyHot 热榜速递 ---
+    lines.append("## 🔥 热榜速递 (Hot News)")
+    lines.append("> DailyHotApi 聚合热榜\n")
+
+    if intel.get("dailyhot"):
+        # 按来源分组
+        source_groups = {}
+        for item in intel["dailyhot"]:
+            source = item.get("source", "未知")
+            if source not in source_groups:
+                source_groups[source] = []
+            source_groups[source].append(item)
+
+        # 每个来源显示前3条
+        for source, items in source_groups.items():
+            lines.append(f"### 📰 {source}")
+            for item in items[:3]:
+                title = item.get("title", "Untitled")
+                url = item.get("url", "#")
+                hot = item.get("hot", 0)
+                
+                # 格式化热度
+                if hot >= 100000000:
+                    hot_str = f"{hot/100000000:.1f}亿"
+                elif hot >= 10000:
+                    hot_str = f"{hot/10000:.0f}万"
+                else:
+                    hot_str = str(hot) if hot > 0 else ""
+                
+                hot_display = f" 🔥{hot_str}" if hot_str else ""
+                lines.append(f"- [{title}]({url}){hot_display}")
+            lines.append("")
+    else:
+        lines.append("*暂无热榜数据 (DailyHotApi 不可用或未配置)*\n")
 
     # --- Insights (HN Top Blogs) ---
     lines.append("## 💡 深度洞察 (Insights)")

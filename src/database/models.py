@@ -502,6 +502,8 @@ class UserSource(Base):
     source_type = Column(String(20), nullable=False)  # rss / webpage
     tool_type = Column(String(50), nullable=False)  # mission / alpha / bounty
     is_enabled = Column(Boolean, default=True, nullable=False)
+    is_preset = Column(Boolean, default=False, nullable=False)  # 是否预设数据源
+    category = Column(String(50), nullable=True)  # 所属分类（用于 DailyHotApi 等）
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # 关系
@@ -527,6 +529,8 @@ class UserSource(Base):
             "source_type": self.source_type,
             "tool_type": self.tool_type,
             "is_enabled": self.is_enabled,
+            "is_preset": self.is_preset,
+            "category": self.category,
             "created_at": self.created_at.isoformat() if self.created_at else None,
         }
 
@@ -583,4 +587,41 @@ class MarketplaceTemplate(Base):
             "import_count": self.import_count,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class DailyHotCategoryConfig(Base):
+    """
+    DailyHotApi 分类标签配置表
+
+    存储用户启用的热榜分类配置
+    """
+    __tablename__ = "dailyhot_category_config"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    category = Column(String(50), nullable=False)  # tech / dev / news / entertainment
+    is_enabled = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引和约束
+    __table_args__ = (
+        Index("idx_dailyhot_user", "user_id"),
+        UniqueConstraint("user_id", "category", name="uq_dailyhot_user_category"),
+    )
+
+    def __repr__(self):
+        return f"<DailyHotCategoryConfig(user_id={self.user_id}, category='{self.category}', enabled={self.is_enabled})>"
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "category": self.category,
+            "is_enabled": self.is_enabled,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
         }

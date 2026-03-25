@@ -32,6 +32,9 @@ def setup_logging(level: str = "INFO", log_file: str = None):
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 PRODUCTHUNT_TOKEN = os.getenv("PRODUCTHUNT_TOKEN")
 
+# --- DailyHotApi 热榜数据源 ---
+DAILYHOT_API_URL = os.getenv("DAILYHOT_API_URL", "https://dailyhot.prismins.site")
+
 # --- XAI / X/Twitter 搜索端点（仅用于 Grok 访问 X 实时数据）---
 # 注意：XAI_API_KEY 仅用于 x_grok_sensor.py（X/Twitter 搜索）
 # 因为只有 Grok 能访问 X 实时数据，必须使用 xAI 官方 API
@@ -194,44 +197,44 @@ try:
 
     class Settings(BaseSettings):
         """应用配置类"""
-        
+
         # 基础配置
         APP_NAME: str = "Prism"
         APP_VERSION: str = "2.0.0"
         DEBUG: bool = False
-        
+
         # JWT 配置
         JWT_SECRET_KEY: str = "prism-secret-key-change-in-production"
         JWT_ALGORITHM: str = "HS256"
         ACCESS_TOKEN_EXPIRE_MINUTES: int = 120
         REFRESH_TOKEN_EXPIRE_DAYS: int = 7
-        
+
         # 验证码配置
         VERIFY_CODE_LENGTH: int = 6
         VERIFY_CODE_EXPIRE_MINUTES: int = 5
         VERIFY_CODE_RESEND_SECONDS: int = 60
-        
+
         # 邮件配置（自建 SMTP）
         SMTP_HOST: str = ""
         SMTP_PORT: int = 587
         SMTP_USER: str = ""
         SMTP_PASSWORD: str = ""
         EMAIL_FROM: str = ""
-        
+
         # 腾讯云邮件配置
         TENCENT_SECRET_ID: str = ""
         TENCENT_SECRET_KEY: str = ""
-        
+
         # GitHub OAuth
         GITHUB_CLIENT_ID: str = ""
         GITHUB_CLIENT_SECRET: str = ""
         GITHUB_REDIRECT_URI: str = "http://localhost:8000/api/auth/github/callback"
-        
+
         # 微信 OAuth
         WECHAT_APP_ID: str = ""
         WECHAT_APP_SECRET: str = ""
         WECHAT_REDIRECT_URI: str = "http://localhost:8000/api/auth/wechat/callback"
-        
+
         # 免费用户配置
         FREE_DAILY_LIMIT: int = 3
         FREE_SOURCES: Union[str, List[str]] = "hacker_news,product_hunt,github_trending,36kr"
@@ -240,22 +243,25 @@ try:
         # 缓存配置
         FREE_CACHE_HOURS: int = 6
         PREMIUM_CACHE_HOURS: int = 1
-        
+
         # 邀请返利配置
         INVITE_BONUS_COUNT: int = 3
         INVITEE_BONUS_COUNT: int = 3
-        
+
         # 兑换码配置
         REDEMPTION_CODE_PREFIX: str = "PRISM-"
         REDEMPTION_CODE_LENGTH: int = 8
-        
+
         # 邀请码配置
         INVITE_CODE_PREFIX: str = "PRISM-"
         INVITE_CODE_LENGTH: int = 8
-        
+
         # 数据库配置
         DATABASE_URL: str = "sqlite:///./data/prism.db"
-        
+
+        # 数据源配置
+        DAILYHOT_API_URL: str = "https://dailyhot.prismins.site"
+
         # 功能开关
         FEATURE_USER_SYSTEM: bool = True
         FEATURE_OAUTH_GITHUB: bool = True
@@ -263,7 +269,7 @@ try:
         FEATURE_INVITE_SYSTEM: bool = True
         FEATURE_FREE_TIER: bool = True
         FEATURE_REDEMPTION_CODE: bool = True
-        
+
         @field_validator('FREE_SOURCES', 'FREE_TOOLS', mode='before')
         @classmethod
         def parse_list_field(cls, v):
@@ -273,7 +279,7 @@ try:
             if isinstance(v, list):
                 return v
             return []
-        
+
         model_config = {
             "env_file": ".env",
             "env_file_encoding": "utf-8",
@@ -289,9 +295,9 @@ except ImportError:
     class Settings:
         """简单配置类（无验证）"""
         pass
-    
+
     settings = Settings()
-    
+
     # 将所有配置变量复制到 settings 对象
     for name, value in list(globals().items()):
         if name.isupper() and not name.startswith('_'):

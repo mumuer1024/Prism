@@ -26,6 +26,9 @@ from src.config_loader import (
     update_user_source,
     delete_user_source,
     toggle_user_source,
+    get_user_dailyhot_categories,
+    get_user_dailyhot_categories_detail,
+    update_user_dailyhot_categories,
 )
 from src.defaults import (
     get_default_prompt,
@@ -380,3 +383,96 @@ async def toggle_source(
 
     status_text = "已启用" if request.enabled else "已禁用"
     return MessageResponse(message=f"数据源{status_text}")
+
+
+# ============================================================================
+# DailyHotApi 分类配置 API
+# ============================================================================
+
+class DailyHotCategoryItem(BaseModel):
+    """分类配置项"""
+    category: str
+    is_enabled: bool
+
+
+class DailyHotCategoriesResponse(BaseModel):
+    """分类配置响应"""
+    enabled: List[str]
+    available: List[dict]
+
+
+class DailyHotCategoriesUpdateRequest(BaseModel):
+    """分类更新请求"""
+    categories: List[str] = Field(..., min_length=1, description="要启用的分类列表")
+
+
+@router.get(
+    "/dailyhot/categories",
+    response_model=DailyHotCategoriesResponse,
+    summary="获取 DailyHotApi 分类配置",
+    description="获取当前用户的 DailyHotApi 分类配置及可用分类列表",
+)
+async def get_dailyhot_categories(
+    current_user: User = Depends(get_current_user),
+):
+    """获取 DailyHotApi 分类配置"""
+    # 获取用户启用的分类
+    enabled = get_user_dailyhot_categories(current_user.id)
+
+    # 获取分类映射
+    from src.sensors.dailyhot_sensor import CATEGORY_MAP
+
+    available = []
+    for key, data in CATEGORY_MAP.items():
+        available.append({
+            "key": key,
+            "label": data["label"],
+            "platforms": [p["name"] for p in data["platforms"]],
+        })
+
+    return DailyHotCategoriesResponse(
+        enabled=enabled,
+        available=available,
+    )
+
+
+@router.put(
+    "/dailyhot/categories",
+    response_model=MessageResponse,
+    summary="更新 DailyHotApi 分类配置",
+    description="更新当前用户的 DailyHotApi 分类启用状态",
+)
+async def update_dailyhot_categories(
+    request: DailyHotCategoriesUpdateRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """更新 DailyHotApi 分类配置"""
+    success = update_user_dailyhot_categories(current_user.id, request.categories)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="更新分类配置失败，请确保至少选择一个有效分类"
+        )
+
+    return MessageResponse(message=f"分类配置已更新: {', '.join(request.categories)}")
+
+
+@router.get(
+    "/dailyhot/category-map",
+    summary="获取分类映射",
+    description="获取所有分类与子平台的映射关系（公开接口，无需登录）",
+)
+async def get_dailyhot_category_map():
+    """获取分类映射（公开接口）"""
+    from src.sensors.dailyhot_sensor import CATEGORY_MAP
+
+    result = []
+    for key, data in CATEGORY_MAP.items():
+        result.append({
+            "key": key,
+            "label": data["label"],
+            "platforms": data["platforms"],
+        })
+
+    return {"categories": result}

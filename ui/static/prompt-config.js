@@ -30,14 +30,14 @@ async function loadPromptConfigs() {
   const container = document.getElementById('prompt-config-content');
   if (!container) return;
 
-  // 检查登录状态
-  const token = localStorage.getItem('access_token');
+  // 检查登录状态（使用 AuthState 统一管理）
+  const token = AuthState.getToken();
   if (!token) {
     container.innerHTML = `
       <div class="prompt-login-notice">
         <div class="notice-icon">🔐</div>
         <div class="notice-text">请先登录以配置自定义 Prompt</div>
-        <a href="/login" class="notice-btn">去登录</a>
+        <a href="/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}" class="notice-btn">去登录</a>
       </div>
     `;
     return;
@@ -53,7 +53,7 @@ async function loadPromptConfigs() {
         <div class="prompt-login-notice">
           <div class="notice-icon">🔐</div>
           <div class="notice-text">登录已过期，请重新登录</div>
-          <a href="/login" class="notice-btn">去登录</a>
+          <a href="/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}" class="notice-btn">去登录</a>
         </div>
       `;
       return;
@@ -195,7 +195,7 @@ async function savePrompt(toolType) {
   const textarea = document.getElementById('prompt-editor-textarea');
   const content = textarea?.value?.trim() || '';
 
-  const token = localStorage.getItem('access_token');
+  const token = AuthState.getToken();
   if (!token) {
     showToast('请先登录', 'err');
     return;
@@ -250,7 +250,7 @@ async function savePrompt(toolType) {
 async function resetPrompt(toolType) {
   if (!confirm('确定要重置为默认 Prompt 吗？')) return;
 
-  const token = localStorage.getItem('access_token');
+  const token = AuthState.getToken();
   if (!token) {
     showToast('请先登录', 'err');
     return;
