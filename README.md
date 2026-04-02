@@ -41,7 +41,7 @@
 - ✅ 匿名用户免费额度
 - ✅ Web UI 可视化操作界面
 - ✅ 4 大分析工具（日报/赏金猎人/Alpha雷达/营收分析师）
-- ✅ 12 个数据源（可开关管理，含 Tavily AI 搜索）
+- ✅ 13 个数据源（可开关管理，含 Tavily AI 搜索）
 - ✅ 多 LLM 端点配置（通用推理/X搜索/翻译分离）
 - ✅ 实时日志流式输出
 - ✅ 报告在线浏览与下载（Markdown/Word）
@@ -326,7 +326,7 @@ Intel_Briefing/
 │   │   ├── x_grok_sensor.py
 │   │   ├── xhs_radar.py
 │   │   └── tavily_search.py
-│   ├── generators/
+│   ├── generators/            # 🔜 预留：报告内容生成器（规划中）
 │   ├── utils/
 │   └── external/
 ├── tests/                      # 🧪 测试文件

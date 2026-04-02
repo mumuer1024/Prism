@@ -61,3 +61,23 @@ debug_*.py
 # 数据库和数据目录
 data/
 *.db
+
+# === AI 助手工作目录 ===
+.workbuddy/
+
+# === 虚拟环境 ===
+venv/
+.venv/
+env/
+
+# === 其他 AI 工具工作目录 (常见) ===
+.qwen/
+.cursor/
+.windsurf/
+.claude/
+.coze/
+
+# === 临时/工作文件夹 ===
+-p/
+temp/
+tmp/
