@@ -76,6 +76,7 @@ env/
 .windsurf/
 .claude/
 .coze/
+QWEN.md
 
 # === 临时/工作文件夹 ===
 -p/
