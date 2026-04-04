@@ -1,0 +1,47 @@
+{
+  "updated_at": "2026-04-04T10:48:43.467979",
+  "mirrors": {
+    "主站": {
+      "name": "主站",
+      "base_url": "https://www.v2ex.com",
+      "priority": 1,
+      "is_official": true,
+      "success_count": 3,
+      "fail_count": 4,
+      "success_rate": 0.42857142857142855,
+      "avg_response_time_ms": 333.3333333333333,
+      "last_success_at": "2026-04-04T10:48:41.635568",
+      "last_fail_at": "2026-04-04T10:48:43.467973",
+      "consecutive_failures": 1,
+      "status": "degraded"
+    },
+    "全球镜像": {
+      "name": "全球镜像",
+      "base_url": "https://global.v2ex.com",
+      "priority": 1,
+      "is_official": true,
+      "success_count": 2,
+      "fail_count": 1,
+      "success_rate": 0.6666666666666666,
+      "avg_response_time_ms": 0.01800060272216797,
+      "last_success_at": "2026-04-04T10:48:43.033594",
+      "last_fail_at": "2026-04-04T10:48:43.467339",
+      "consecutive_failures": 1,
+      "status": "degraded"
+    },
+    "FastMirror": {
+      "name": "FastMirror",
+      "base_url": "https://v2ex.fastmirror.com",
+      "priority": 1,
+      "is_official": true,
+      "success_count": 0,
+      "fail_count": 3,
+      "success_rate": 0.0,
+      "avg_response_time_ms": 0.0,
+      "last_success_at": null,
+      "last_fail_at": "2026-04-04T10:48:41.632586",
+      "consecutive_failures": 3,
+      "status": "unhealthy"
+    }
+  }
+}

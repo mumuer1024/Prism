@@ -4,6 +4,7 @@
 
 提供用户配置的读取、写入、重置功能
 支持 Prompt 配置和数据源配置
+支持 Prompt 版本历史记录和回滚
 """
 
 import logging
@@ -11,9 +12,10 @@ from typing import Optional, List, Dict, Any
 from contextlib import contextmanager
 
 from sqlalchemy.orm import Session
+from sqlalchemy import desc
 
 from src.database.connection import get_db_context
-from src.database.models import UserPrompt, UserSource
+from src.database.models import UserPrompt, UserPromptHistory, UserSource
 from src.defaults import (
     get_default_prompt,
     get_default_sources,
@@ -78,14 +80,15 @@ def get_user_prompt_record(user_id: int, tool_type: str, db: Session) -> Optiona
     ).first()
 
 
-def save_user_prompt(user_id: int, tool_type: str, content: str) -> bool:
+def save_user_prompt(user_id: int, tool_type: str, content: str, change_reason: str = None) -> bool:
     """
-    保存用户自定义 Prompt
+    保存用户自定义 Prompt（带版本历史记录）
 
     Args:
         user_id: 用户 ID
         tool_type: 工具类型
         content: Prompt 内容
+        change_reason: 更改原因（可选）
 
     Returns:
         是否保存成功
@@ -99,9 +102,17 @@ def save_user_prompt(user_id: int, tool_type: str, content: str) -> bool:
             ).first()
 
             if existing:
+                # 保存旧版本到历史记录
+                _save_prompt_history(db, existing)
+
+                # 更新当前版本
                 existing.prompt_content = content
                 existing.is_active = True
                 logger.info(f"更新用户 Prompt: user_id={user_id}, tool_type={tool_type}")
+
+                # 保存新版本到历史记录
+                _save_prompt_history(db, existing, change_reason)
+
             else:
                 new_prompt = UserPrompt(
                     user_id=user_id,
@@ -110,11 +121,134 @@ def save_user_prompt(user_id: int, tool_type: str, content: str) -> bool:
                     is_active=True,
                 )
                 db.add(new_prompt)
+                db.flush()  # 获取 ID
                 logger.info(f"创建用户 Prompt: user_id={user_id}, tool_type={tool_type}")
+
+                # 保存初始版本到历史记录
+                _save_prompt_history(db, new_prompt, "初始版本")
 
             return True
     except Exception as e:
         logger.error(f"保存用户 Prompt 失败: {e}")
+        return False
+
+
+def _save_prompt_history(
+    db: Session,
+    prompt: UserPrompt,
+    change_reason: str = None,
+) -> None:
+    """
+    保存 Prompt 版本历史
+
+    Args:
+        db: 数据库会话
+        prompt: Prompt 记录
+        change_reason: 更改原因
+    """
+    # 获取当前最大版本号
+    max_version = db.query(UserPromptHistory).filter(
+        UserPromptHistory.user_prompt_id == prompt.id,
+    ).count()
+
+    history = UserPromptHistory(
+        user_prompt_id=prompt.id,
+        user_id=prompt.user_id,
+        tool_type=prompt.tool_type,
+        prompt_content=prompt.prompt_content,
+        version=max_version + 1,
+        change_reason=change_reason,
+    )
+    db.add(history)
+
+
+def get_prompt_history(
+    user_id: int,
+    tool_type: str,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    获取 Prompt 版本历史
+
+    Args:
+        user_id: 用户 ID
+        tool_type: 工具类型
+        limit: 返回数量限制
+
+    Returns:
+        版本历史列表
+    """
+    try:
+        with get_db_context() as db:
+            # 获取用户 Prompt ID
+            prompt = db.query(UserPrompt).filter(
+                UserPrompt.user_id == user_id,
+                UserPrompt.tool_type == tool_type,
+            ).first()
+
+            if not prompt:
+                return []
+
+            # 获取历史版本
+            histories = db.query(UserPromptHistory).filter(
+                UserPromptHistory.user_prompt_id == prompt.id,
+            ).order_by(desc(UserPromptHistory.version)).limit(limit).all()
+
+            return [h.to_dict() for h in histories]
+
+    except Exception as e:
+        logger.error(f"获取 Prompt 历史失败: {e}")
+        return []
+
+
+def rollback_prompt(user_id: int, tool_type: str, version: int) -> bool:
+    """
+    回滚 Prompt 到指定版本
+
+    Args:
+        user_id: 用户 ID
+        tool_type: 工具类型
+        version: 目标版本号
+
+    Returns:
+        是否回滚成功
+    """
+    try:
+        with get_db_context() as db:
+            # 获取用户 Prompt
+            prompt = db.query(UserPrompt).filter(
+                UserPrompt.user_id == user_id,
+                UserPrompt.tool_type == tool_type,
+            ).first()
+
+            if not prompt:
+                logger.warning(f"Prompt 不存在: user_id={user_id}, tool_type={tool_type}")
+                return False
+
+            # 获取目标版本
+            history = db.query(UserPromptHistory).filter(
+                UserPromptHistory.user_prompt_id == prompt.id,
+                UserPromptHistory.version == version,
+            ).first()
+
+            if not history:
+                logger.warning(f"版本不存在: version={version}")
+                return False
+
+            # 保存当前版本到历史
+            _save_prompt_history(db, prompt, f"回滚前自动保存")
+
+            # 恢复到目标版本
+            prompt.prompt_content = history.prompt_content
+
+            # 记录回滚操作
+            _save_prompt_history(db, prompt, f"回滚到版本 {version}")
+
+            logger.info(f"Prompt 已回滚: user_id={user_id}, tool_type={tool_type}, version={version}")
+            return True
+
+    except Exception as e:
+        logger.error(f"回滚 Prompt 失败: {e}")
         return False
 
 

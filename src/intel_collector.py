@@ -98,7 +98,7 @@ except ImportError:
     logger.info("ArXiv sensor not available, skipping.")
 
 try:
-    from sensors.x_grok_sensor import fetch_grok_intel
+    from sensors.x_grok_sensor import fetch_grok_intel, batch_fetch_grok_intel, GrokSensor
     GROK_AVAILABLE = True
 except ImportError:
     logger.info("Grok (X/Twitter) sensor not available, skipping.")
@@ -196,34 +196,68 @@ def _fetch_product_hunt(limit: int) -> List[Dict]:
         return []
     if not PH_AVAILABLE:
         return []
-    # ... 原函数其余代码不变
+
     products_data = []
     try:
         ph_products = fetch_trending_products(limit)
-        for i, p in enumerate(ph_products):
+
+        # 先收集所有产品数据
+        for p in ph_products:
             product_data = {
                 "source": "Product Hunt", "category": "Product Hunt",
                 "title": p.name, "url": p.url,
                 "heat": f"{p.votes_count} votes", "time": "Today",
                 "tagline": p.tagline, "grok_review": None,
             }
-            if GROK_AVAILABLE and i < 3:
-                logger.info(f"Grok sentiment check: {p.name}...")
-                try:
-                    grok_prompt = (
-                        f'You are an X (Twitter) analyst. Search X for the product "{p.name}" '
-                        f'with tagline "{p.tagline}". Provide a market sentiment summary in '
-                        f'Simplified Chinese, including: 1. Overall sentiment 2. 3-5 key findings '
-                        f'3. Pros and Cons. Keep it concise. If no data, say "暂无X平台讨论数据".'
-                    )
-                    grok_result = fetch_grok_intel(f"PH: {p.name}", override_prompt=grok_prompt)
-                    if grok_result and "Error" not in grok_result:
-                        product_data["grok_review"] = grok_result
-                except Exception as e:
-                    logger.warning(f"Grok failed for {p.name}: {e}")
             products_data.append(product_data)
+
+        # 批量舆情核查（优化：合并为一次 API 调用）
+        if GROK_AVAILABLE and products_data:
+            # 取前 5 个产品进行舆情核查
+            check_products = products_data[:5]
+            items = [
+                {"name": p["title"], "description": p["tagline"]}
+                for p in check_products
+            ]
+
+            logger.info(f"Grok 批量舆情核查: {len(items)} 个产品...")
+
+            try:
+                # 使用批量调用
+                batch_results = batch_fetch_grok_intel(items)
+
+                # 将结果分配到各产品
+                for product_data in check_products:
+                    name = product_data["title"]
+                    if name in batch_results:
+                        result = batch_results[name]
+                        if result and "Error" not in result:
+                            product_data["grok_review"] = result
+                        else:
+                            product_data["grok_review"] = f"舆情核查失败: {result}"
+
+                logger.info(f"Grok 批量舆情核查完成")
+
+            except Exception as e:
+                logger.warning(f"Grok 批量舆情核查失败: {e}")
+                # 回退：逐个调用（仅前 3 个）
+                for i, product_data in enumerate(check_products[:3]):
+                    try:
+                        grok_prompt = (
+                            f'You are an X (Twitter) analyst. Search X for the product "{product_data["title"]}" '
+                            f'with tagline "{product_data["tagline"]}". Provide a market sentiment summary in '
+                            f'Simplified Chinese, including: 1. Overall sentiment 2. 3-5 key findings '
+                            f'3. Pros and Cons. Keep it concise. If no data, say "暂无X平台讨论数据".'
+                        )
+                        grok_result = fetch_grok_intel(f"PH: {product_data['title']}", override_prompt=grok_prompt)
+                        if grok_result and "Error" not in grok_result:
+                            product_data["grok_review"] = grok_result
+                    except Exception as ex:
+                        logger.warning(f"Grok failed for {product_data['title']}: {ex}")
+
     except Exception as e:
         logger.warning(f"Product Hunt failed: {e}")
+
     return products_data
 
 

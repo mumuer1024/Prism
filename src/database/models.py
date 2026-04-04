@@ -55,6 +55,9 @@ class User(Base):
     # 状态
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)  # 邮箱是否验证
+    is_banned = Column(Boolean, default=False, nullable=False)  # 是否被封禁
+    banned_at = Column(DateTime, nullable=True)  # 封禁时间
+    banned_reason = Column(Text, nullable=True)  # 封禁原因
     
     # 时间戳
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -113,6 +116,9 @@ class User(Base):
             "usage_count": self.usage_count,
             "invite_code": self.invite_code,
             "is_verified": self.is_verified,
+            "is_banned": self.is_banned,
+            "banned_at": self.banned_at.isoformat() if self.banned_at else None,
+            "banned_reason": self.banned_reason,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "last_login_at": self.last_login_at.isoformat() if self.last_login_at else None,
         }
@@ -487,6 +493,52 @@ class UserPrompt(Base):
         }
 
 
+class UserPromptHistory(Base):
+    """
+    用户 Prompt 版本历史表
+
+    记录每次 Prompt 更新的历史版本，支持回滚
+    """
+    __tablename__ = "user_prompt_history"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_prompt_id = Column(Integer, ForeignKey("user_prompts.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    tool_type = Column(String(50), nullable=False)
+    prompt_content = Column(Text, nullable=False)
+    version = Column(Integer, nullable=False)  # 版本号，从 1 开始
+    change_reason = Column(String(255), nullable=True)  # 更改原因（可选）
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    user_prompt = relationship("UserPrompt", foreign_keys=[user_prompt_id])
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_prompt_history_prompt", "user_prompt_id"),
+        Index("idx_prompt_history_user", "user_id"),
+        Index("idx_prompt_history_type", "tool_type"),
+        Index("idx_prompt_history_version", "user_prompt_id", "version", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<UserPromptHistory(prompt_id={self.user_prompt_id}, version={self.version})>"
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "user_prompt_id": self.user_prompt_id,
+            "user_id": self.user_id,
+            "tool_type": self.tool_type,
+            "prompt_content": self.prompt_content,
+            "version": self.version,
+            "change_reason": self.change_reason,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
 class UserSource(Base):
     """
     用户数据源配置表
@@ -624,4 +676,218 @@ class DailyHotCategoryConfig(Base):
             "category": self.category,
             "is_enabled": self.is_enabled,
             "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class AuditLog(Base):
+    """
+    审计日志表
+
+    记录管理员操作日志，用于安全审计
+    """
+    __tablename__ = "audit_logs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+
+    # 操作者信息
+    admin_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
+    admin_email = Column(String(255), nullable=False)
+
+    # 操作类型
+    action = Column(String(50), nullable=False)  # ban_user, unban_user, generate_codes, etc.
+    action_category = Column(String(50), nullable=False)  # user_management, code_management, etc.
+
+    # 操作目标
+    target_type = Column(String(50), nullable=True)  # user, code, batch, etc.
+    target_id = Column(String(255), nullable=True)  # 目标ID（可能是多个，用逗号分隔）
+    target_info = Column(Text, nullable=True)  # JSON格式的目标信息
+
+    # 操作详情
+    action_detail = Column(Text, nullable=True)  # JSON格式的详细操作信息
+
+    # 请求信息
+    ip_address = Column(String(50), nullable=True)
+    user_agent = Column(String(500), nullable=True)
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # 关系
+    admin = relationship("User", foreign_keys=[admin_id])
+
+    # 索引
+    __table_args__ = (
+        Index("idx_audit_admin", "admin_id"),
+        Index("idx_audit_action", "action"),
+        Index("idx_audit_category", "action_category"),
+        Index("idx_audit_target", "target_type", "target_id"),
+        Index("idx_audit_created", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<AuditLog(id={self.id}, action='{self.action}', admin={self.admin_email})>"
+
+    def to_dict(self):
+        """转换为字典"""
+        import json
+
+        target_info = None
+        if self.target_info:
+            try:
+                target_info = json.loads(self.target_info)
+            except (json.JSONDecodeError, TypeError):
+                target_info = self.target_info
+
+        action_detail = None
+        if self.action_detail:
+            try:
+                action_detail = json.loads(self.action_detail)
+            except (json.JSONDecodeError, TypeError):
+                action_detail = self.action_detail
+
+        return {
+            "id": self.id,
+            "admin_id": self.admin_id,
+            "admin_email": self.admin_email,
+            "action": self.action,
+            "action_category": self.action_category,
+            "target_type": self.target_type,
+            "target_id": self.target_id,
+            "target_info": target_info,
+            "action_detail": action_detail,
+            "ip_address": self.ip_address,
+            "user_agent": self.user_agent,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class PaymentOrder(Base):
+    """
+    支付订单表
+
+    存储用户的支付订单信息
+    """
+    __tablename__ = "payment_orders"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+
+    # 订单信息
+    order_no = Column(String(50), unique=True, nullable=False)  # PRISM-YYYYMMDD-XXXXXX
+    amount = Column(Integer, nullable=False)  # 金额（分）
+    usage_count = Column(Integer, nullable=False)  # 购买次数
+    bonus_count = Column(Integer, default=0, nullable=False)  # 赠送次数
+
+    # 支付方式
+    payment_method = Column(String(20), nullable=False)  # wechat / alipay / mock
+
+    # 订单状态
+    status = Column(String(20), default="pending", nullable=False)  # pending / paid / failed / cancelled / refunded
+
+    # 支付信息
+    trade_no = Column(String(100), nullable=True)  # 第三方交易号
+    qr_code_url = Column(String(500), nullable=True)  # 支付二维码链接
+    paid_at = Column(DateTime, nullable=True)  # 支付时间
+
+    # 回调信息
+    callback_raw = Column(Text, nullable=True)  # 原始回调数据 (JSON)
+    callback_at = Column(DateTime, nullable=True)  # 回调时间
+
+    # 时间戳
+    expires_at = Column(DateTime, nullable=True)  # 订单过期时间
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_payment_orders_user", "user_id"),
+        Index("idx_payment_orders_status", "status"),
+        Index("idx_payment_orders_order_no", "order_no"),
+        Index("idx_payment_orders_created", "created_at"),
+    )
+
+    def __repr__(self):
+        return f"<PaymentOrder(order_no='{self.order_no}', amount={self.amount}, status='{self.status}')>"
+
+    def is_pending(self) -> bool:
+        """检查订单是否待支付"""
+        return self.status == "pending"
+
+    def is_paid(self) -> bool:
+        """检查订单是否已支付"""
+        return self.status == "paid"
+
+    def is_expired(self) -> bool:
+        """检查订单是否已过期"""
+        if not self.expires_at:
+            return False
+        return self.expires_at < datetime.utcnow()
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "order_no": self.order_no,
+            "amount": self.amount,
+            "amount_yuan": self.amount / 100,  # 元
+            "usage_count": self.usage_count,
+            "bonus_count": self.bonus_count,
+            "payment_method": self.payment_method,
+            "status": self.status,
+            "trade_no": self.trade_no,
+            "qr_code_url": self.qr_code_url,
+            "paid_at": self.paid_at.isoformat() if self.paid_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
+class PaymentPackage(Base):
+    """
+    支付套餐配置表
+
+    存储可购买的次数套餐
+    """
+    __tablename__ = "payment_packages"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    name = Column(String(100), nullable=False)  # 套餐名称
+    description = Column(Text, nullable=True)  # 套餐描述
+
+    # 套餐内容
+    usage_count = Column(Integer, nullable=False)  # 次数
+    price = Column(Integer, nullable=False)  # 价格（分）
+    bonus_count = Column(Integer, default=0, nullable=False)  # 赠送次数
+
+    # 状态
+    is_active = Column(Boolean, default=True, nullable=False)  # 是否上架
+    is_recommended = Column(Boolean, default=False, nullable=False)  # 是否推荐
+    sort_order = Column(Integer, default=0, nullable=False)  # 排序
+
+    # 时间戳
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    def __repr__(self):
+        return f"<PaymentPackage(name='{self.name}', count={self.usage_count}, price={self.price})>"
+
+    def to_dict(self):
+        """转换为字典"""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+            "usage_count": self.usage_count,
+            "total_count": self.usage_count + self.bonus_count,  # 总次数
+            "price": self.price,
+            "price_yuan": self.price / 100,  # 元
+            "bonus_count": self.bonus_count,
+            "is_active": self.is_active,
+            "is_recommended": self.is_recommended,
+            "sort_order": self.sort_order,
         }

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>管理后台 - Prism</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            bg: { DEFAULT: '#FDFAF4', secondary: '#F3EAD5', tertiary: '#E7D0A9', dark: { DEFAULT: '#1C1A16', secondary: '#252118', tertiary: '#352D1E' } },
+            accent: { DEFAULT: '#F0C06D', light: '#F5CC85', dark: '#D4A84E', text: '#6B3D00' },
+            success: '#3D9E6A',
+            error: '#C0392B',
+            warn: '#B8730A',
+            border: { DEFAULT: 'var(--border)', light: 'rgba(90,65,30,0.10)', dark: 'var(--border)' },
+            text: { DEFAULT: '#3E2E1B', secondary: '#6B4E2E', muted: '#A8896A', dark: { DEFAULT: '#F0E8D4', secondary: '#C8A87A', muted: '#7A6448' } }
+          }
+        }
+      }
+    }
+  </script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+  <style>
+    .admin-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.5rem; }
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th, .admin-table td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    .admin-table th { font-weight: 600; color: var(--text); background: var(--bg-tertiary); }
+    .admin-table tr:hover td { background: var(--bg-tertiary); }
+    .badge { display: inline-flex; align-items: center; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; }
+    .badge-success { background: rgba(61, 158, 106, 0.15); color: var(--success); }
+    .badge-error { background: rgba(192, 57, 43, 0.15); color: var(--error); }
+    .badge-warn { background: rgba(184, 115, 10, 0.15); color: var(--warn); }
+    .stat-card { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 0.75rem; padding: 1.25rem; }
+    .stat-value { font-size: 1.75rem; font-weight: 700; color: var(--accent); }
+    .stat-label { font-size: 0.875rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .tab-btn { padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: 500; transition: all 0.2s; }
+    .tab-btn.active { background: var(--accent); color: var(--accent-text); }
+    .tab-btn:not(.active) { color: var(--text-secondary); }
+    .tab-btn:not(.active):hover { background: var(--bg-tertiary); }
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
+    .modal-content { background: var(--bg); border-radius: 1rem; padding: 1.5rem; max-width: 500px; width: 90%; max-height: 90vh; overflow-y: auto; }
+  </style>
+</head>
+<body class="bg-bg text-text min-h-screen">
+  <!-- Header -->
+  <header class="glass border-b border-border h-14 flex items-center justify-between px-4 md:px-6 flex-shrink-0">
+    <div class="flex items-center gap-3">
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center text-lg" style="background: var(--accent);">🕵️</div>
+      <span class="font-bold text-lg" style="color: var(--text);">Prism 管理后台</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/" class="text-sm font-medium px-4 py-2 rounded-lg hover:bg-bg-tertiary transition-colors" style="color: var(--text);">返回首页</a>
+      <button onclick="toggleTheme()" class="theme-toggle" title="切换主题">
+        <svg id="theme-icon-sun" class="hidden w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+        <svg id="theme-icon-moon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 p-4 md:p-6 overflow-y-auto">
+    <!-- Tabs -->
+    <div class="flex gap-2 mb-6 border-b border-border pb-4 overflow-x-auto">
+      <button onclick="switchAdminTab('overview')" id="tab-overview" class="tab-btn active">📊 概览</button>
+      <button onclick="switchAdminTab('users')" id="tab-users" class="tab-btn">👥 用户管理</button>
+      <button onclick="switchAdminTab('codes')" id="tab-codes" class="tab-btn">🎫 兑换码管理</button>
+      <button onclick="switchAdminTab('audit')" id="tab-audit" class="tab-btn">📋 审计日志</button>
+    </div>
+
+    <!-- Overview Tab -->
+    <div id="panel-overview" class="admin-panel">
+      <h2 class="text-xl font-bold mb-4">数据概览</h2>
+      
+      <!-- Stats Grid -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total-users">-</div>
+          <div class="stat-label">总用户数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-active-users">-</div>
+          <div class="stat-label">活跃用户</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-new-today">-</div>
+          <div class="stat-label">今日新增</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-banned-users">-</div>
+          <div class="stat-label">封禁用户</div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total-topup">-</div>
+          <div class="stat-label">总充值次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-total-bonus">-</div>
+          <div class="stat-label">总赠送次数</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-codes-used">-</div>
+          <div class="stat-label">已用兑换码</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value" id="stat-codes-unused">-</div>
+          <div class="stat-label">未用兑换码</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Users Tab -->
+    <div id="panel-users" class="admin-panel hidden">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <h2 class="text-xl font-bold">用户管理</h2>
+        <div class="flex gap-2 flex-wrap">
+          <input type="text" id="user-search" placeholder="搜索邮箱/昵称..." class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm w-48" onkeyup="if(event.key==='Enter')searchUsers()">
+          <select id="user-filter" class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm" onchange="searchUsers()">
+            <option value="">全部状态</option>
+            <option value="false">正常</option>
+            <option value="true">已封禁</option>
+          </select>
+          <button onclick="searchUsers()" class="px-4 py-2 rounded-lg bg-accent text-accent-text font-medium text-sm">搜索</button>
+          <button onclick="showBatchBanModal()" id="batch-ban-btn" class="px-4 py-2 rounded-lg bg-red-600 text-white font-medium text-sm hidden">批量封禁 (<span id="selected-count">0</span>)</button>
+        </div>
+      </div>
+
+      <div class="admin-card overflow-x-auto">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="select-all-users" onchange="toggleSelectAll()"></th>
+              <th>ID</th>
+              <th>邮箱</th>
+              <th>昵称</th>
+              <th>使用次数</th>
+              <th>状态</th>
+              <th>注册时间</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody id="users-table-body">
+            <tr><td colspan="8" class="text-center text-text-muted py-8">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between mt-4">
+        <div class="text-sm text-text-muted" id="users-pagination-info">共 0 条</div>
+        <div class="flex gap-2" id="users-pagination"></div>
+      </div>
+    </div>
+
+    <!-- Codes Tab -->
+    <div id="panel-codes" class="admin-panel hidden">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <h2 class="text-xl font-bold">兑换码管理</h2>
+        <button onclick="showGenerateModal()" class="px-4 py-2 rounded-lg bg-accent text-accent-text font-medium text-sm">+ 生成兑换码</button>
+      </div>
+
+      <div class="admin-card">
+        <h3 class="font-semibold mb-3">批次列表</h3>
+        <div class="overflow-x-auto">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>批次号</th>
+                <th>总数</th>
+                <th>已用/未用</th>
+                <th>总次数</th>
+                <th>创建时间</th>
+                <th>过期时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="batches-table-body">
+              <tr><td colspan="7" class="text-center text-text-muted py-8">加载中...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Audit Logs Tab -->
+    <div id="panel-audit" class="admin-panel hidden">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
+        <h2 class="text-xl font-bold">审计日志</h2>
+        <div class="flex gap-2 flex-wrap">
+          <select id="audit-action-filter" class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm" onchange="loadAuditLogs()">
+            <option value="">全部操作</option>
+          </select>
+          <select id="audit-category-filter" class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm" onchange="loadAuditLogs()">
+            <option value="">全部分类</option>
+          </select>
+          <input type="date" id="audit-start-date" class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm" onchange="loadAuditLogs()">
+          <input type="date" id="audit-end-date" class="px-3 py-2 rounded-lg border border-border bg-bg text-text text-sm" onchange="loadAuditLogs()">
+          <button onclick="loadAuditLogs()" class="px-4 py-2 rounded-lg bg-accent text-accent-text font-medium text-sm">刷新</button>
+        </div>
+      </div>
+
+      <div class="admin-card overflow-x-auto">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>操作者</th>
+              <th>操作类型</th>
+              <th>操作分类</th>
+              <th>目标</th>
+              <th>详情</th>
+              <th>IP地址</th>
+              <th>时间</th>
+            </tr>
+          </thead>
+          <tbody id="audit-table-body">
+            <tr><td colspan="8" class="text-center text-text-muted py-8">加载中...</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex justify-between items-center mt-4">
+        <div class="text-sm text-text-muted">共 <span id="audit-total">0</span> 条记录</div>
+        <div class="flex gap-2">
+          <button onclick="prevAuditPage()" id="audit-prev-btn" class="px-3 py-1 rounded-lg border border-border text-text-secondary text-sm" disabled>上一页</button>
+          <span id="audit-page-info" class="text-sm text-text-muted">第 1 页</span>
+          <button onclick="nextAuditPage()" id="audit-next-btn" class="px-3 py-1 rounded-lg border border-border text-text-secondary text-sm">下一页</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Generate Codes Modal -->
+  <div id="generate-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4">批量生成兑换码</h3>
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium mb-1">生成数量</label>
+          <input type="number" id="gen-count" value="10" min="1" max="1000" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">每个兑换码的使用次数</label>
+          <input type="number" id="gen-usage" value="10" min="1" max="1000" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">有效期（天）</label>
+          <input type="number" id="gen-expire" value="365" min="1" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+        </div>
+        <div>
+          <label class="block text-sm font-medium mb-1">备注（可选）</label>
+          <input type="text" id="gen-note" placeholder="如：活动赠送" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+        </div>
+      </div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button onclick="hideGenerateModal()" class="px-4 py-2 rounded-lg border border-border text-text-secondary">取消</button>
+        <button onclick="generateCodes()" class="px-4 py-2 rounded-lg bg-accent text-accent-text font-medium">生成</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Ban User Modal -->
+  <div id="ban-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4">封禁用户</h3>
+      <input type="hidden" id="ban-user-id">
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">封禁原因</label>
+        <input type="text" id="ban-reason" placeholder="请输入封禁原因" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="hideBanModal()" class="px-4 py-2 rounded-lg border border-border text-text-secondary">取消</button>
+        <button onclick="banUser()" class="px-4 py-2 rounded-lg bg-error text-white font-medium">确认封禁</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Result Modal -->
+  <div id="result-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4" id="result-title">操作结果</h3>
+      <div id="result-content" class="text-sm text-text-secondary max-h-96 overflow-y-auto"></div>
+      <div class="flex justify-end gap-2 mt-6">
+        <button onclick="hideResultModal()" class="px-4 py-2 rounded-lg bg-accent text-accent-text font-medium">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Batch Ban Modal -->
+  <div id="batch-ban-modal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <h3 class="text-lg font-bold mb-4">批量封禁用户</h3>
+      <div class="mb-4">
+        <p class="text-sm text-text-muted mb-2">已选择 <span id="batch-ban-count" class="font-bold text-red-600">0</span> 个用户</p>
+        <div id="batch-ban-users-preview" class="text-sm text-text-secondary max-h-32 overflow-y-auto mb-4 bg-bg-secondary p-2 rounded-lg"></div>
+      </div>
+      <div class="mb-4">
+        <label class="block text-sm font-medium mb-1">封禁原因</label>
+        <input type="text" id="batch-ban-reason" value="违规操作" placeholder="请输入封禁原因" class="w-full px-3 py-2 rounded-lg border border-border bg-bg text-text">
+      </div>
+      <div class="flex justify-end gap-2">
+        <button onclick="hideBatchBanModal()" class="px-4 py-2 rounded-lg border border-border text-text-secondary">取消</button>
+        <button onclick="executeBatchBan()" class="px-4 py-2 rounded-lg bg-red-600 text-white font-medium">确认批量封禁</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/admin.js"></script>
+</body>
+</html>

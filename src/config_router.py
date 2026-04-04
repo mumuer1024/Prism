@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.database.connection import get_db, get_db_context
-from src.database.models import User
+from src.database.models import User, MarketplaceTemplate
 from src.auth.dependencies import get_current_user
 from src.config_loader import (
     get_user_prompt,
@@ -29,11 +29,18 @@ from src.config_loader import (
     get_user_dailyhot_categories,
     get_user_dailyhot_categories_detail,
     update_user_dailyhot_categories,
+    get_prompt_history,
+    rollback_prompt,
 )
 from src.defaults import (
     get_default_prompt,
     get_tool_display_name,
     TOOL_TYPES,
+)
+from src.utils.prompt_validator import (
+    PromptValidator,
+    ValidationResult,
+    get_placeholders_for_tool,
 )
 
 router = APIRouter()
@@ -113,6 +120,34 @@ class MessageResponse(BaseModel):
     """通用消息响应"""
     message: str
     success: bool = True
+
+
+# ============================================================================
+# Prompt 验证相关模型
+# ============================================================================
+
+class PlaceholderInfoResponse(BaseModel):
+    """占位符信息响应"""
+    placeholder: str
+    description: str
+    required: bool = False
+    example: str = ""
+
+
+class PlaceholdersResponse(BaseModel):
+    """占位符列表响应"""
+    tool_type: str
+    placeholders: List[PlaceholderInfoResponse]
+
+
+class ValidateResponse(BaseModel):
+    """验证结果响应"""
+    is_valid: bool
+    errors: List[str] = []
+    warnings: List[str] = []
+    used_placeholders: List[str] = []
+    missing_placeholders: List[str] = []
+    unknown_placeholders: List[str] = []
 
 
 # ============================================================================
@@ -224,6 +259,353 @@ async def reset_prompt(
         )
 
     return MessageResponse(message=f"{get_tool_display_name(tool_type)} Prompt 已重置为默认值")
+
+
+# ============================================================================
+# Prompt 版本历史 API
+# ============================================================================
+
+class PromptHistoryItem(BaseModel):
+    """Prompt 历史版本项"""
+    id: int
+    version: int
+    prompt_content: str
+    change_reason: Optional[str] = None
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class PromptHistoryResponse(BaseModel):
+    """Prompt 历史响应"""
+    tool_type: str
+    tool_name: str
+    current_version: int
+    history: List[PromptHistoryItem]
+
+
+class RollbackRequest(BaseModel):
+    """回滚请求"""
+    version: int = Field(..., ge=1, description="目标版本号")
+
+
+@router.get(
+    "/prompt/{tool_type}/history",
+    response_model=PromptHistoryResponse,
+    summary="获取 Prompt 版本历史",
+    description="获取当前用户指定工具类型的 Prompt 版本历史",
+)
+async def get_prompt_version_history(
+    tool_type: str,
+    limit: int = 10,
+    current_user: User = Depends(get_current_user),
+):
+    """获取 Prompt 版本历史"""
+    if tool_type not in TOOL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的工具类型: {tool_type}"
+        )
+
+    history = get_prompt_history(current_user.id, tool_type, limit)
+
+    current_version = max([h["version"] for h in history], default=0)
+
+    return PromptHistoryResponse(
+        tool_type=tool_type,
+        tool_name=get_tool_display_name(tool_type),
+        current_version=current_version,
+        history=[PromptHistoryItem(**h) for h in history],
+    )
+
+
+@router.post(
+    "/prompt/{tool_type}/rollback",
+    response_model=MessageResponse,
+    summary="回滚 Prompt 到指定版本",
+    description="将当前用户的 Prompt 回滚到指定的历史版本",
+)
+async def rollback_prompt_version(
+    tool_type: str,
+    request: RollbackRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """回滚 Prompt 到指定版本"""
+    if tool_type not in TOOL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的工具类型: {tool_type}"
+        )
+
+    success = rollback_prompt(current_user.id, tool_type, request.version)
+
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"版本 {request.version} 不存在或回滚失败"
+        )
+
+    return MessageResponse(message=f"Prompt 已回滚到版本 {request.version}")
+
+
+# ============================================================================
+# Prompt 验证 API
+# ============================================================================
+
+@router.get(
+    "/prompt/{tool_type}/placeholders",
+    response_model=PlaceholdersResponse,
+    summary="获取支持的占位符",
+    description="获取指定工具类型支持的占位符列表及其描述",
+)
+async def get_tool_placeholders(
+    tool_type: str,
+):
+    """获取工具支持的占位符列表"""
+    if tool_type not in TOOL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的工具类型: {tool_type}。有效类型: {', '.join(TOOL_TYPES)}"
+        )
+
+    placeholders = get_placeholders_for_tool(tool_type)
+
+    return PlaceholdersResponse(
+        tool_type=tool_type,
+        placeholders=[PlaceholderInfoResponse(**p) for p in placeholders],
+    )
+
+
+@router.post(
+    "/prompt/{tool_type}/validate",
+    response_model=ValidateResponse,
+    summary="验证 Prompt",
+    description="验证 Prompt 内容的有效性，检查长度和占位符",
+)
+async def validate_prompt_content(
+    tool_type: str,
+    request: PromptUpdateRequest,
+):
+    """验证 Prompt 内容"""
+    if tool_type not in TOOL_TYPES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"无效的工具类型: {tool_type}。有效类型: {', '.join(TOOL_TYPES)}"
+        )
+
+    validator = PromptValidator()
+    result = validator.validate(tool_type, request.content)
+
+    return ValidateResponse(
+        is_valid=result.is_valid,
+        errors=result.errors,
+        warnings=result.warnings,
+        used_placeholders=result.used_placeholders,
+        missing_placeholders=result.missing_placeholders,
+        unknown_placeholders=result.unknown_placeholders,
+    )
+
+
+@router.get(
+    "/prompt/placeholders/all",
+    summary="获取所有工具的占位符",
+    description="获取所有工具类型支持的占位符映射（公开接口）",
+)
+async def get_all_placeholders():
+    """获取所有工具的占位符映射"""
+    validator = PromptValidator()
+    all_placeholders = validator.get_all_placeholders()
+
+    result = {}
+    for tool_type, placeholders in all_placeholders.items():
+        result[tool_type] = [p.to_dict() for p in placeholders]
+
+    return {"placeholders": result}
+
+
+# ============================================================================
+# 预设广场 API
+# ============================================================================
+
+class TemplateResponse(BaseModel):
+    """预设模板响应"""
+    id: int
+    title: str
+    description: str
+    tool_type: str
+    tool_name: str
+    tags: List[str] = []
+    is_official: bool
+    import_count: int
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class TemplateListResponse(BaseModel):
+    """预设模板列表响应"""
+    templates: List[TemplateResponse]
+    total: int
+
+
+class TemplateDetailResponse(BaseModel):
+    """预设模板详情响应"""
+    id: int
+    title: str
+    description: str
+    tool_type: str
+    tool_name: str
+    prompt_content: str
+    tags: List[str] = []
+    is_official: bool
+    import_count: int
+    created_at: str
+
+    class Config:
+        from_attributes = True
+
+
+@router.get(
+    "/marketplace",
+    response_model=TemplateListResponse,
+    summary="获取预设广场模板列表",
+    description="获取预设广场的 Prompt 模板列表",
+)
+async def list_marketplace_templates(
+    tool_type: Optional[str] = None,
+    page: int = 1,
+    limit: int = 20,
+    db: Session = Depends(get_db),
+):
+    """获取预设广场模板列表"""
+    query = db.query(MarketplaceTemplate).filter(
+        MarketplaceTemplate.is_published == True,
+    )
+
+    if tool_type:
+        query = query.filter(MarketplaceTemplate.tool_type == tool_type)
+
+    total = query.count()
+    offset = (page - 1) * limit
+    templates = query.order_by(MarketplaceTemplate.import_count.desc()).offset(offset).limit(limit).all()
+
+    return TemplateListResponse(
+        templates=[_template_to_response(t) for t in templates],
+        total=total,
+    )
+
+
+@router.get(
+    "/marketplace/{template_id}",
+    response_model=TemplateDetailResponse,
+    summary="获取预设模板详情",
+    description="获取指定预设模板的详细信息",
+)
+async def get_marketplace_template(
+    template_id: int,
+    db: Session = Depends(get_db),
+):
+    """获取预设模板详情"""
+    template = db.query(MarketplaceTemplate).filter(
+        MarketplaceTemplate.id == template_id,
+        MarketplaceTemplate.is_published == True,
+    ).first()
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="模板不存在"
+        )
+
+    return _template_to_detail_response(template)
+
+
+@router.post(
+    "/marketplace/{template_id}/import",
+    response_model=MessageResponse,
+    summary="导入预设模板",
+    description="将预设广场的模板导入到用户的 Prompt 配置中",
+)
+async def import_marketplace_template(
+    template_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """导入预设模板"""
+    template = db.query(MarketplaceTemplate).filter(
+        MarketplaceTemplate.id == template_id,
+        MarketplaceTemplate.is_published == True,
+    ).first()
+
+    if not template:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="模板不存在"
+        )
+
+    # 保存到用户配置
+    success = save_user_prompt(
+        current_user.id,
+        template.tool_type,
+        template.prompt_content,
+        change_reason=f"从预设广场导入: {template.title}"
+    )
+
+    if success:
+        # 增加导入计数
+        template.import_count += 1
+        db.commit()
+
+    return MessageResponse(message=f"模板 '{template.title}' 已导入到 {get_tool_display_name(template.tool_type)}")
+
+
+def _template_to_response(template: MarketplaceTemplate) -> TemplateResponse:
+    """转换模板为响应格式"""
+    import json
+    tags = []
+    if template.tags:
+        try:
+            tags = json.loads(template.tags)
+        except:
+            tags = []
+
+    return TemplateResponse(
+        id=template.id,
+        title=template.title,
+        description=template.description,
+        tool_type=template.tool_type,
+        tool_name=get_tool_display_name(template.tool_type),
+        tags=tags,
+        is_official=template.is_official,
+        import_count=template.import_count,
+        created_at=template.created_at.isoformat() if template.created_at else "",
+    )
+
+
+def _template_to_detail_response(template: MarketplaceTemplate) -> TemplateDetailResponse:
+    """转换模板为详情响应格式"""
+    import json
+    tags = []
+    if template.tags:
+        try:
+            tags = json.loads(template.tags)
+        except:
+            tags = []
+
+    return TemplateDetailResponse(
+        id=template.id,
+        title=template.title,
+        description=template.description,
+        tool_type=template.tool_type,
+        tool_name=get_tool_display_name(template.tool_type),
+        prompt_content=template.prompt_content,
+        tags=tags,
+        is_official=template.is_official,
+        import_count=template.import_count,
+        created_at=template.created_at.isoformat() if template.created_at else "",
+    )
 
 
 # ============================================================================

@@ -62,6 +62,10 @@ function loadTabData(tab) {
   switch (tab) {
     case 'sources':
       loadSources();
+      // 加载数据源健康状态
+      if (typeof loadSourceHealth === 'function') {
+        loadSourceHealth();
+      }
       break;
     case 'reports':
       loadReports();

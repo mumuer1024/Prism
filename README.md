@@ -9,7 +9,7 @@
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Version](https://img.shields.io/badge/Version-2.0.0-blue.svg)](https://github.com/mumuer1024/Prism)
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/mumuer1024/Prism)
 
 </div>
 
@@ -34,7 +34,7 @@
 
 > 💡 **产品定位**：本产品仅提供工具使用权，所有 AI 功能均由用户自备 API Key 直连调用，我们不代理、不存储、不触碰您的 API 密钥和 AI 请求内容。
 
-**V2.0 版本已支持：**
+**V2.1 版本已支持：**
 - ✅ 完整的用户系统（注册/登录/OAuth/密码管理）
 - ✅ 使用次数与充值系统
 - ✅ 邀请码与返利机制
@@ -48,6 +48,11 @@
 - ✅ 深色/浅色主题切换
 - ✅ 隐私政策/用户协议/数据来源声明
 - ✅ AI 生成内容标识（符合法规要求）
+- ✅ 管理员后台（用户管理、审计日志）
+- ✅ 预设广场（Prompt 模板市场）
+- ✅ 自定义 Prompt 配置
+- ✅ 数据源健康监控
+- ✅ 支付接口预留
 
 **适合谁用？**
 - 想每天快速了解行业动态的用户
@@ -108,6 +113,53 @@
 | 📊 邀请统计 | 查看邀请人数和奖励记录 |
 | 🎁 首充奖励 | 首次充值额外赠送次数 |
 
+### 🔧 管理员后台
+
+完整的管理功能：
+
+| 功能 | 说明 |
+|:--|:--|
+| 👥 用户管理 | 用户列表、搜索、封禁/解禁 |
+| 📊 数据统计 | 用户活跃度、充值统计 |
+| 📝 审计日志 | 管理员操作记录 |
+| 🎫 兑换码管理 | 批量生成、导出、批次管理 |
+| 📈 系统监控 | API 调用统计、错误追踪 |
+
+### 🏪 预设广场
+
+Prompt 模板市场：
+
+| 功能 | 说明 |
+|:--|:--|
+| 📚 官方模板 | 各工具官方预设 Prompt |
+| 🔍 模板浏览 | 按工具类型筛选模板 |
+| 📥 一键导入 | 导入模板到个人配置 |
+| ⭐ 推荐标记 | 热门模板推荐展示 |
+
+### ✏️ 自定义 Prompt
+
+个性化 Prompt 配置：
+
+| 功能 | 说明 |
+|:--|:--|
+| 📝 在线编辑 | Web UI 编辑各工具 Prompt |
+| 📜 版本历史 | Prompt 变更历史记录 |
+| ↩️ 版本回滚 | 回滚到历史版本 |
+| ✅ 实时验证 | 占位符检测和语法验证 |
+| 💡 占位符提示 | 显示支持的占位符列表 |
+
+### 📡 数据源管理
+
+灵活的数据源配置：
+
+| 功能 | 说明 |
+|:--|:--|
+| 🔌 独立开关 | 13 个数据源独立控制 |
+| 📊 健康监控 | 实时数据源状态检测 |
+| 🔄 V2EX 镜像 | 多镜像站点自动切换 |
+| 📥 自定义源 | 支持添加自定义 RSS/网页源 |
+| ⚙️ DailyHot 配置 | 热榜分类自定义选择 |
+
 ### 📊 情报日报 (`run_mission.py`)
 从 10+ 数据源抓取最新信息，生成一份包含 8 大板块的中文日报：
 
@@ -144,6 +196,18 @@
 | ✍️ 创作机会 | 高互动潜力的内容选题 |
 | 📈 涨粉机会 | 可以蹭热度的趋势话题 |
 | 🤝 背书机会 | 参与贡献能建立信誉的开源项目 |
+
+### 💳 支付系统（预留接口）
+
+在线支付功能预留：
+
+| 功能 | 说明 |
+|:--|:--|
+| 📦 套餐管理 | 可配置的次数套餐 |
+| 🔄 订单管理 | 订单创建、查询、取消 |
+| 🎭 模拟支付 | 开发测试用模拟支付 |
+| 🐳 微信支付 | 接口预留（需配置） |
+| 🅰️ 支付宝 | 接口预留（需配置） |
 
 ---
 
@@ -249,6 +313,12 @@ docker-compose down
 | 认证 | `/api/auth` | 注册、登录、OAuth、密码管理 |
 | 用户 | `/api/user` | 用户资料、兑换码、邀请统计 |
 | 使用次数 | `/api/usage` | 余额查询、权限检查、次数扣减 |
+| 用户配置 | `/api/user-config` | Prompt 配置、数据源配置 |
+| 预设广场 | `/api/marketplace` | 模板列表、导入 |
+| 管理后台 | `/api/admin` | 用户管理、审计日志、统计 |
+| 监控 | `/api/monitoring` | API 监控、错误追踪 |
+| 数据源健康 | `/api/sources/health` | 数据源状态检测 |
+| 支付 | `/api/payment` | 套餐、订单、支付 |
 
 ---
 
@@ -282,7 +352,9 @@ Intel_Briefing/
 │       ├── sources.js          # 数据源管理模块
 │       ├── config.js           # 配置管理模块
 │       ├── reports.js          # 报告模块
-│       └── legal.js            # 法律声明模块
+│       ├── legal.js            # 法律声明模块
+│       ├── prompt-config.js    # Prompt 配置模块
+│       └── payment.js          # 支付模块
 ├── run_mission.py              # 🎯 情报日报
 ├── run_bounty_hunter.py        # 💰 赏金猎人
 ├── run_alpha_radar.py          # ⛏️ Alpha 雷达
@@ -297,18 +369,29 @@ Intel_Briefing/
 │   │   ├── schemas.py          # 请求/响应模型
 │   │   ├── dependencies.py     # 依赖注入
 │   │   ├── oauth/              # OAuth 第三方登录
-│   │   │   ├── github.py       # GitHub OAuth
-│   │   │   └── wechat.py       # 微信 OAuth
 │   │   └── utils/              # 工具函数
-│   │       ├── password_handler.py  # 密码处理
-│   │       └── jwt_handler.py       # JWT Token 处理
 │   ├── user/                   # 用户模块
-│   │   ├── router.py           # 用户 API 路由
-│   │   ├── service.py          # 用户业务逻辑
-│   │   └── schemas.py          # 请求/响应模型
 │   ├── usage/                  # 使用次数模块
-│   │   ├── router.py           # 使用次数 API 路由
-│   │   ├── service.py          # 使用次数业务逻辑
+│   ├── admin/                  # 管理员模块
+│   │   ├── router.py           # 管理员 API 路由
+│   │   ├── service.py          # 管理员业务逻辑
+│   │   └── schemas.py          # 请求/响应模型
+│   ├── monitoring/             # 监控模块
+│   │   ├── router.py           # 监控 API 路由
+│   │   ├── api_monitor.py      # API 调用监控
+│   │   ├── error_tracker.py    # 错误追踪
+│   │   └── alert_service.py    # 告警服务
+│   ├── payment/                # 支付模块
+│   │   ├── router.py           # 支付 API 路由
+│   │   ├── service.py          # 支付服务
+│   │   ├── base.py             # 支付渠道基类
+│   │   ├── mock.py             # 模拟支付
+│   │   ├── wechat.py           # 微信支付（预留）
+│   │   ├── alipay.py           # 支付宝（预留）
+│   │   └── schemas.py          # 请求/响应模型
+│   ├── marketplace/            # 预设广场模块
+│   │   ├── router.py           # 预设广场 API 路由
+│   │   ├── crud.py             # 数据库操作
 │   │   └── schemas.py          # 请求/响应模型
 │   ├── database/               # 数据库模块
 │   │   ├── connection.py       # 数据库连接
@@ -322,32 +405,45 @@ Intel_Briefing/
 │   │   ├── hacker_news.py
 │   │   ├── hn_blogs.py
 │   │   ├── product_hunt.py
-│   │   ├── v2ex_radar.py
+│   │   ├── v2ex_radar.py       # 含镜像站点支持
 │   │   ├── x_grok_sensor.py
 │   │   ├── xhs_radar.py
-│   │   └── tavily_search.py
-│   ├── generators/            # 🔜 预留：报告内容生成器（规划中）
-│   ├── utils/
+│   │   ├── tavily_search.py
+│   │   ├── dailyhot_sensor.py
+│   │   ├── custom_source.py    # 自定义数据源
+│   │   └── source_health.py    # 数据源健康检测
+│   ├── defaults/               # 默认配置
+│   │   ├── prompts.py          # 默认 Prompt
+│   │   ├── sources.py          # 默认数据源
+│   │   └── official_templates.py # 官方模板
+│   ├── utils/                  # 工具函数
+│   │   ├── prompt_validator.py # Prompt 验证器
+│   │   ├── errors.py           # 错误处理
+│   │   └── ...
 │   └── external/
 ├── tests/                      # 🧪 测试文件
 │   ├── conftest.py             # pytest 配置和 fixtures
 │   ├── test_auth_api.py        # 认证 API 测试
-│   ├── test_auth_unit.py       # 认证单元测试
 │   ├── test_user_api.py        # 用户 API 测试
-│   ├── test_user_unit.py       # 用户单元测试
 │   ├── test_usage_api.py       # 使用次数 API 测试
-│   ├── test_usage_unit.py      # 使用次数单元测试
-│   └── test_integration.py     # 集成测试
+│   ├── test_admin_api.py       # 管理员 API 测试
+│   ├── test_marketplace_api.py # 预设广场 API 测试
+│   ├── test_prompt_validator.py # Prompt 验证器测试
+│   ├── test_v2ex_mirror.py     # V2EX 镜像测试
+│   ├── test_custom_source.py   # 自定义数据源测试
+│   ├── test_source_health.py   # 数据源健康测试
+│   └── test_payment.py         # 支付模块测试
 ├── reports/                    # 📄 生成的报告目录
-│   ├── daily_briefings/        # 情报日报
-│   ├── tactical/               # 赏金猎人报告
-│   ├── web3/                   # Alpha 雷达报告
-│   └── opportunities/          # 营收分析报告
+├── docs/                       # 📚 开发文档
+│   ├── DEV_PLAN.md             # 总体开发计划
+│   ├── P2_DEV_PLAN.md          # P2 阶段计划
+│   ├── P3_DEV_PLAN.md          # P3 阶段计划
+│   └── ...
 ├── .env.example                # API 密钥模板
 ├── requirements.txt
 ├── Dockerfile                  # Docker 镜像构建文件
 ├── docker-compose.yml          # Docker Compose 编排文件
-└── .dockerignore               # Docker 构建排除文件
+└── LICENSE                     # GPL-3.0 开源协议
 ```
 
 ---
@@ -376,50 +472,54 @@ Intel_Briefing/
 - 模型连通性一键测试
 
 ### 数据源管理
-- 12 个数据源独立开关（包括 Tavily AI 搜索）
+- 13 个数据源独立开关（包括 Tavily AI 搜索）
 - Tavily 搜索支持自定义关键词
+- 数据源健康状态实时监控
 - 显示数据源状态和 API Key 配置情况
 - 持久化到 `.env` 文件
+
+### Prompt 配置
+- 各工具 Prompt 在线编辑
+- 占位符提示和自动补全
+- 实时验证和错误提示
+- 版本历史和回滚
+
+### 预设广场
+- 官方模板浏览
+- 按工具类型筛选
+- 一键导入模板
 
 ### 报告管理
 - 报告分类浏览（日报/赏金猎人/Alpha雷达/营收分析）
 - 关键词搜索过滤
 - 批量下载为 Markdown/Word 格式
 
+### 管理后台（管理员）
+- 用户列表和搜索
+- 用户封禁/解禁
+- 审计日志查看
+- 兑换码批量生成和导出
+- 系统监控和错误追踪
+
 ### 法律声明
 - 隐私政策（用户数据保护说明）
 - 用户协议（使用条款与免责声明）
-- 数据来源（12 个数据源详情）
+- 数据来源（13 个数据源详情）
 - AI 生成内容标识（符合法规要求）
 
 ---
 
 ## 🗺️ 路线图
 
-### V1.1 优化（已完成）
+### V1.x 已完成
 
-- [x] **优化 WebUI 界面** — 现代化设计，深色模式配色优化，更好的移动端适配
-- [x] **API 配置增强** —
-  - API Key 明文查看/隐藏切换
-  - 模型连通性一键测试
-  - 拉取模型列表
-- [x] **Tavily 搜索增强** — 支持自定义搜索关键词（前端存储）
-
-### V1.2 优化（已完成）
-
-- [x] **社交热议格式优化** — 统一 X/Twitter 板块输出格式，强制包含标题行和结构化事件列表
-- [x] **营收分析师稳定性增强** —
-  - 增加超时重试机制（首次 300 秒，重试 420 秒）
-  - 添加超时提示信息
-- [x] **配置页面修复** — 添加全局"保存配置"按钮，修复配置无法保存的问题
-
-### V1.3 已完成
-
-- [x] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
-- [x] **Docker 部署支持** — 提供 Dockerfile 和 docker-compose.yml，一键容器化部署
+- [x] **WebUI 界面** — 现代化设计，深色模式，移动端适配
+- [x] **API 配置增强** — API Key 管理、模型测试、连通性检测
+- [x] **Tavily 搜索增强** — 支持自定义搜索关键词
+- [x] **报告管理和下载** — 分类、搜索、批量下载
+- [x] **Docker 部署支持** — 一键容器化部署
 - [x] **法律声明页面** — 隐私政策、用户协议、数据来源声明
-- [x] **AI 生成标识** — 所有 AI 输出内容添加「AI 生成」标记，符合法规要求
-- [x] **页脚优化** — 版本号、作者署名、声明链接
+- [x] **AI 生成标识** — 所有 AI 输出内容添加标记
 
 ### V2.0 已完成
 
@@ -430,29 +530,28 @@ Intel_Briefing/
 - [x] **报告缓存** — 付费用户报告缓存，减少重复计算
 - [x] **数据库迁移** — SQLite 数据库，支持版本管理
 
-### V2.1 规划中
+### V2.1 已完成
 
-- [ ] **管理后台** — 用户管理、兑换码生成、数据统计
-- [ ] **支付集成** — 微信/支付宝在线支付
-- [ ] **订阅功能** — 月度/年度订阅套餐
+- [x] **管理后台** — 用户管理、审计日志、数据统计
+- [x] **兑换码批量生成** — CLI 工具、批次管理、导出功能
+- [x] **预设广场** — 官方模板、一键导入
+- [x] **自定义 Prompt** — 在线编辑、版本历史、回滚
+- [x] **Prompt 验证** — 占位符检测、实时验证、自动补全
+- [x] **数据源健康监控** — 实时状态、错误追踪
+- [x] **V2EX 镜像支持** — 多镜像自动切换
+- [x] **自定义数据源** — RSS/网页采集器
+- [x] **支付接口预留** — 套餐管理、订单系统、渠道抽象
+
+### V2.2 规划中
+
+- [ ] **支付集成** — 微信/支付宝正式接入
+- [ ] **多语言支持** — 英文界面
 
 ### V3.0 愿景（规划中）
 
-*预计发布时间：2026 Q4*
-
-- [ ] **自定义 Prompt** — 支持用户编辑各工具的 LLM Prompt
-- [ ] **自定义数据源** — 支持用户新增数据源
+- [ ] 敬请期待
 
 > 💡 **产品定位**：棱镜仅提供工具使用权，所有 AI 功能均由用户自备 API Key 直连调用。
-
-#### 付费功能
-- [ ] **目标领域及数据源预设广场** — 用户可以购买/订阅特定行业的数据源配置包
-  - 例：Web3 赛道包、SaaS 创业包、AI 工具包
-  - 一键导入 curated 数据源组合
-
-- [ ] **Prompt 预设广场** — 专业分析师撰写的 Prompt 模板市场
-  - 行业专属分析模板
-  - 高级营收分析策略
 
 ---
 
@@ -521,6 +620,20 @@ SMTP_PASSWORD=your-smtp-password
 SMTP_FROM=noreply@example.com
 ```
 
+### 支付配置（预留）
+
+```bash
+# 微信支付
+WECHAT_APP_ID=your-app-id
+WECHAT_MCH_ID=your-mch-id
+WECHAT_API_KEY=your-api-key
+
+# 支付宝
+ALIPAY_APP_ID=your-app-id
+ALIPAY_PRIVATE_KEY=your-private-key
+ALIPAY_PUBLIC_KEY=alipay-public-key
+```
+
 ---
 
 ## 🧪 测试
@@ -542,8 +655,11 @@ python -m pytest tests/ --cov=src --cov-report=html
 - 认证 API 测试（注册、登录、OAuth、密码管理）
 - 用户 API 测试（资料、兑换码、邀请统计）
 - 使用次数 API 测试（余额、权限、扣减）
-- 单元测试（服务层、工具函数）
-- 集成测试（完整业务流程）
+- 管理员 API 测试（用户管理、审计日志）
+- 预设广场 API 测试（模板列表、导入）
+- Prompt 验证器测试（占位符、语法验证）
+- 数据源测试（V2EX 镜像、自定义源、健康检测）
+- 支付模块测试（订单、模拟支付）
 
 ---
 
@@ -570,13 +686,13 @@ AI 生成内容可能存在"幻觉"、不准确或过时的情况，仅供参考
 
 ### 你可以做什么 ✅
 
-- **自由使用** — 个人或商业用途
-- **修改分发** — 修改后可以分发，但必须开源
+- **自由使用** — 个人、学习或开源项目均可免费使用
+- **修改分发** — 可以修改和分发，商业用途同样允许
 - **专利授权** — 获得贡献者的专利授权
 
 ### 义务 ⚠️
 
-- **开源义务** — 如果你分发或提供网络服务，必须开源你的修改
+- **开源义务** — 分发或提供网络服务时，必须以 GPL-3.0 开源你的修改
 - **保留版权声明** — 必须保留原作者版权声明
 - **相同协议** — 衍生作品必须使用 GPL-3.0 或兼容协议
 

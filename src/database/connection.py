@@ -116,9 +116,11 @@ def init_database():
         Report,
         SchemaVersion,
         UserPrompt,
+        UserPromptHistory,
         UserSource,
         MarketplaceTemplate,
         DailyHotCategoryConfig,
+        AuditLog,
     )
 
     # 创建所有表
@@ -189,6 +191,95 @@ def _run_migrations():
             db.add(version_record)
             db.commit()
             logger.info("数据库迁移: 版本 4 已应用")
+
+        if current_version < 5:
+            # 版本 5: 用户表添加封禁字段
+            # 字段已在 create_all 中创建，只需记录版本
+            version_record = SchemaVersion(
+                version=5,
+                description="用户表新增封禁字段：is_banned, banned_at, banned_reason"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 5 已应用")
+
+        if current_version < 6:
+            # 版本 6: 新增审计日志表
+            # 表已在 create_all 中创建，只需记录版本
+            version_record = SchemaVersion(
+                version=6,
+                description="新增审计日志表：audit_logs"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 6 已应用")
+
+        if current_version < 7:
+            # 版本 7: 新增 Prompt 版本历史表
+            # 表已在 create_all 中创建，只需记录版本
+            version_record = SchemaVersion(
+                version=7,
+                description="新增 Prompt 版本历史表：user_prompt_history"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 7 已应用")
+
+        if current_version < 8:
+            # 版本 8: 插入官方预设模板
+            from src.database.models import MarketplaceTemplate
+            from src.defaults.official_templates import OFFICIAL_TEMPLATES
+            import json
+
+            # 清空现有官方模板
+            db.query(MarketplaceTemplate).filter(
+                MarketplaceTemplate.is_official == True
+            ).delete()
+
+            # 插入新模板
+            for template_data in OFFICIAL_TEMPLATES:
+                template = MarketplaceTemplate(
+                    title=template_data["title"],
+                    description=template_data["description"],
+                    tool_type=template_data["tool_type"],
+                    prompt_content=template_data["prompt_content"],
+                    tags=json.dumps(template_data["tags"], ensure_ascii=False),
+                    is_official=template_data["is_official"],
+                    is_published=template_data["is_published"],
+                    import_count=template_data.get("import_count", 0),
+                )
+                db.add(template)
+
+            db.commit()
+
+            version_record = SchemaVersion(
+                version=8,
+                description="插入 11 个官方预设模板"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 8 已应用 - 插入官方模板")
+
+        if current_version < 9:
+            # 版本 9: 创建监控相关表
+            from src.monitoring.error_tracker import ErrorRecord
+            from src.monitoring.api_monitor import APIRequestLog
+            from src.monitoring.alert_service import AlertRecord
+
+            # 创建表
+            Base.metadata.create_all(bind=engine, tables=[
+                ErrorRecord.__table__,
+                APIRequestLog.__table__,
+                AlertRecord.__table__,
+            ])
+
+            version_record = SchemaVersion(
+                version=9,
+                description="创建监控相关表（错误记录、API日志、告警记录）"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 9 已应用 - 创建监控表")
 
     except Exception as e:
         logger.error(f"数据库迁移失败: {e}")

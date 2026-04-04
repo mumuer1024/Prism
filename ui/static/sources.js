@@ -554,6 +554,137 @@ async function toggleSource(key, enabled) {
   }
 }
 
+
+// ==========================================
+// 数据源健康状态
+// ==========================================
+
+/**
+ * 加载数据源健康状态
+ */
+async function loadSourceHealth() {
+  const container = document.getElementById('source-health-container');
+  if (!container) return;
+
+  try {
+    const response = await fetch('/api/sources/health');
+    const data = await response.json();
+
+    // 渲染健康状态卡片
+    renderHealthCards(container, data);
+
+    // 更新摘要
+    updateHealthSummary(data);
+
+  } catch (error) {
+    console.error('获取数据源状态失败:', error);
+    container.innerHTML = '<div class="health-error">加载失败，请稍后重试</div>';
+  }
+}
+
+/**
+ * 渲染健康状态卡片
+ */
+function renderHealthCards(container, data) {
+  container.innerHTML = '';
+
+  if (!data.sources || data.sources.length === 0) {
+    container.innerHTML = '<div class="health-empty">暂无数据源状态</div>';
+    return;
+  }
+
+  for (const source of data.sources) {
+    const card = document.createElement('div');
+    card.className = `health-card health-${source.status}`;
+
+    const icon = source.status === 'healthy' ? '✅' :
+                 source.status === 'degraded' ? '⚠️' : '❌';
+
+    const responseTime = source.response_time_ms > 0 ?
+      `${source.response_time_ms.toFixed(0)}ms` : '-';
+
+    card.innerHTML = `
+      <div class="health-icon">${icon}</div>
+      <div class="health-info">
+        <div class="health-name">${source.source_name}</div>
+        <div class="health-meta">
+          <span class="health-type">${source.source_type}</span>
+          <span class="health-time">${responseTime}</span>
+        </div>
+        ${source.error_message ? `<div class="health-error-msg">${source.error_message}</div>` : ''}
+      </div>
+    `;
+
+    container.appendChild(card);
+  }
+}
+
+/**
+ * 更新健康状态摘要
+ */
+function updateHealthSummary(data) {
+  const summaryEl = document.getElementById('health-summary');
+  if (!summaryEl) return;
+
+  const healthy = data.healthy || 0;
+  const total = data.total || 0;
+  const rate = data.health_rate ? (data.health_rate * 100).toFixed(0) : 0;
+
+  summaryEl.innerHTML = `
+    <span class="health-summary-item">
+      <span class="health-summary-label">健康:</span>
+      <span class="health-summary-value">${healthy}/${total}</span>
+    </span>
+    <span class="health-summary-item">
+      <span class="health-summary-label">健康率:</span>
+      <span class="health-summary-value">${rate}%</span>
+    </span>
+  `;
+}
+
+/**
+ * 刷新数据源健康状态
+ */
+async function refreshSourceHealth() {
+  const container = document.getElementById('source-health-container');
+  if (container) {
+    container.innerHTML = '<div class="health-loading">检测中...</div>';
+  }
+
+  try {
+    const response = await fetch('/api/sources/health/check', { method: 'POST' });
+    const data = await response.json();
+
+    const container = document.getElementById('source-health-container');
+    if (container) {
+      renderHealthCards(container, data);
+      updateHealthSummary(data);
+    }
+
+    showToast('健康检测完成', 'ok');
+  } catch (error) {
+    console.error('健康检测失败:', error);
+    showToast('健康检测失败', 'err');
+  }
+}
+
+/**
+ * 格式化时间
+ */
+function formatTime(isoString) {
+  if (!isoString) return '-';
+
+  try {
+    const date = new Date(isoString);
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  } catch {
+    return '-';
+  }
+}
+
 // 导出函数
 window.loadSources = loadSources;
 window.toggleDailyHotCategory = toggleDailyHotCategory;
@@ -561,3 +692,5 @@ window.toggleTavilySource = toggleTavilySource;
 window.saveTavilyKeywords = saveTavilyKeywords;
 window.resetTavilyKeywords = resetTavilyKeywords;
 window.toggleSource = toggleSource;
+window.loadSourceHealth = loadSourceHealth;
+window.refreshSourceHealth = refreshSourceHealth;

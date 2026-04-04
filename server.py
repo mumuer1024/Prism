@@ -141,6 +141,37 @@ except ImportError as e:
     logger.warning(f"管理员路由注册失败: {e}")
 
 
+# ── Register Monitoring Router ───────────────────────────────
+
+try:
+    from src.monitoring.router import router as monitoring_router
+    app.include_router(monitoring_router, prefix="/api/monitoring", tags=["监控"])
+    logger.info("监控路由注册成功")
+except ImportError as e:
+    logger.warning(f"监控路由注册失败: {e}")
+
+
+# ── Register Source Health Router ───────────────────────────────
+
+try:
+    from src.sensors.source_health import create_health_router
+    health_router = create_health_router()
+    app.include_router(health_router, tags=["数据源健康"])
+    logger.info("数据源健康路由注册成功")
+except ImportError as e:
+    logger.warning(f"数据源健康路由注册失败: {e}")
+
+
+# ── Register Payment Router ───────────────────────────────
+
+try:
+    from src.payment import payment_router
+    app.include_router(payment_router, prefix="/api/payment", tags=["支付"])
+    logger.info("支付路由注册成功")
+except ImportError as e:
+    logger.warning(f"支付路由注册失败: {e}")
+
+
 SCRIPTS = {
     "mission": "run_mission.py",
     "bounty": "run_bounty_hunter.py",
@@ -532,6 +563,12 @@ def oauth_callback_page():
 def account_page():
     """用户中心页面"""
     return (BASE_DIR / "ui" / "account.html").read_text(encoding="utf-8")
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin_page():
+    """管理后台页面"""
+    return (BASE_DIR / "ui" / "admin.html").read_text(encoding="utf-8")
 
 
 # ── Sources ───────────────────────────────────────────────
