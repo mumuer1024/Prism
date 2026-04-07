@@ -85,24 +85,15 @@ async def shutdown_event():
         logger.error(f"数据库关闭失败: {e}")
 
 
-# ── Register Auth Router ────────────────────────────────────
+# ── Register Activation Router ────────────────────────────────────
+# v2.1 激活码架构：替代原有的 auth_router 和 user_router
 
 try:
-    from src.auth.router import router as auth_router
-    app.include_router(auth_router, prefix="/api/auth", tags=["认证"])
-    logger.info("认证路由注册成功")
+    from src.activation.router import router as activation_router
+    app.include_router(activation_router, prefix="/api/activation", tags=["激活码"])
+    logger.info("激活码路由注册成功")
 except ImportError as e:
-    logger.warning(f"认证路由注册失败: {e}")
-
-
-# ── Register User Router ────────────────────────────────────
-
-try:
-    from src.user.router import router as user_router
-    app.include_router(user_router, prefix="/api/user", tags=["用户管理"])
-    logger.info("用户路由注册成功")
-except ImportError as e:
-    logger.warning(f"用户路由注册失败: {e}")
+    logger.warning(f"激活码路由注册失败: {e}")
 
 
 # ── Register Usage Router ────────────────────────────────────
@@ -343,8 +334,8 @@ def _decode_sensitive_key(value: str, key: str) -> str:
 async def run_script(
     script_id: str,
     request: Request,
+    device_id: str = None,
     visitor_id: str = None,
-    token: str = None,
     # 用户配置参数（前端传入）
     LLM_API_KEY: str = None,
     LLM_BASE_URL: str = None,
@@ -362,106 +353,90 @@ async def run_script(
 ):
     """
     运行脚本（带使用次数检查和扣减）
-    
-    v2.1 改造：
-    - 接收前端传入的用户配置
+
+    v2.1 激活码架构：
+    - device_id: 已激活用户设备 ID
+    - visitor_id: 匿名用户访客 ID
     - 通过环境变量传给子进程
-    - 支持用户隔离
+    - 支持用户隔离（code_id 替代 user_id）
     """
     if script_id not in SCRIPTS:
         raise HTTPException(status_code=404, detail="Unknown script")
 
     script = SCRIPTS[script_id]
     tool_type = SCRIPT_TOOL_MAP.get(script_id)
-    
+
     # 用户身份（用于报告隔离）
-    user_id_for_env = None
+    code_id_for_env = None
 
     # 检查并扣减使用次数
     try:
         from src.database.connection import get_db
         from src.usage.service import UsageService
-        from src.config import settings
 
-        if settings.FEATURE_USER_SYSTEM:
-            # 获取数据库会话
-            db_gen = get_db()
-            db = next(db_gen)
-            try:
-                # 尝试从请求中获取用户
-                user = None
+        # 获取数据库会话
+        db_gen = get_db()
+        db = next(db_gen)
+        try:
+            # v2.1 激活码架构：使用新的 UsageService
+            service = UsageService(db)
 
-                # 优先使用查询参数中的 token
-                auth_token = token
-                if not auth_token:
-                    auth_header = request.headers.get("Authorization")
-                    if auth_header and auth_header.startswith("Bearer "):
-                        auth_token = auth_header.replace("Bearer ", "")
+            # 检查使用权限
+            check_result = service.check_usage(
+                device_id=device_id,
+                visitor_id=visitor_id,
+                tool_type=tool_type,
+            )
 
-                if auth_token:
-                    try:
-                        from src.auth.utils import verify_token
-                        payload = verify_token(auth_token)
-                        if payload:
-                            from src.database import crud
-                            uid = payload.get("user_id") or payload.get("sub")
-                            if uid:
-                                user = crud.get_user_by_id(db, int(uid))
-                                user_id_for_env = str(user.id)
-                    except Exception:
-                        pass
-
-                # 匿名用户使用 visitor_id
-                if not user_id_for_env and visitor_id:
-                    user_id_for_env = "anon_" + visitor_id
-
-                # 获取客户端 IP
-                ip_address = get_client_ip(request)
-
-                # 检查使用权限
-                service = UsageService(db)
-                check_result = service.check_usage(
-                    user=user,
-                    visitor_id=visitor_id,
-                    ip_address=ip_address,
-                    tool_type=tool_type,
+            if not check_result.get("can_use"):
+                raise HTTPException(
+                    status_code=403,
+                    detail=check_result.get("message", "无使用权限")
                 )
 
-                if not check_result.get("can_use"):
-                    raise HTTPException(
-                        status_code=403,
-                        detail=check_result.get("message", "无使用权限")
-                    )
+            # 扣减使用次数
+            consume_result = service.consume(
+                device_id=device_id,
+                visitor_id=visitor_id,
+                tool_type=tool_type,
+                amount=1,
+            )
 
-                # 扣减使用次数
-                deduct_result = service.deduct_usage(
-                    user=user,
-                    visitor_id=visitor_id,
-                    ip_address=ip_address,
-                    tool_type=tool_type,
-                    amount=1,
+            if not consume_result.get("success"):
+                raise HTTPException(
+                    status_code=403,
+                    detail=consume_result.get("message", "扣减失败")
                 )
 
-                if not deduct_result.get("success"):
-                    raise HTTPException(
-                        status_code=403,
-                        detail=deduct_result.get("message", "扣减失败")
-                    )
+            # 确定报告目录标识
+            if device_id:
+                # 已激活用户：使用 code_id
+                from src.database import crud
+                activation_code = crud.get_activation_code_by_device_id(db, device_id)
+                if activation_code:
+                    code_id_for_env = f"code_{activation_code.id}"
+            elif visitor_id:
+                # 匿名用户
+                code_id_for_env = f"anon_{visitor_id}"
 
-            finally:
-                db.close()
+        finally:
+            db.close()
     except HTTPException:
         raise
     except Exception as e:
-        logger.warning(f"使用次数检查失败，跳过: {e}")
+        logger.error(f"使用次数检查失败: {e}")
+        # 返回错误响应，而不是跳过检查
+        async def error_stream():
+            yield f"data: [ERROR] 服务暂时不可用，请稍后重试\n\n"
+        return StreamingResponse(error_stream(), media_type="text/event-stream")
 
     async def stream():
         # 构建用户专属环境变量
         env = os.environ.copy()
-        
-        # 传递用户ID（用于报告隔离）
-        if user_id_for_env:
-            env["USER_ID"] = user_id_for_env
+
+        # 传递用户ID（用于报告隔离）v2.1: code_id 替代 user_id
+        if code_id_for_env:
+            env["USER_ID"] = code_id_for_env
         
         # 传递用户配置（敏感Key需要解码）
         config_mapping = {
@@ -528,52 +503,58 @@ async def run_script(
 
 # ── Reports ──────────────────────────────────────────────
 
-def _get_user_id_from_request(request: Request, token: str = None) -> str:
-    """从请求中获取用户ID（用于报告隔离）"""
-    # 优先使用查询参数中的 token
-    auth_token = token
-    if not auth_token:
-        auth_header = request.headers.get("Authorization")
-        if auth_header and auth_header.startswith("Bearer "):
-            auth_token = auth_header.replace("Bearer ", "")
-    
-    if auth_token:
+def _get_code_id_from_device(device_id: str = None) -> str:
+    """从 device_id 获取激活码 ID，用于报告目录隔离"""
+    if not device_id:
+        return None
+    try:
+        from src.database.connection import get_db
+        from src.database import crud
+        db_gen = get_db()
+        db = next(db_gen)
         try:
-            from src.auth.utils import verify_token
-            payload = verify_token(auth_token)
-            if payload:
-                user_id = payload.get("user_id") or payload.get("sub")
-                if user_id:
-                    return str(user_id)
-        except Exception:
-            pass
-    
+            activation_code = crud.get_activation_code_by_device_id(db, device_id)
+            if activation_code:
+                return f"code_{activation_code.id}"
+        finally:
+            db.close()
+    except Exception:
+        pass
     return None
 
+
+def _get_report_dir(device_id: str = None, visitor_id: str = None):
+    """
+    获取报告目录路径
+    - 有 device_id → 查询 code_id → code_{id}
+    - 有 visitor_id → anon_{visitor_id}
+    - 否则返回 None
+    """
+    if device_id:
+        code_dir = _get_code_id_from_device(device_id)
+        if code_dir:
+            return REPORTS_DIR / code_dir
+    if visitor_id:
+        return REPORTS_DIR / f"anon_{visitor_id}"
+    return None
 
 @app.get("/api/reports")
 def list_reports(
     request: Request,
-    token: str = None,
+    device_id: str = None,
     visitor_id: str = None,
 ):
     """
-    获取报告列表（按用户隔离）
-    
-    v2.1 改造：只返回当前用户的报告
+    获取报告列表，根据用户身份隔离目录
+    v2.1 使用激活码架构，通过 device_id 查询 code_id 来隔离报告
     """
-    # 获取用户ID
-    user_id = _get_user_id_from_request(request, token)
-    
-    # 确定报告目录
-    if user_id:
-        user_report_dir = REPORTS_DIR / f"user_{user_id}"
-    elif visitor_id:
-        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
-    else:
-        # 无用户信息，返回空列表
+    # 获取报告目录
+    user_report_dir = _get_report_dir(device_id=device_id, visitor_id=visitor_id)
+
+    # 没有有效身份则返回空列表
+    if not user_report_dir:
         return []
-    
+
     if not user_report_dir.exists():
         return []
     
@@ -593,35 +574,29 @@ def list_reports(
 def get_report(
     path: str,
     request: Request,
-    token: str = None,
+    device_id: str = None,
     visitor_id: str = None,
 ):
     """
-    获取报告内容（按用户隔离）
-    
-    v2.1 改造：只能读取当前用户的报告
+    获取报告内容，根据用户身份隔离目录
+    v2.1 通过 device_id 获取 code_id 来隔离报告
     """
-    # 获取用户ID
-    user_id = _get_user_id_from_request(request, token)
-    
-    # 确定报告目录
-    if user_id:
-        user_report_dir = REPORTS_DIR / f"user_{user_id}"
-    elif visitor_id:
-        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
-    else:
-        raise HTTPException(status_code=403, detail="未授权访问")
-    
-    # 安全检查：防止路径遍历攻击
+    # 获取报告目录
+    user_report_dir = _get_report_dir(device_id=device_id, visitor_id=visitor_id)
+
+    if not user_report_dir:
+        raise HTTPException(status_code=403, detail="无法识别用户")
+
+    # 安全检查：确保路径不会跳出用户报告目录
     full = user_report_dir / path.replace("\\", "/")
     try:
         full = full.resolve()
         user_report_dir = user_report_dir.resolve()
         if not str(full).startswith(str(user_report_dir)):
-            raise HTTPException(status_code=403, detail="无权访问该报告")
+            raise HTTPException(status_code=403, detail="禁止访问其他用户的报告")
     except Exception:
-        raise HTTPException(status_code=403, detail="无效的路径")
-    
+        raise HTTPException(status_code=403, detail="无效路径")
+
     if not full.exists() or not full.is_file():
         raise HTTPException(status_code=404)
     return {"content": full.read_text(encoding="utf-8")}
@@ -633,42 +608,37 @@ def get_report(
 def download_report(
     path: str,
     request: Request,
-    token: str = None,
+    device_id: str = None,
     visitor_id: str = None,
     format: str = "md",
 ):
-    """单篇报告下载（按用户隔离）"""
-    # 获取用户ID
-    user_id = _get_user_id_from_request(request, token)
-    
-    # 确定报告目录
-    if user_id:
-        user_report_dir = REPORTS_DIR / f"user_{user_id}"
-    elif visitor_id:
-        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
-    else:
-        raise HTTPException(status_code=403, detail="未授权访问")
-    
-    # 安全检查：防止路径遍历攻击
+    """下载报告文件，根据用户身份隔离目录"""
+    # 获取报告目录
+    user_report_dir = _get_report_dir(device_id=device_id, visitor_id=visitor_id)
+
+    if not user_report_dir:
+        raise HTTPException(status_code=403, detail="无法识别用户")
+
+    # 安全检查：确保路径不会跳出用户报告目录
     full = user_report_dir / path.replace("\\", "/")
     try:
         full = full.resolve()
         user_report_dir = user_report_dir.resolve()
         if not str(full).startswith(str(user_report_dir)):
-            raise HTTPException(status_code=403, detail="无权访问该报告")
+            raise HTTPException(status_code=403, detail="禁止访问其他用户的报告")
     except Exception:
-        raise HTTPException(status_code=403, detail="无效的路径")
-    
+        raise HTTPException(status_code=403, detail="无效路径")
+
     if not full.exists() or not full.is_file():
-        raise HTTPException(status_code=404, detail="报告不存在")
-    
-    content = full.read_text(encoding="utf-8")
-    filename = full.stem  # 文件名（不含扩展名）
-    
+        raise HTTPException(status_code=404, detail="报告文件不存在")
+
+    content_text = full.read_text(encoding="utf-8")
+    filename = full.stem
+
     if format == "txt":
         # 转换为纯文本：移除 markdown 格式
         import re
-        text = content
+        text = content_text
         # 移除链接，保留文本
         text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
         # 移除图片
@@ -685,44 +655,39 @@ def download_report(
         text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
         # 清理多余空行
         text = re.sub(r'\n{3,}', '\n\n', text)
-        content = text.strip()
+        content_text = text.strip()
         
         return Response(
-            content=content.encode('utf-8'),
+            content=content_text.encode('utf-8'),
             media_type='text/plain; charset=utf-8',
             headers={"Content-Disposition": f'attachment; filename="{filename}.txt"'}
         )
     else:
         return Response(
-            content=content.encode('utf-8'),
+            content=content_text.encode('utf-8'),
             media_type='text/markdown; charset=utf-8',
             headers={"Content-Disposition": f'attachment; filename="{filename}.md"'}
         )
 
-
+@app.get("/api/reports/batch-download")
 @app.get("/api/reports/batch-download")
 def batch_download_reports(
     request: Request,
     paths: str = Query(...),
-    token: str = None,
+    device_id: str = None,
     visitor_id: str = None,
     format: str = "md",
 ):
-    """批量报告打包下载（按用户隔离）"""
-    # 获取用户ID
-    user_id = _get_user_id_from_request(request, token)
-    
-    # 确定报告目录
-    if user_id:
-        user_report_dir = REPORTS_DIR / f"user_{user_id}"
-    elif visitor_id:
-        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
-    else:
-        raise HTTPException(status_code=403, detail="未授权访问")
-    
-    # 解析用户报告目录的绝对路径（用于安全检查）
+    """批量下载多个报告为 zip，根据用户身份隔离目录"""
+    # 获取报告目录
+    user_report_dir = _get_report_dir(device_id=device_id, visitor_id=visitor_id)
+
+    if not user_report_dir:
+        raise HTTPException(status_code=403, detail="无法识别用户")
+
+    # 安全检查：确保所有路径都在用户报告目录内
     user_report_dir = user_report_dir.resolve()
-    
+
     path_list = [p.strip() for p in paths.split(",") if p.strip()]
 
     if not path_list:
@@ -745,13 +710,13 @@ def batch_download_reports(
             if not full.exists() or not full.is_file():
                 continue
             
-            content = full.read_text(encoding="utf-8")
+            content_text = full.read_text(encoding="utf-8")
             filename = full.stem
             
             if format == "txt":
                 # 转换为纯文本
                 import re
-                text = content
+                text = content_text
                 text = re.sub(r'\[([^\]]+)\]\([^)]+\)', r'\1', text)
                 text = re.sub(r'!\[([^\]]*)\]\([^)]+\)', '', text)
                 text = re.sub(r'\*{1,2}([^\*]+)\*{1,2}', r'\1', text)
@@ -761,7 +726,7 @@ def batch_download_reports(
                 text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
                 text = re.sub(r'^[-*_]{3,}\s*$', '', text, flags=re.MULTILINE)
                 text = re.sub(r'\n{3,}', '\n\n', text)
-                content = text.strip()
+                content_text = text.strip()
                 
                 zip_file.writestr(f"{filename}.txt", content)
             else:
@@ -786,37 +751,7 @@ def index():
     return (BASE_DIR / "ui" / "index.html").read_text(encoding="utf-8")
 
 
-# ── Auth Pages ───────────────────────────────────────────
-
-@app.get("/login", response_class=HTMLResponse)
-def login_page():
-    """登录页面"""
-    return (BASE_DIR / "ui" / "login.html").read_text(encoding="utf-8")
-
-
-@app.get("/register", response_class=HTMLResponse)
-def register_page():
-    """注册页面"""
-    return (BASE_DIR / "ui" / "register.html").read_text(encoding="utf-8")
-
-
-@app.get("/forgot-password", response_class=HTMLResponse)
-def forgot_password_page():
-    """忘记密码页面"""
-    return (BASE_DIR / "ui" / "forgot-password.html").read_text(encoding="utf-8")
-
-
-@app.get("/oauth/callback", response_class=HTMLResponse)
-def oauth_callback_page():
-    """OAuth 回调页面"""
-    return (BASE_DIR / "ui" / "oauth-callback.html").read_text(encoding="utf-8")
-
-
-@app.get("/account", response_class=HTMLResponse)
-def account_page():
-    """用户中心页面"""
-    return (BASE_DIR / "ui" / "account.html").read_text(encoding="utf-8")
-
+# ── Admin Page ───────────────────────────────────────────
 
 @app.get("/admin", response_class=HTMLResponse)
 def admin_page():

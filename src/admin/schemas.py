@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-管理员 API 数据模型
+管理员 API 数据模型（v2.1 激活码架构）
 
 定义管理员相关 API 的请求和响应模型
 """
@@ -11,7 +11,124 @@ from pydantic import BaseModel, Field
 
 
 # ==========================================
-# 用户管理相关
+# 管理员登录相关
+# ==========================================
+
+class AdminLoginRequest(BaseModel):
+    """管理员登录请求"""
+    username: str = Field(min_length=1, max_length=50, description="管理员账号")
+    password: str = Field(min_length=1, max_length=100, description="密码")
+
+
+class AdminLoginResponse(BaseModel):
+    """管理员登录响应"""
+    success: bool
+    message: str
+    token: Optional[str] = None
+    admin_id: Optional[int] = None
+    username: Optional[str] = None
+
+
+class AdminInfoResponse(BaseModel):
+    """管理员信息响应"""
+    id: int
+    username: str
+    is_active: bool = True
+    created_at: Optional[datetime] = None
+    last_login_at: Optional[datetime] = None
+
+
+# ==========================================
+# 激活码管理相关（v2.1 新增）
+# ==========================================
+
+class GenerateActivationCodesRequest(BaseModel):
+    """批量生成激活码请求"""
+    count: int = Field(ge=1, le=1000, description="生成数量")
+    quota: int = Field(ge=1, le=1000, description="每个激活码的次数（3/6/10/20/50/100）")
+    note: Optional[str] = Field(default=None, max_length=200, description="备注")
+
+
+class GenerateActivationCodesResponse(BaseModel):
+    """批量生成激活码响应"""
+    success: bool
+    message: str
+    codes: List[str]
+    count: int
+    quota: int
+
+
+class ActivationCodeListRequest(BaseModel):
+    """激活码列表请求"""
+    page: int = Field(default=1, ge=1)
+    limit: int = Field(default=20, ge=1, le=100)
+    search: Optional[str] = Field(default=None, description="搜索激活码")
+    is_activated: Optional[bool] = Field(default=None, description="筛选激活状态")
+
+
+class ActivationCodeData(BaseModel):
+    """激活码数据"""
+    id: int
+    code: str
+    quota: int
+    remaining: int
+    is_activated: bool
+    activated_at: Optional[datetime] = None
+    device_count: int = 0
+    referral_code_used: Optional[str] = None
+    referral_rewarded: bool = False
+    created_at: Optional[datetime] = None
+
+
+class ActivationCodeListResponse(BaseModel):
+    """激活码列表响应"""
+    codes: List[ActivationCodeData]
+    total: int
+    page: int
+    limit: int
+
+
+class RevokeActivationCodeResponse(BaseModel):
+    """作废激活码响应"""
+    success: bool
+    message: str
+    code_id: int
+    code: str
+
+
+class DeviceBindingData(BaseModel):
+    """设备绑定数据"""
+    id: int
+    device_id: str
+    device_name: Optional[str] = None
+    last_seen: Optional[datetime] = None
+    created_at: Optional[datetime] = None
+
+
+class ActivationCodeDevicesResponse(BaseModel):
+    """激活码设备绑定响应"""
+    success: bool
+    code_id: int
+    code: str
+    devices: List[DeviceBindingData]
+    device_count: int
+
+
+class DashboardStatsResponse(BaseModel):
+    """仪表盘统计响应"""
+    total_codes: int
+    activated_codes: int
+    unused_codes: int
+    total_quota: int
+    total_remaining: int
+    total_devices: int
+    total_referrals: int
+    today_activations: int
+    week_activations: int
+
+
+# ==========================================
+# 旧模型保留（兼容审计日志等）
 # ==========================================
 
 class UserListResponse(BaseModel):

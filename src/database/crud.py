@@ -1,1015 +1,1174 @@
 # -*- coding: utf-8 -*-
 """
-数据库 CRUD 操作
+数据库 CRUD 操作 - 激活码架构
 
-提供所有数据库表的基本 CRUD 操作函数
+提供激活码相关的数据库 CRUD 操作函数（v2.1 激活码架构）
 """
 
-import hashlib
 import secrets
 import string
 import logging
-from datetime import datetime, timedelta
-from typing import Optional, List, Tuple
+import bcrypt
+from datetime import datetime
+from typing import Optional, List
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, or_, desc
+from sqlalchemy import and_, desc
 
 from src.database.models import (
-    User,
-    VerificationCode,
-    RefreshToken,
-    RedemptionCode,
-    TopupRecord,
-    InviteRecord,
+    ActivationCode,
+    Device,
+    ReferralCode,
+    AnonymousUsage,
+    AdminUser,
+    AuditLog,
+    MarketplaceTemplate,
+    UserPrompt,
+    UserSource,
+    UserConfig,
+    DailyHotCategoryConfig,
 )
-from src.config import settings
 
 logger = logging.getLogger(__name__)
 
 
 # ==========================================
-# 用户相关 CRUD
+# 激活码相关 CRUD
 # ==========================================
 
-def create_user(
-    db: Session,
-    email: str,
-    password_hash: str,
-    invite_code: str,
-    invited_by: int = None,
-    oauth_provider: str = None,
-    oauth_id: str = None,
-    oauth_name: str = None,
-    oauth_avatar: str = None,
-) -> User:
-    """
-    创建新用户
-    
-    Args:
-        db: 数据库会话
-        email: 用户邮箱
-        password_hash: 密码哈希（OAuth 用户可为 None）
-        invite_code: 用户专属邀请码
-        invited_by: 邀请人 ID（可选）
-        oauth_provider: OAuth 提供商（可选）
-        oauth_id: OAuth 用户 ID（可选）
-        oauth_name: OAuth 用户名（可选）
-        oauth_avatar: OAuth 头像（可选）
-    
-    Returns:
-        User: 创建的用户对象
-    """
-    user = User(
-        email=email,
-        password_hash=password_hash,
-        invite_code=invite_code,
-        invited_by=invited_by,
-        oauth_provider=oauth_provider,
-        oauth_id=oauth_id,
-        oauth_name=oauth_name,
-        oauth_avatar=oauth_avatar,
-        usage_count=0,
-        is_active=True,
-        is_verified=True if oauth_provider else False,  # OAuth 用户自动验证
-    )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
-    
-    logger.info(f"用户创建成功: id={user.id}, email={email}")
-    return user
-
-
-def get_user_by_email(db: Session, email: str) -> Optional[User]:
-    """
-    通过邮箱获取用户
-    
-    Args:
-        db: 数据库会话
-        email: 用户邮箱
-    
-    Returns:
-        Optional[User]: 用户对象，不存在则返回 None
-    """
-    return db.query(User).filter(User.email == email.lower()).first()
-
-
-def get_user_by_id(db: Session, user_id: int) -> Optional[User]:
-    """
-    通过 ID 获取用户
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-    
-    Returns:
-        Optional[User]: 用户对象，不存在则返回 None
-    """
-    return db.query(User).filter(User.id == user_id).first()
-
-
-def get_user_by_invite_code(db: Session, invite_code: str) -> Optional[User]:
-    """
-    通过邀请码获取用户
-    
-    Args:
-        db: 数据库会话
-        invite_code: 邀请码
-    
-    Returns:
-        Optional[User]: 用户对象，不存在则返回 None
-    """
-    return db.query(User).filter(User.invite_code == invite_code.upper()).first()
-
-
-def get_user_by_oauth(db: Session, provider: str, oauth_id: str) -> Optional[User]:
-    """
-    通过 OAuth 信息获取用户
-    
-    Args:
-        db: 数据库会话
-        provider: OAuth 提供商
-        oauth_id: OAuth 用户 ID
-    
-    Returns:
-        Optional[User]: 用户对象，不存在则返回 None
-    """
-    return db.query(User).filter(
-        User.oauth_provider == provider,
-        User.oauth_id == oauth_id
-    ).first()
-
-
-def link_oauth_to_user(
-    db: Session,
-    user_id: int,
-    oauth_provider: str,
-    oauth_id: str,
-    oauth_name: str,
-    oauth_avatar: str = None,
-) -> Optional[User]:
-    """
-    将 OAuth 账号绑定到已有用户
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        oauth_provider: OAuth 提供商
-        oauth_id: OAuth 用户 ID
-        oauth_name: OAuth 用户名
-        oauth_avatar: OAuth 头像
-    
-    Returns:
-        Optional[User]: 更新后的用户对象
-    """
-    user = get_user_by_id(db, user_id)
-    if user:
-        # 检查是否已被其他用户绑定
-        existing = get_user_by_oauth(db, oauth_provider, oauth_id)
-        if existing and existing.id != user_id:
-            logger.warning(f"OAuth 账号已被其他用户绑定: provider={oauth_provider}, oauth_id={oauth_id}")
-            return None
-        
-        user.oauth_provider = oauth_provider
-        user.oauth_id = oauth_id
-        user.oauth_name = oauth_name
-        user.oauth_avatar = oauth_avatar
-        db.commit()
-        db.refresh(user)
-        logger.info(f"OAuth 账号绑定成功: user_id={user_id}, provider={oauth_provider}")
-    return user
-
-
-def update_user_usage_count(db: Session, user_id: int, delta: int) -> User:
-    """
-    更新用户使用次数
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        delta: 变化量（正数增加，负数减少）
-    
-    Returns:
-        User: 更新后的用户对象
-    """
-    user = get_user_by_id(db, user_id)
-    if user:
-        user.usage_count = max(0, user.usage_count + delta)
-        db.commit()
-        db.refresh(user)
-    return user
-
-
-def update_last_login(db: Session, user_id: int) -> None:
-    """
-    更新最后登录时间
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-    """
-    user = get_user_by_id(db, user_id)
-    if user:
-        user.last_login_at = datetime.utcnow()
-        db.commit()
-
-
-def update_password(db: Session, user_id: int, new_password_hash: str) -> None:
-    """
-    更新用户密码
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        new_password_hash: 新密码哈希
-    """
-    user = get_user_by_id(db, user_id)
-    if user:
-        user.password_hash = new_password_hash
-        db.commit()
-
-
-def update_user_usage(db: Session, user_id: int, **kwargs) -> User:
-    """
-    更新用户信息
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        **kwargs: 要更新的字段
-    
-    Returns:
-        User: 更新后的用户对象
-    """
-    user = get_user_by_id(db, user_id)
-    if user:
-        for key, value in kwargs.items():
-            if hasattr(user, key):
-                setattr(user, key, value)
-        db.commit()
-        db.refresh(user)
-    return user
-
-
-# ==========================================
-# 验证码相关 CRUD
-# ==========================================
-
-def create_verification_code(
-    db: Session,
-    email: str,
-    code: str,
-    purpose: str,
-    expires_minutes: int = 5,
-) -> VerificationCode:
-    """
-    创建验证码
-    
-    Args:
-        db: 数据库会话
-        email: 邮箱
-        code: 验证码
-        purpose: 用途 (register, reset_password)
-        expires_minutes: 过期时间（分钟）
-    
-    Returns:
-        VerificationCode: 创建的验证码对象
-    """
-    expires_at = datetime.utcnow() + timedelta(minutes=expires_minutes)
-    
-    vc = VerificationCode(
-        email=email.lower(),
-        code=code,
-        purpose=purpose,
-        expires_at=expires_at,
-    )
-    db.add(vc)
-    db.commit()
-    db.refresh(vc)
-    
-    return vc
-
-
-def get_valid_verification_code(
-    db: Session,
-    email: str,
-    code: str,
-    purpose: str,
-) -> Optional[VerificationCode]:
-    """
-    获取有效的验证码
-    
-    Args:
-        db: 数据库会话
-        email: 邮箱
-        code: 验证码
-        purpose: 用途
-    
-    Returns:
-        Optional[VerificationCode]: 验证码对象，无效则返回 None
-    """
-    return db.query(VerificationCode).filter(
-        VerificationCode.email == email.lower(),
-        VerificationCode.code == code,
-        VerificationCode.purpose == purpose,
-        VerificationCode.used == False,
-        VerificationCode.expires_at > datetime.utcnow(),
-    ).first()
-
-
-def mark_code_as_used(db: Session, code_id: int) -> None:
-    """
-    标记验证码为已使用
-    
-    Args:
-        db: 数据库会话
-        code_id: 验证码 ID
-    """
-    vc = db.query(VerificationCode).filter(VerificationCode.id == code_id).first()
-    if vc:
-        vc.used = True
-        db.commit()
-
-
-def can_send_code(
-    db: Session,
-    email: str,
-    purpose: str,
-    cooldown_seconds: int = 60,
-) -> Tuple[bool, int]:
-    """
-    检查是否可以发送验证码
-    
-    Args:
-        db: 数据库会话
-        email: 邮箱
-        purpose: 用途
-        cooldown_seconds: 冷却时间（秒）
-    
-    Returns:
-        Tuple[bool, int]: (是否可以发送, 剩余冷却时间)
-    """
-    cutoff_time = datetime.utcnow() - timedelta(seconds=cooldown_seconds)
-    
-    recent_code = db.query(VerificationCode).filter(
-        VerificationCode.email == email.lower(),
-        VerificationCode.purpose == purpose,
-        VerificationCode.created_at > cutoff_time,
-    ).order_by(VerificationCode.created_at.desc()).first()
-    
-    if recent_code:
-        elapsed = (datetime.utcnow() - recent_code.created_at).total_seconds()
-        remaining = max(0, cooldown_seconds - int(elapsed))
-        return False, remaining
-    
-    return True, 0
-
-
-def delete_expired_codes(db: Session) -> int:
-    """
-    删除过期验证码
-    
-    Args:
-        db: 数据库会话
-    
-    Returns:
-        int: 删除的数量
-    """
-    result = db.query(VerificationCode).filter(
-        VerificationCode.expires_at < datetime.utcnow()
-    ).delete()
-    db.commit()
-    return result
-
-
-# ==========================================
-# Token 相关 CRUD
-# ==========================================
-
-def hash_token(token: str) -> str:
-    """
-    对 Token 进行 SHA256 哈希
-    
-    Args:
-        token: 原始 Token
-    
-    Returns:
-        str: 哈希后的 Token
-    """
-    return hashlib.sha256(token.encode()).hexdigest()
-
-
-def create_refresh_token(
-    db: Session,
-    user_id: int,
-    token: str,
-    expires_days: int = 7,
-    device_info: str = None,
-    ip_address: str = None,
-) -> RefreshToken:
-    """
-    创建刷新令牌
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        token: 原始刷新令牌
-        expires_days: 过期天数
-        device_info: 设备信息
-        ip_address: IP 地址
-    
-    Returns:
-        RefreshToken: 创建的刷新令牌对象
-    """
-    expires_at = datetime.utcnow() + timedelta(days=expires_days)
-    token_hash = hash_token(token)
-    
-    rt = RefreshToken(
-        user_id=user_id,
-        token_hash=token_hash,
-        expires_at=expires_at,
-        device_info=device_info,
-        ip_address=ip_address,
-    )
-    db.add(rt)
-    db.commit()
-    db.refresh(rt)
-    
-    return rt
-
-
-def get_valid_refresh_token(db: Session, token: str) -> Optional[RefreshToken]:
-    """
-    获取有效的刷新令牌
-    
-    Args:
-        db: 数据库会话
-        token: 原始刷新令牌
-    
-    Returns:
-        Optional[RefreshToken]: 刷新令牌对象，无效则返回 None
-    """
-    token_hash = hash_token(token)
-    
-    return db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash,
-        RefreshToken.revoked == False,
-        RefreshToken.expires_at > datetime.utcnow(),
-    ).first()
-
-
-def get_refresh_token_by_hash(db: Session, token_hash: str) -> Optional[RefreshToken]:
-    """
-    通过哈希获取刷新令牌
-    
-    Args:
-        db: 数据库会话
-        token_hash: Token 哈希
-    
-    Returns:
-        Optional[RefreshToken]: 刷新令牌对象
-    """
-    return db.query(RefreshToken).filter(
-        RefreshToken.token_hash == token_hash
-    ).first()
-
-
-def revoke_refresh_token(db: Session, token_id: int) -> None:
-    """
-    撤销刷新令牌
-    
-    Args:
-        db: 数据库会话
-        token_id: 令牌 ID
-    """
-    rt = db.query(RefreshToken).filter(RefreshToken.id == token_id).first()
-    if rt:
-        rt.revoked = True
-        db.commit()
-
-
-def revoke_token_by_hash(db: Session, token_hash: str) -> None:
-    """
-    通过哈希撤销刷新令牌
-    
-    Args:
-        db: 数据库会话
-        token_hash: Token 哈希
-    """
-    rt = db.query(RefreshToken).filter(RefreshToken.token_hash == token_hash).first()
-    if rt:
-        rt.revoked = True
-        db.commit()
-
-
-def revoke_all_user_tokens(db: Session, user_id: int) -> int:
-    """
-    撤销用户所有刷新令牌
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-    
-    Returns:
-        int: 撤销的数量
-    """
-    result = db.query(RefreshToken).filter(
-        RefreshToken.user_id == user_id,
-        RefreshToken.revoked == False,
-    ).update({"revoked": True})
-    db.commit()
-    return result
-
-
-def cleanup_expired_tokens(db: Session) -> int:
-    """
-    清理过期的刷新令牌
-    
-    Args:
-        db: 数据库会话
-    
-    Returns:
-        int: 删除的数量
-    """
-    result = db.query(RefreshToken).filter(
-        or_(
-            RefreshToken.expires_at < datetime.utcnow(),
-            RefreshToken.revoked == True,
-        )
-    ).delete()
-    db.commit()
-    return result
-
-
-# ==========================================
-# 邀请码相关 CRUD
-# ==========================================
-
-def generate_unique_invite_code(
-    db: Session,
+def generate_activation_code(
     prefix: str = "PRISM-",
-    length: int = 8,
+    segment_length: int = 4,
+    num_segments: int = 3,
 ) -> str:
     """
-    生成唯一的邀请码
-    
-    格式: PRISM-A1B2C3D4（8位大写字母+数字）
-    
+    生成激活码
+
+    格式: PRISM-XXXX-XXXX-XXXX（不区分大小写）
+
     Args:
-        db: 数据库会话
         prefix: 前缀
-        length: 随机部分长度
-    
+        segment_length: 每段长度
+        num_segments: 段数
+
     Returns:
-        str: 唯一的邀请码
+        str: 激活码
     """
     chars = string.ascii_uppercase + string.digits
-    
-    while True:
-        # 生成随机部分
-        random_part = ''.join(secrets.choice(chars) for _ in range(length))
-        code = f"{prefix}{random_part}"
-        
-        # 检查是否已存在
-        existing = db.query(User).filter(User.invite_code == code).first()
-        if not existing:
-            return code
+    segments = []
+    for _ in range(num_segments):
+        segment = ''.join(secrets.choice(chars) for _ in range(segment_length))
+        segments.append(segment)
+    return f"{prefix}{'-'.join(segments)}"
 
 
-# ==========================================
-# 兑换码相关 CRUD
-# ==========================================
-
-def get_redemption_code(db: Session, code: str) -> Optional[RedemptionCode]:
+def create_activation_code(
+    db: Session,
+    quota: int,
+    code: str = None,
+) -> ActivationCode:
     """
-    获取兑换码
-    
+    创建激活码
+
     Args:
         db: 数据库会话
-        code: 兑换码
-    
+        quota: 次数（3/6/10/20/50/100）
+        code: 激活码（可选，不提供则自动生成）
+
     Returns:
-        Optional[RedemptionCode]: 兑换码对象
+        ActivationCode: 创建的激活码对象
     """
-    return db.query(RedemptionCode).filter(
-        RedemptionCode.code == code.upper()
+    if not code:
+        # 生成唯一激活码
+        while True:
+            code = generate_activation_code()
+            existing = db.query(ActivationCode).filter(
+                ActivationCode.code == code
+            ).first()
+            if not existing:
+                break
+
+    ac = ActivationCode(
+        code=code.upper(),
+        quota=quota,
+        remaining=quota,
+        is_activated=False,
+    )
+    db.add(ac)
+    db.commit()
+    db.refresh(ac)
+
+    logger.info(f"激活码创建成功: code={ac.code}, quota={quota}")
+    return ac
+
+
+def create_activation_codes_batch(
+    db: Session,
+    quota: int,
+    num_codes: int,
+) -> List[ActivationCode]:
+    """
+    批量创建激活码
+
+    Args:
+        db: 数据库会话
+        quota: 次数
+        num_codes: 创建数量
+
+    Returns:
+        List[ActivationCode]: 创建的激活码列表
+    """
+    codes = []
+    for _ in range(num_codes):
+        ac = create_activation_code(db, quota)
+        codes.append(ac)
+
+    logger.info(f"批量创建激活码: num={num_codes}, quota={quota}")
+    return codes
+
+
+def get_activation_code_by_code(
+    db: Session,
+    code: str,
+) -> Optional[ActivationCode]:
+    """
+    通过激活码字符串获取激活码
+
+    Args:
+        db: 数据库会话
+        code: 激活码（不区分大小写）
+
+    Returns:
+        Optional[ActivationCode]: 激活码对象
+    """
+    return db.query(ActivationCode).filter(
+        ActivationCode.code == code.upper()
     ).first()
 
 
-def use_redemption_code(
+def get_activation_code_by_id(
     db: Session,
     code_id: int,
-    user_id: int,
-) -> RedemptionCode:
+) -> Optional[ActivationCode]:
     """
-    使用兑换码
-    
+    通过 ID 获取激活码
+
     Args:
         db: 数据库会话
-        code_id: 兑换码 ID
-        user_id: 使用者 ID
-    
+        code_id: 激活码 ID
+
     Returns:
-        RedemptionCode: 更新后的兑换码对象
+        Optional[ActivationCode]: 激活码对象
     """
-    rc = db.query(RedemptionCode).filter(RedemptionCode.id == code_id).first()
+    return db.query(ActivationCode).filter(
+        ActivationCode.id == code_id
+    ).first()
+
+
+def get_activation_code_by_device_id(
+    db: Session,
+    device_id: str,
+) -> Optional[ActivationCode]:
+    """
+    通过设备 ID 获取关联的激活码
+
+    Args:
+        db: 数据库会话
+        device_id: 设备 ID
+
+    Returns:
+        Optional[ActivationCode]: 激活码对象
+    """
+    device = db.query(Device).filter(Device.device_id == device_id).first()
+    if device:
+        return device.activation_code
+    return None
+
+
+def update_activation_code(
+    db: Session,
+    code_id: int,
+    **kwargs,
+) -> Optional[ActivationCode]:
+    """
+    更新激活码
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        **kwargs: 要更新的字段
+
+    Returns:
+        Optional[ActivationCode]: 更新后的激活码对象
+    """
+    ac = get_activation_code_by_id(db, code_id)
+    if ac:
+        for key, value in kwargs.items():
+            if hasattr(ac, key):
+                setattr(ac, key, value)
+        db.commit()
+        db.refresh(ac)
+    return ac
+
+
+def add_quota_to_activation_code(
+    db: Session,
+    code_id: int,
+    amount: int,
+) -> Optional[ActivationCode]:
+    """
+    给激活码增加次数
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        amount: 增加次数
+
+    Returns:
+        Optional[ActivationCode]: 更新后的激活码对象
+    """
+    ac = get_activation_code_by_id(db, code_id)
+    if ac:
+        ac.quota += amount
+        ac.remaining += amount
+        db.commit()
+        db.refresh(ac)
+        logger.info(f"激活码增加次数: code={ac.code}, amount={amount}, remaining={ac.remaining}")
+    return ac
+
+
+def deduct_activation_code_quota(
+    db: Session,
+    code_id: int,
+    amount: int = 1,
+) -> Optional[ActivationCode]:
+    """
+    扣减激活码次数
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        amount: 扣减次数
+
+    Returns:
+        Optional[ActivationCode]: 更新后的激活码对象
+    """
+    ac = get_activation_code_by_id(db, code_id)
+    if ac and ac.remaining >= amount:
+        ac.remaining -= amount
+        db.commit()
+        db.refresh(ac)
+        logger.info(f"激活码扣减次数: code={ac.code}, amount={amount}, remaining={ac.remaining}")
+    return ac
+
+
+def deactivate_activation_code(
+    db: Session,
+    code_id: int,
+) -> Optional[ActivationCode]:
+    """
+    作废激活码
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        Optional[ActivationCode]: 更新后的激活码对象
+    """
+    ac = get_activation_code_by_id(db, code_id)
+    if ac:
+        ac.remaining = 0
+        db.commit()
+        db.refresh(ac)
+        logger.info(f"激活码已作废: code={ac.code}")
+    return ac
+
+
+def list_activation_codes(
+    db: Session,
+    is_activated: bool = None,
+    has_remaining: bool = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[ActivationCode]:
+    """
+    查询激活码列表
+
+    Args:
+        db: 数据库会话
+        is_activated: 是否已激活（可选）
+        has_remaining: 是否有剩余次数（可选）
+        limit: 限制数量
+        offset: 偏移量
+
+    Returns:
+        List[ActivationCode]: 激活码列表
+    """
+    query = db.query(ActivationCode)
+
+    if is_activated is not None:
+        query = query.filter(ActivationCode.is_activated == is_activated)
+
+    if has_remaining is not None:
+        if has_remaining:
+            query = query.filter(ActivationCode.remaining > 0)
+        else:
+            query = query.filter(ActivationCode.remaining == 0)
+
+    return query.order_by(
+        desc(ActivationCode.created_at)
+    ).offset(offset).limit(limit).all()
+
+
+# ==========================================
+# 设备相关 CRUD
+# ==========================================
+
+def create_device(
+    db: Session,
+    code_id: int,
+    device_id: str,
+    device_name: str = None,
+) -> Optional[Device]:
+    """
+    创建设备绑定（幂等）
+
+    如果设备已绑定，不重复插入，直接返回现有设备
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        device_id: 设备 ID
+        device_name: 设备名称
+
+    Returns:
+        Optional[Device]: 设备对象（失败返回 None）
+    """
+    # 检查是否已绑定
+    existing = db.query(Device).filter(
+        Device.code_id == code_id,
+        Device.device_id == device_id,
+    ).first()
+
+    if existing:
+        # 幂等：已存在则更新 last_seen
+        existing.last_seen = datetime.utcnow()
+        if device_name:
+            existing.device_name = device_name
+        db.commit()
+        db.refresh(existing)
+        logger.info(f"设备已绑定，更新活跃时间: device_id={device_id[:16]}...")
+        return existing
+
+    # 检查设备数量限制
+    device_count = db.query(Device).filter(Device.code_id == code_id).count()
+    if device_count >= 3:
+        logger.warning(f"设备数量已达上限: code_id={code_id}, count={device_count}")
+        return None
+
+    # 创建新设备绑定
+    device = Device(
+        code_id=code_id,
+        device_id=device_id,
+        device_name=device_name,
+        last_seen=datetime.utcnow(),
+    )
+    db.add(device)
+    db.commit()
+    db.refresh(device)
+
+    logger.info(f"设备绑定成功: code_id={code_id}, device_id={device_id[:16]}...")
+    return device
+
+
+def get_devices_by_code_id(
+    db: Session,
+    code_id: int,
+) -> List[Device]:
+    """
+    获取激活码绑定的所有设备
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        List[Device]: 设备列表
+    """
+    return db.query(Device).filter(
+        Device.code_id == code_id
+    ).order_by(desc(Device.last_seen)).all()
+
+
+def get_device_by_id(
+    db: Session,
+    device_db_id: int,
+) -> Optional[Device]:
+    """
+    通过数据库 ID 获取设备
+
+    Args:
+        db: 数据库会话
+        device_db_id: 设备数据库 ID
+
+    Returns:
+        Optional[Device]: 设备对象
+    """
+    return db.query(Device).filter(Device.id == device_db_id).first()
+
+
+def delete_device(
+    db: Session,
+    device_db_id: int,
+) -> bool:
+    """
+    解绑设备
+
+    Args:
+        db: 数据库会话
+        device_db_id: 设备数据库 ID
+
+    Returns:
+        bool: 是否成功
+    """
+    device = get_device_by_id(db, device_db_id)
+    if device:
+        db.delete(device)
+        db.commit()
+        logger.info(f"设备已解绑: device_id={device.device_id[:16]}...")
+        return True
+    return False
+
+
+def update_device_last_seen(
+    db: Session,
+    device_id: str,
+) -> Optional[Device]:
+    """
+    更新设备最后活跃时间
+
+    Args:
+        db: 数据库会话
+        device_id: 设备 ID
+
+    Returns:
+        Optional[Device]: 设备对象
+    """
+    device = db.query(Device).filter(Device.device_id == device_id).first()
+    if device:
+        device.last_seen = datetime.utcnow()
+        db.commit()
+        db.refresh(device)
+    return device
+
+
+def count_devices_by_code_id(
+    db: Session,
+    code_id: int,
+) -> int:
+    """
+    统计激活码绑定的设备数量
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        int: 设备数量
+    """
+    return db.query(Device).filter(Device.code_id == code_id).count()
+
+
+# ==========================================
+# 推荐码相关 CRUD
+# ==========================================
+
+def generate_referral_code(length: int = 6) -> str:
+    """
+    生成推荐码
+
+    格式: REF-XXXXXX（6位大写字母数字）
+
+    Args:
+        length: 随机部分长度
+
+    Returns:
+        str: 推荐码
+    """
+    chars = string.ascii_uppercase + string.digits
+    random_part = ''.join(secrets.choice(chars) for _ in range(length))
+    return f"REF-{random_part}"
+
+
+def create_referral_code(
+    db: Session,
+    code_id: int,
+) -> ReferralCode:
+    """
+    创建推荐码
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        ReferralCode: 推荐码对象
+    """
+    # 检查是否已存在
+    existing = db.query(ReferralCode).filter(ReferralCode.code_id == code_id).first()
+    if existing:
+        return existing
+
+    # 生成唯一推荐码
+    while True:
+        referral_code = generate_referral_code()
+        existing = db.query(ReferralCode).filter(
+            ReferralCode.referral_code == referral_code
+        ).first()
+        if not existing:
+            break
+
+    rc = ReferralCode(
+        code_id=code_id,
+        referral_code=referral_code,
+    )
+    db.add(rc)
+    db.commit()
+    db.refresh(rc)
+
+    logger.info(f"推荐码创建成功: code_id={code_id}, referral_code={referral_code}")
+    return rc
+
+
+def get_referral_code_by_code(
+    db: Session,
+    referral_code: str,
+) -> Optional[ReferralCode]:
+    """
+    通过推荐码字符串获取推荐码
+
+    Args:
+        db: 数据库会话
+        referral_code: 推荐码
+
+    Returns:
+        Optional[ReferralCode]: 推荐码对象
+    """
+    return db.query(ReferralCode).filter(
+        ReferralCode.referral_code == referral_code.upper()
+    ).first()
+
+
+def get_referral_code_by_code_id(
+    db: Session,
+    code_id: int,
+) -> Optional[ReferralCode]:
+    """
+    通过激活码 ID 获取推荐码
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        Optional[ReferralCode]: 推荐码对象
+    """
+    return db.query(ReferralCode).filter(
+        ReferralCode.code_id == code_id
+    ).first()
+
+
+def update_referral_stats(
+    db: Session,
+    referral_code_id: int,
+    increment_referral: bool = True,
+    reward_amount: int = 0,
+) -> Optional[ReferralCode]:
+    """
+    更新推荐统计
+
+    Args:
+        db: 数据库会话
+        referral_code_id: 推荐码 ID
+        increment_referral: 是否增加推荐人数
+        reward_amount: 增加奖励次数
+
+    Returns:
+        Optional[ReferralCode]: 更新后的推荐码对象
+    """
+    rc = db.query(ReferralCode).filter(ReferralCode.id == referral_code_id).first()
     if rc:
-        rc.used = True
-        rc.used_by = user_id
-        rc.used_at = datetime.utcnow()
+        if increment_referral:
+            rc.referral_count += 1
+        if reward_amount > 0:
+            rc.total_rewarded += reward_amount
         db.commit()
         db.refresh(rc)
     return rc
 
 
-def create_redemption_codes(
+# ==========================================
+# 匿名用户相关 CRUD
+# ==========================================
+
+def get_or_create_anonymous_usage(
     db: Session,
-    batch_id: str,
-    count_per_code: int,
-    num_codes: int,
-    price: float = None,
-    description: str = None,
-    expires_at: datetime = None,
-) -> List[RedemptionCode]:
+    visitor_id: str,
+) -> AnonymousUsage:
     """
-    批量创建兑换码
-    
+    获取或创建匿名用户使用记录
+
     Args:
         db: 数据库会话
-        batch_id: 批次号
-        count_per_code: 每个兑换码的次数
-        num_codes: 创建数量
-        price: 价格
-        description: 描述
-        expires_at: 过期时间
-    
+        visitor_id: 访客 ID
+
     Returns:
-        List[RedemptionCode]: 创建的兑换码列表
+        AnonymousUsage: 匿名用户记录
     """
-    codes = []
-    chars = string.ascii_uppercase + string.digits
-    
-    for _ in range(num_codes):
-        # 生成唯一兑换码
-        while True:
-            random_part = ''.join(secrets.choice(chars) for _ in range(8))
-            code = f"PRISM-{random_part}"
-            
-            existing = db.query(RedemptionCode).filter(
-                RedemptionCode.code == code
-            ).first()
-            if not existing:
-                break
-        
-        rc = RedemptionCode(
-            code=code,
-            count=count_per_code,
-            batch_id=batch_id,
-            price=price,
-            description=description,
-            expires_at=expires_at,
+    anon = db.query(AnonymousUsage).filter(
+        AnonymousUsage.visitor_id == visitor_id
+    ).first()
+
+    if not anon:
+        anon = AnonymousUsage(
+            visitor_id=visitor_id,
+            daily_count=0,
+            daily_date=datetime.utcnow().strftime("%Y-%m-%d"),
         )
-        codes.append(rc)
-        db.add(rc)
-    
-    db.commit()
-    
-    for rc in codes:
-        db.refresh(rc)
-    
-    return codes
+        db.add(anon)
+        db.commit()
+        db.refresh(anon)
+
+    return anon
 
 
-def process_redemption_with_invite_bonus(
+def reset_anonymous_daily_usage(
     db: Session,
-    user: User,
-    redemption_code: RedemptionCode,
-    invite_bonus_count: int = 3,
-    invitee_bonus_count: int = 3,
-) -> dict:
+    visitor_id: str,
+) -> AnonymousUsage:
     """
-    处理兑换码充值并处理邀请返利
-    
-    邀请返利机制：
-    - 被邀请人首次充值时，额外获得赠送次数（invitee_bonus_count）
-    - 邀请人同时获得奖励次数（invite_bonus_count）
-    - 每个被邀请人只能享受一次首次充值奖励
-    
+    重置匿名用户每日使用次数
+
     Args:
         db: 数据库会话
-        user: 用户对象（被邀请人）
-        redemption_code: 兑换码对象
-        invite_bonus_count: 邀请人获得奖励次数（默认3次）
-        invitee_bonus_count: 被邀请人获得赠送次数（默认3次）
-    
+        visitor_id: 访客 ID
+
     Returns:
-        dict: 处理结果
-            - count: 兑换码基础次数
-            - bonus_count: 被邀请人赠送次数
-            - inviter_bonus: 邀请人是否获得奖励
-            - inviter_bonus_count: 邀请人获得奖励次数
+        AnonymousUsage: 更新后的记录
     """
-    result = {
-        "count": redemption_code.count,
-        "bonus_count": 0,
-        "inviter_bonus": False,
-        "inviter_bonus_count": 0,
-    }
-    
-    # 检查是否有邀请人且被邀请人未享受首次返利
-    if user.invited_by and not user.has_redeemed_first:
-        # 被邀请人获得赠送
-        result["bonus_count"] = invitee_bonus_count
-        result["inviter_bonus"] = True
-        result["inviter_bonus_count"] = invite_bonus_count
-        
-        # 更新被邀请人状态
-        user.has_redeemed_first = True
-        user.usage_count += redemption_code.count + invitee_bonus_count
-        
-        # 邀请人获得赠送
-        inviter = get_user_by_id(db, user.invited_by)
-        if inviter:
-            inviter.usage_count += invite_bonus_count
-        
-        # 更新邀请记录
-        invite_record = get_invite_record(db, user.invited_by, user.id)
-        if invite_record:
-            invite_record.bonus_given = True
-            invite_record.bonus_count = invite_bonus_count
-            invite_record.bonus_at = datetime.utcnow()
-    else:
-        # 无邀请返利
-        user.usage_count += redemption_code.count
-    
-    # 标记兑换码已使用
-    redemption_code.used = True
-    redemption_code.used_by = user.id
-    redemption_code.used_at = datetime.utcnow()
-    
-    # 创建充值记录
-    create_topup_record(
-        db=db,
-        user_id=user.id,
-        source="redemption_code",
-        count=redemption_code.count,
-        bonus_count=result["bonus_count"],
-        code_id=redemption_code.id,
-        invited_by=user.invited_by if result["inviter_bonus"] else None,
-        invited_bonus_given=result["inviter_bonus"],
-    )
-    
+    anon = get_or_create_anonymous_usage(db, visitor_id)
+    today = datetime.utcnow().strftime("%Y-%m-%d")
+
+    if anon.daily_date != today:
+        anon.daily_date = today
+        anon.daily_count = 0
+        anon.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(anon)
+
+    return anon
+
+
+def increment_anonymous_usage(
+    db: Session,
+    visitor_id: str,
+    amount: int = 1,
+) -> AnonymousUsage:
+    """
+    增加匿名用户使用次数
+
+    Args:
+        db: 数据库会话
+        visitor_id: 访客 ID
+        amount: 增加次数
+
+    Returns:
+        AnonymousUsage: 更新后的记录
+    """
+    anon = reset_anonymous_daily_usage(db, visitor_id)
+    anon.daily_count += amount
+    anon.updated_at = datetime.utcnow()
     db.commit()
-    
-    return result
+    db.refresh(anon)
+    return anon
+
+
+def get_anonymous_remaining_quota(
+    db: Session,
+    visitor_id: str,
+    daily_limit: int = 3,
+) -> int:
+    """
+    获取匿名用户剩余免费次数
+
+    Args:
+        db: 数据库会话
+        visitor_id: 访客 ID
+        daily_limit: 每日免费限额
+
+    Returns:
+        int: 剩余次数
+    """
+    anon = reset_anonymous_daily_usage(db, visitor_id)
+    return max(0, daily_limit - anon.daily_count)
 
 
 # ==========================================
-# 充值记录相关 CRUD
+# 管理员相关 CRUD
 # ==========================================
 
-def create_topup_record(
+def get_admin_by_username(
     db: Session,
-    user_id: int,
-    source: str,
-    count: int,
-    bonus_count: int = 0,
-    code_id: int = None,
-    invited_by: int = None,
-    invited_bonus_given: bool = False,
-) -> TopupRecord:
+    username: str,
+) -> Optional[AdminUser]:
     """
-    创建充值记录
-    
+    通过用户名获取管理员
+
     Args:
         db: 数据库会话
-        user_id: 用户 ID
-        source: 来源
-        count: 充值次数
-        bonus_count: 赠送次数
-        code_id: 兑换码 ID
-        invited_by: 邀请人 ID
-        invited_bonus_given: 是否已发放邀请奖励
-    
+        username: 用户名
+
     Returns:
-        TopupRecord: 创建的充值记录
+        Optional[AdminUser]: 管理员对象
     """
-    record = TopupRecord(
-        user_id=user_id,
-        source=source,
-        count=count,
-        bonus_count=bonus_count,
-        code_id=code_id,
-        invited_by=invited_by,
-        invited_bonus_given=invited_bonus_given,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    
-    return record
-
-
-def get_topup_records_by_user(
-    db: Session,
-    user_id: int,
-    limit: int = 20,
-    offset: int = 0,
-) -> List[TopupRecord]:
-    """
-    获取用户充值记录
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-        limit: 限制数量
-        offset: 偏移量
-    
-    Returns:
-        List[TopupRecord]: 充值记录列表
-    """
-    return db.query(TopupRecord).filter(
-        TopupRecord.user_id == user_id
-    ).order_by(
-        TopupRecord.created_at.desc()
-    ).offset(offset).limit(limit).all()
-
-
-# ==========================================
-# 邀请记录相关 CRUD
-# ==========================================
-
-def create_invite_record(
-    db: Session,
-    inviter_id: int,
-    invitee_id: int,
-) -> InviteRecord:
-    """
-    创建邀请记录
-    
-    Args:
-        db: 数据库会话
-        inviter_id: 邀请人 ID
-        invitee_id: 被邀请人 ID
-    
-    Returns:
-        InviteRecord: 创建的邀请记录
-    """
-    record = InviteRecord(
-        inviter_id=inviter_id,
-        invitee_id=invitee_id,
-    )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
-    
-    return record
-
-
-def get_invite_record(
-    db: Session,
-    inviter_id: int,
-    invitee_id: int,
-) -> Optional[InviteRecord]:
-    """
-    获取邀请记录
-    
-    Args:
-        db: 数据库会话
-        inviter_id: 邀请人 ID
-        invitee_id: 被邀请人 ID
-    
-    Returns:
-        Optional[InviteRecord]: 邀请记录
-    """
-    return db.query(InviteRecord).filter(
-        InviteRecord.inviter_id == inviter_id,
-        InviteRecord.invitee_id == invitee_id,
+    return db.query(AdminUser).filter(
+        AdminUser.username == username
     ).first()
 
 
-def get_invite_records_by_inviter(
+def verify_admin_password(
     db: Session,
-    inviter_id: int,
-    limit: int = 20,
-    offset: int = 0,
-) -> List[InviteRecord]:
+    username: str,
+    password: str,
+) -> Optional[AdminUser]:
     """
-    获取邀请人的邀请记录
-    
+    验证管理员密码
+
     Args:
         db: 数据库会话
-        inviter_id: 邀请人 ID
+        username: 用户名
+        password: 密码
+
+    Returns:
+        Optional[AdminUser]: 验证成功返回管理员对象
+    """
+    admin = get_admin_by_username(db, username)
+    if admin:
+        if bcrypt.checkpw(password.encode('utf-8'), admin.password_hash.encode('utf-8')):
+            return admin
+    return None
+
+
+def create_admin_user(
+    db: Session,
+    username: str,
+    password: str,
+) -> AdminUser:
+    """
+    创建管理员
+
+    Args:
+        db: 数据库会话
+        username: 用户名
+        password: 密码
+
+    Returns:
+        AdminUser: 创建的管理员对象
+    """
+    password_hash = bcrypt.hashpw(
+        password.encode('utf-8'),
+        bcrypt.gensalt()
+    ).decode('utf-8')
+
+    admin = AdminUser(
+        username=username,
+        password_hash=password_hash,
+        is_admin=True,
+    )
+    db.add(admin)
+    db.commit()
+    db.refresh(admin)
+
+    logger.info(f"管理员创建成功: username={username}")
+    return admin
+
+
+def update_admin_password(
+    db: Session,
+    admin_id: int,
+    new_password: str,
+) -> Optional[AdminUser]:
+    """
+    更新管理员密码
+
+    Args:
+        db: 数据库会话
+        admin_id: 管理员 ID
+        new_password: 新密码
+
+    Returns:
+        Optional[AdminUser]: 更新后的管理员对象
+    """
+    admin = db.query(AdminUser).filter(AdminUser.id == admin_id).first()
+    if admin:
+        admin.password_hash = bcrypt.hashpw(
+            new_password.encode('utf-8'),
+            bcrypt.gensalt()
+        ).decode('utf-8')
+        db.commit()
+        db.refresh(admin)
+        logger.info(f"管理员密码已更新: username={admin.username}")
+    return admin
+
+
+# ==========================================
+# 审计日志相关 CRUD
+# ==========================================
+
+def create_audit_log(
+    db: Session,
+    admin_id: int,
+    admin_username: str,
+    action: str,
+    action_category: str,
+    target_type: str = None,
+    target_id: str = None,
+    target_info: dict = None,
+    action_detail: dict = None,
+    ip_address: str = None,
+    user_agent: str = None,
+) -> AuditLog:
+    """
+    创建审计日志
+
+    Args:
+        db: 数据库会话
+        admin_id: 管理员 ID
+        admin_username: 管理员用户名
+        action: 操作类型
+        action_category: 操作分类
+        target_type: 目标类型
+        target_id: 目标 ID
+        target_info: 目标信息（dict）
+        action_detail: 操作详情（dict）
+        ip_address: IP 地址
+        user_agent: User-Agent
+
+    Returns:
+        AuditLog: 创建的审计日志
+    """
+    import json
+
+    log = AuditLog(
+        admin_id=admin_id,
+        admin_username=admin_username,
+        action=action,
+        action_category=action_category,
+        target_type=target_type,
+        target_id=target_id,
+        target_info=json.dumps(target_info) if target_info else None,
+        action_detail=json.dumps(action_detail) if action_detail else None,
+        ip_address=ip_address,
+        user_agent=user_agent,
+    )
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+
+    return log
+
+
+def get_audit_logs(
+    db: Session,
+    admin_id: int = None,
+    action: str = None,
+    action_category: str = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> List[AuditLog]:
+    """
+    查询审计日志
+
+    Args:
+        db: 数据库会话
+        admin_id: 管理员 ID（可选）
+        action: 操作类型（可选）
+        action_category: 操作分类（可选）
         limit: 限制数量
         offset: 偏移量
-    
+
     Returns:
-        List[InviteRecord]: 邀请记录列表
+        List[AuditLog]: 审计日志列表
     """
-    return db.query(InviteRecord).filter(
-        InviteRecord.inviter_id == inviter_id
-    ).order_by(
-        InviteRecord.created_at.desc()
+    query = db.query(AuditLog)
+
+    if admin_id is not None:
+        query = query.filter(AuditLog.admin_id == admin_id)
+
+    if action:
+        query = query.filter(AuditLog.action == action)
+
+    if action_category:
+        query = query.filter(AuditLog.action_category == action_category)
+
+    return query.order_by(
+        desc(AuditLog.created_at)
     ).offset(offset).limit(limit).all()
 
 
-def update_invite_bonus(
+# ==========================================
+# 预设广场相关 CRUD
+# ==========================================
+
+def get_marketplace_templates(
     db: Session,
-    record_id: int,
-    bonus_count: int = 3,
-) -> InviteRecord:
+    tool_type: str = None,
+    is_published: bool = True,
+    limit: int = 20,
+    offset: int = 0,
+) -> List[MarketplaceTemplate]:
     """
-    更新邀请奖励状态
-    
+    获取预设广场模板列表
+
     Args:
         db: 数据库会话
-        record_id: 记录 ID
-        bonus_count: 奖励次数
-    
+        tool_type: 工具类型（可选）
+        is_published: 是否已发布
+        limit: 限制数量
+        offset: 偏移量
+
     Returns:
-        InviteRecord: 更新后的记录
+        List[MarketplaceTemplate]: 模板列表
     """
-    record = db.query(InviteRecord).filter(InviteRecord.id == record_id).first()
-    if record:
-        record.bonus_given = True
-        record.bonus_count = bonus_count
-        record.bonus_at = datetime.utcnow()
+    query = db.query(MarketplaceTemplate).filter(
+        MarketplaceTemplate.is_published == is_published
+    )
+
+    if tool_type:
+        query = query.filter(MarketplaceTemplate.tool_type == tool_type)
+
+    return query.order_by(
+        desc(MarketplaceTemplate.import_count),
+        desc(MarketplaceTemplate.created_at)
+    ).offset(offset).limit(limit).all()
+
+
+def get_marketplace_template_by_id(
+    db: Session,
+    template_id: int,
+) -> Optional[MarketplaceTemplate]:
+    """
+    通过 ID 获取模板
+
+    Args:
+        db: 数据库会话
+        template_id: 模板 ID
+
+    Returns:
+        Optional[MarketplaceTemplate]: 模板对象
+    """
+    return db.query(MarketplaceTemplate).filter(
+        MarketplaceTemplate.id == template_id
+    ).first()
+
+
+def increment_template_import_count(
+    db: Session,
+    template_id: int,
+) -> Optional[MarketplaceTemplate]:
+    """
+    增加模板导入次数
+
+    Args:
+        db: 数据库会话
+        template_id: 模板 ID
+
+    Returns:
+        Optional[MarketplaceTemplate]: 更新后的模板
+    """
+    template = get_marketplace_template_by_id(db, template_id)
+    if template:
+        template.import_count += 1
         db.commit()
-        db.refresh(record)
-    return record
-
-
-def get_invite_stats(db: Session, user_id: int) -> dict:
-    """
-    获取邀请统计
-    
-    Args:
-        db: 数据库会话
-        user_id: 用户 ID
-    
-    Returns:
-        dict: 邀请统计信息
-    """
-    # 总邀请人数
-    total_invited = db.query(InviteRecord).filter(
-        InviteRecord.inviter_id == user_id
-    ).count()
-    
-    # 已充值人数
-    active_invited = db.query(InviteRecord).filter(
-        InviteRecord.inviter_id == user_id,
-        InviteRecord.bonus_given == True,
-    ).count()
-    
-    # 累计奖励次数
-    records = db.query(InviteRecord).filter(
-        InviteRecord.inviter_id == user_id,
-        InviteRecord.bonus_given == True,
-    ).all()
-    total_bonus = sum(r.bonus_count for r in records)
-    
-    return {
-        "total_invited": total_invited,
-        "active_invited": active_invited,
-        "total_bonus": total_bonus,
-    }
+        db.refresh(template)
+    return template
 
 
 # ==========================================
-# 用户数据删除
+# 用户配置相关 CRUD（code_id 版本）
 # ==========================================
 
-def delete_user_data(db: Session, user_id: int) -> bool:
+def get_user_prompt_by_code_id(
+    db: Session,
+    code_id: int,
+    tool_type: str,
+) -> Optional[UserPrompt]:
     """
-    删除用户相关数据
+    获取用户 Prompt 配置
 
     Args:
         db: 数据库会话
-        user_id: 用户 ID
+        code_id: 激活码 ID
+        tool_type: 工具类型
 
     Returns:
-        bool: 是否成功
+        Optional[UserPrompt]: Prompt 配置
     """
-    # 删除刷新令牌
-    db.query(RefreshToken).filter(RefreshToken.user_id == user_id).delete()
+    return db.query(UserPrompt).filter(
+        UserPrompt.code_id == code_id,
+        UserPrompt.tool_type == tool_type,
+        UserPrompt.is_active == True,
+    ).first()
 
-    # 删除验证码
-    user = db.query(User).filter(User.id == user_id).first()
-    if user and user.email:
-        db.query(VerificationCode).filter(VerificationCode.email == user.email).delete()
 
-    # 删除充值记录
-    db.query(TopupRecord).filter(TopupRecord.user_id == user_id).delete()
+def create_or_update_user_prompt(
+    db: Session,
+    code_id: int,
+    tool_type: str,
+    prompt_content: str,
+) -> UserPrompt:
+    """
+    创建或更新用户 Prompt 配置
 
-    # 删除邀请记录（作为邀请人）
-    db.query(InviteRecord).filter(InviteRecord.inviter_id == user_id).delete()
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        tool_type: 工具类型
+        prompt_content: Prompt 内容
 
-    # 删除邀请记录（作为被邀请人）
-    db.query(InviteRecord).filter(InviteRecord.invitee_id == user_id).delete()
+    Returns:
+        UserPrompt: Prompt 配置对象
+    """
+    existing = db.query(UserPrompt).filter(
+        UserPrompt.code_id == code_id,
+        UserPrompt.tool_type == tool_type,
+    ).first()
 
+    if existing:
+        existing.prompt_content = prompt_content
+        existing.is_active = True
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    prompt = UserPrompt(
+        code_id=code_id,
+        tool_type=tool_type,
+        prompt_content=prompt_content,
+        is_active=True,
+    )
+    db.add(prompt)
     db.commit()
+    db.refresh(prompt)
 
-    logger.info(f"用户 {user_id} 相关数据已删除")
+    return prompt
 
-    return True
+
+def get_user_sources_by_code_id(
+    db: Session,
+    code_id: int,
+    tool_type: str = None,
+) -> List[UserSource]:
+    """
+    获取用户数据源配置
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        tool_type: 工具类型（可选）
+
+    Returns:
+        List[UserSource]: 数据源列表
+    """
+    query = db.query(UserSource).filter(
+        UserSource.code_id == code_id,
+        UserSource.is_enabled == True,
+    )
+
+    if tool_type:
+        query = query.filter(UserSource.tool_type == tool_type)
+
+    return query.all()
+
+
+def get_user_config_by_key(
+    db: Session,
+    code_id: int,
+    config_key: str,
+) -> Optional[UserConfig]:
+    """
+    获取用户配置
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        config_key: 配置键
+
+    Returns:
+        Optional[UserConfig]: 配置对象
+    """
+    return db.query(UserConfig).filter(
+        UserConfig.code_id == code_id,
+        UserConfig.config_key == config_key,
+    ).first()
+
+
+def set_user_config(
+    db: Session,
+    code_id: int,
+    config_key: str,
+    config_value: str,
+) -> UserConfig:
+    """
+    设置用户配置
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+        config_key: 配置键
+        config_value: 配置值
+
+    Returns:
+        UserConfig: 配置对象
+    """
+    existing = get_user_config_by_key(db, code_id, config_key)
+
+    if existing:
+        existing.config_value = config_value
+        existing.updated_at = datetime.utcnow()
+        db.commit()
+        db.refresh(existing)
+        return existing
+
+    config = UserConfig(
+        code_id=code_id,
+        config_key=config_key,
+        config_value=config_value,
+    )
+    db.add(config)
+    db.commit()
+    db.refresh(config)
+
+    return config
+
+
+def get_dailyhot_configs_by_code_id(
+    db: Session,
+    code_id: int,
+) -> List[DailyHotCategoryConfig]:
+    """
+    获取用户 DailyHot 分类配置
+
+    Args:
+        db: 数据库会话
+        code_id: 激活码 ID
+
+    Returns:
+        List[DailyHotCategoryConfig]: 分类配置列表
+    """
+    return db.query(DailyHotCategoryConfig).filter(
+        DailyHotCategoryConfig.code_id == code_id,
+        DailyHotCategoryConfig.is_enabled == True,
+    ).all()

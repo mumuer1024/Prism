@@ -1,23 +1,23 @@
 # -*- coding: utf-8 -*-
 """
-预设广场 API 路由
+预设广场 API 路由 - v2.1 激活码架构
 
 提供用户侧的模板浏览和导入接口
+使用 device_id 认证替代 JWT
 """
 
 import logging
 from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from pydantic import BaseModel
 
 from src.database.connection import get_db
-from src.database.models import User
-from src.auth.dependencies import get_current_user
+from src.database import crud
 from src.config_loader import save_user_prompt
 from src.marketplace.schemas import (
     TemplateResponse,
     TemplateListResponse,
-    TemplateImportResponse,
 )
 from src.marketplace.crud import (
     get_templates,
@@ -31,6 +31,32 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
+class DeviceIdRequest(BaseModel):
+    """设备 ID 请求"""
+    device_id: str
+
+
+class TemplateImportResponse(BaseModel):
+    """模板导入响应"""
+    success: bool
+    message: str
+    tool_type: str
+    template_title: str
+
+
+def get_code_id_from_device(device_id: str, db: Session) -> int:
+    """通过 device_id 获取激活码 ID"""
+    if not device_id:
+        raise HTTPException(status_code=401, detail="缺少 device_id")
+    
+    activation_code = crud.get_activation_code_by_device_id(db, device_id)
+    
+    if not activation_code:
+        raise HTTPException(status_code=401, detail="设备未激活")
+    
+    return activation_code.id
+
+
 @router.get("/templates", response_model=TemplateListResponse)
 def list_templates(
     tool_type: Optional[str] = Query(None, description="筛选工具类型"),
@@ -38,15 +64,7 @@ def list_templates(
     limit: int = Query(50, ge=1, le=100, description="返回数量"),
     db: Session = Depends(get_db),
 ):
-    """
-    获取模板列表
-
-    - 支持按 tool_type 筛选
-    - 只返回已发布的模板
-    - 按导入次数和创建时间排序
-    - 列表接口不返回 prompt_content（节省带宽）
-    """
-    # 验证 tool_type
+    """获取模板列表（公开接口）"""
     if tool_type and tool_type not in VALID_TOOL_TYPES:
         raise HTTPException(
             status_code=400,
@@ -61,7 +79,6 @@ def list_templates(
         limit=limit,
     )
 
-    # 转换为响应模型，列表接口不返回 prompt_content
     template_responses = []
     for t in templates:
         template_responses.append(TemplateResponse(
@@ -69,7 +86,7 @@ def list_templates(
             title=t.title,
             description=t.description,
             tool_type=t.tool_type,
-            prompt_content=None,  # 列表接口不返回
+            prompt_content=None,
             tags=t.to_dict().get("tags", []),
             is_official=t.is_official,
             is_published=t.is_published,
@@ -86,12 +103,7 @@ def get_template_detail(
     template_id: int,
     db: Session = Depends(get_db),
 ):
-    """
-    获取模板详情
-
-    - 返回完整的 prompt_content
-    - 只返回已发布的模板
-    """
+    """获取模板详情（公开接口）"""
     template = get_template_by_id(db=db, template_id=template_id, include_unpublished=False)
 
     if not template:
@@ -103,7 +115,7 @@ def get_template_detail(
         title=template.title,
         description=template.description,
         tool_type=template.tool_type,
-        prompt_content=template.prompt_content,  # 详情接口返回完整内容
+        prompt_content=template.prompt_content,
         tags=data.get("tags", []),
         is_official=template.is_official,
         is_published=template.is_published,
@@ -116,59 +128,34 @@ def get_template_detail(
 @router.post("/templates/{template_id}/import", response_model=TemplateImportResponse)
 def import_template(
     template_id: int,
-    current_user: User = Depends(get_current_user),
+    body: DeviceIdRequest,
     db: Session = Depends(get_db),
 ):
-    """
-    导入模板到用户配置
+    """导入模板到用户配置"""
+    code_id = get_code_id_from_device(body.device_id, db)
 
-    权限校验流程：
-    1. 依赖注入验证登录（未登录返回 401）
-    2. 检查付费状态（usage_count > 0）
-    3. 查询模板是否存在
-    4. 调用 save_user_prompt 保存配置
-    5. 原子操作增加 import_count
+    # 检查是否有剩余次数
+    activation = crud.get_activation_code_by_id(db, code_id)
+    if activation.remaining <= 0:
+        raise HTTPException(status_code=403, detail="您的使用次数已用尽")
 
-    返回：
-    - success: 是否成功
-    - message: 提示信息
-    - tool_type: 导入的工具类型
-    - template_title: 模板标题
-    """
-    # 1. 校验付费状态（后端二次校验，防止前端绕过）
-    if current_user.usage_count <= 0:
-        logger.warning(f"用户 {current_user.id} 尝试导入模板但次数不足")
-        raise HTTPException(
-            status_code=403,
-            detail="您的使用次数已用尽，请充值后使用"
-        )
-
-    # 2. 查询模板
     template = get_template_by_id(db=db, template_id=template_id, include_unpublished=False)
 
     if not template:
         raise HTTPException(status_code=404, detail="模板不存在")
 
-    # 3. 保存到用户配置（复用 Phase 1 的 save_user_prompt）
     success = save_user_prompt(
-        user_id=current_user.id,
+        code_id=code_id,
         tool_type=template.tool_type,
         content=template.prompt_content,
     )
 
     if not success:
-        raise HTTPException(
-            status_code=500,
-            detail="导入失败，请稍后重试"
-        )
+        raise HTTPException(status_code=500, detail="导入失败，请稍后重试")
 
-    # 4. 原子操作增加导入次数
     increment_import_count(db=db, template_id=template_id)
 
-    logger.info(
-        f"用户 {current_user.id} 成功导入模板 {template_id} "
-        f"(title={template.title}, tool_type={template.tool_type})"
-    )
+    logger.info(f"用户 code_id={code_id} 成功导入模板 {template_id}")
 
     return TemplateImportResponse(
         success=True,

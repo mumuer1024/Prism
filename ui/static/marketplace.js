@@ -1,9 +1,9 @@
 /**
  * marketplace.js - Prompt广场模块
- * 提供 Prompt 模板的浏览和导入功能，以及用户自定义 Prompt 管理
+ * v2.1 激活码架构：使用 device_id 认证
  */
 
-// 频道配置（不包含 my_prompts，它作为特殊频道处理）
+// 频道配置
 const MARKETPLACE_CHANNELS = [
   { key: 'mission', name: '情报日报', icon: '📊' },
   { key: 'alpha', name: 'Alpha雷达', icon: '⛏️' },
@@ -17,6 +17,20 @@ let templatesCache = {};
 let expandedTemplateId = null;
 
 /**
+ * 获取设备 ID
+ */
+function getDeviceId() {
+  return localStorage.getItem('prism_device_id');
+}
+
+/**
+ * 检查是否已激活
+ */
+function isActivated() {
+  return !!getDeviceId();
+}
+
+/**
  * 初始化广场
  */
 async function initMarketplace() {
@@ -28,10 +42,9 @@ async function initMarketplace() {
  */
 function switchMarketplaceChannel(channel) {
   if (currentChannel === channel) return;
-
   currentChannel = channel;
 
-  // 更新 Tab 样式（包括 my_prompts）
+  // 更新 Tab 样式
   const myPromptsTab = document.getElementById('marketplace-tab-my_prompts');
   if (myPromptsTab) {
     if (channel === 'my_prompts') {
@@ -45,7 +58,6 @@ function switchMarketplaceChannel(channel) {
     }
   }
 
-  // 更新其他频道 Tab 样式
   MARKETPLACE_CHANNELS.forEach(ch => {
     const tab = document.getElementById(`marketplace-tab-${ch.key}`);
     if (tab) {
@@ -61,7 +73,6 @@ function switchMarketplaceChannel(channel) {
     }
   });
 
-  // 加载内容
   loadChannelContent(channel);
 }
 
@@ -83,21 +94,18 @@ async function loadMyPrompts() {
   const container = document.getElementById('marketplace-content');
   if (!container) return;
 
-  // 检查登录状态
-  const token = AuthState.getToken();
-  if (!token) {
+  const deviceId = getDeviceId();
+  if (!deviceId) {
     container.innerHTML = `
       <div class="my-prompts-notice">
         <div class="notice-icon">🔐</div>
-        <div class="notice-title">请先登录</div>
-        <div class="notice-text">登录后可配置自定义 Prompt，个性化情报生成</div>
-        <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-btn">去登录</a>
+        <div class="notice-title">请先激活</div>
+        <div class="notice-text">激活后可配置自定义 Prompt，个性化情报生成</div>
       </div>
     `;
     return;
   }
 
-  // 显示加载状态
   container.innerHTML = `
     <div class="flex items-center justify-center py-12 text-text-secondary">
       <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
@@ -110,16 +118,17 @@ async function loadMyPrompts() {
 
   try {
     const res = await fetch('/api/user-config/prompt', {
-      headers: { 'Authorization': `Bearer ${token}` }
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
 
     if (res.status === 401) {
       container.innerHTML = `
         <div class="my-prompts-notice">
           <div class="notice-icon">🔐</div>
-          <div class="notice-title">登录已过期</div>
-          <div class="notice-text">请重新登录以配置自定义 Prompt</div>
-          <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-btn">去登录</a>
+          <div class="notice-title">设备未激活</div>
+          <div class="notice-text">请先激活以配置自定义 Prompt</div>
         </div>
       `;
       return;
@@ -145,16 +154,14 @@ async function loadMyPrompts() {
  * 渲染"我的Prompt"列表
  */
 function renderMyPrompts(container, prompts) {
-  // 构建 prompt 数据映射
   const promptMap = {};
   prompts.forEach(p => { promptMap[p.tool_type] = p; });
 
-  // 工具配置（复用 prompt-config.js 的配置）
   const tools = [
     { key: 'mission', name: '情报日报', icon: '📊', desc: '从 10+ 数据源抓取，生成 8 大板块中文日报' },
-    { key: 'bounty_v2ex', name: '赏金猎人 - V2EX', icon: '💰', desc: '扫描市场需求信号，发现真实存在的机会缺口。默认追踪 V2EX 急单与 HN 招聘动态。' },
-    { key: 'alpha', name: 'Alpha 雷达', icon: '⛏️', desc: '使用 Grok 搜索 X/Twitter 上的行业动态。默认聚焦 Web3/Solana 开源项目方向。' },
-    { key: 'revenue', name: '营收分析师', icon: '🏗️', desc: '基于今日情报日报，由 AI 深度解读行业动态，提炼 5 类商业机会与可执行建议。' }
+    { key: 'bounty_v2ex', name: '赏金猎人 - V2EX', icon: '💰', desc: '扫描市场需求信号，发现真实存在的机会缺口' },
+    { key: 'alpha', name: 'Alpha 雷达', icon: '⛏️', desc: '使用 Grok 搜索 X/Twitter 上的行业动态' },
+    { key: 'revenue', name: '营收分析师', icon: '🏗️', desc: '基于今日情报日报，由 AI 深度解读行业动态' }
   ];
 
   const html = `
@@ -201,18 +208,19 @@ async function openPromptEditor(toolType) {
 
   if (!tool) return;
 
-  const token = AuthState.getToken();
-  if (!token) {
-    alert('请先登录');
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    alert('请先激活');
     return;
   }
 
-  // 获取当前配置
   let currentPrompt = '';
   let defaultPromptContent = '';
   try {
-    const res = await fetch(`/api/user-config/prompt/${toolType}`, {
-      headers: { 'Authorization': `Bearer ${token}` }
+    const res = await fetch('/api/user-config/prompt/' + toolType, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
     if (res.ok) {
       const data = await res.json();
@@ -223,7 +231,6 @@ async function openPromptEditor(toolType) {
     console.error('获取 Prompt 失败:', e);
   }
 
-  // 获取占位符信息
   let placeholders = [];
   try {
     const res = await fetch(`/api/user-config/prompt/${toolType}/placeholders`);
@@ -235,11 +242,10 @@ async function openPromptEditor(toolType) {
     console.error('获取占位符失败:', e);
   }
 
-  // 创建模态框
   const modal = document.createElement('div');
   modal.id = 'prompt-editor-modal';
   modal.className = 'prompt-modal-overlay';
-  modal.dataset.defaultPrompt = defaultPromptContent;  // 存储默认 Prompt
+  modal.dataset.defaultPrompt = defaultPromptContent;
   modal.innerHTML = `
     <div class="prompt-modal-content">
       <div class="prompt-modal-header">
@@ -251,9 +257,7 @@ async function openPromptEditor(toolType) {
           <div class="placeholder-hints">
             <div class="hint-title">支持的占位符</div>
             <div class="hint-list">
-              ${placeholders.map(p => `
-                <span class="hint-tag" title="${p.description}">${p.placeholder}</span>
-              `).join('')}
+              ${placeholders.map(p => `<span class="hint-tag" title="${p.description}">${p.placeholder}</span>`).join('')}
             </div>
           </div>
         ` : ''}
@@ -284,12 +288,8 @@ function resetPromptToDefault() {
   const defaultPrompt = modal.dataset.defaultPrompt || '';
   if (defaultPrompt) {
     textarea.value = defaultPrompt;
-    // 提示用户
-    const originalValue = textarea.style.borderColor;
     textarea.style.borderColor = 'var(--accent)';
-    setTimeout(() => {
-      textarea.style.borderColor = originalValue || '';
-    }, 1000);
+    setTimeout(() => { textarea.style.borderColor = ''; }, 1000);
   } else {
     alert('未找到默认 Prompt');
   }
@@ -300,9 +300,7 @@ function resetPromptToDefault() {
  */
 function closePromptEditor() {
   const modal = document.getElementById('prompt-editor-modal');
-  if (modal) {
-    modal.remove();
-  }
+  if (modal) modal.remove();
 }
 
 /**
@@ -313,20 +311,17 @@ async function savePromptConfig(toolType) {
   if (!textarea) return;
 
   const content = textarea.value.trim();
-  const token = AuthState.getToken();
-  if (!token) {
-    alert('请先登录');
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    alert('请先激活');
     return;
   }
 
   try {
     const res = await fetch(`/api/user-config/prompt/${toolType}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ prompt_content: content })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, content: content })
     });
 
     if (!res.ok) {
@@ -336,7 +331,7 @@ async function savePromptConfig(toolType) {
 
     alert('保存成功');
     closePromptEditor();
-    loadMyPrompts(); // 刷新列表
+    loadMyPrompts();
   } catch (err) {
     alert('保存失败: ' + err.message);
   }
@@ -348,8 +343,7 @@ async function savePromptConfig(toolType) {
 async function loadTemplates(toolType) {
   const container = document.getElementById('marketplace-content');
   if (!container) return;
-  
-  // 显示加载状态
+
   container.innerHTML = `
     <div class="flex items-center justify-center py-12 text-text-secondary">
       <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
@@ -359,15 +353,13 @@ async function loadTemplates(toolType) {
       加载模板中...
     </div>
   `;
-  
+
   try {
     const res = await fetch(`/api/marketplace/templates?tool_type=${toolType}`);
-    
     if (!res.ok) throw new Error('加载失败');
-    
+
     const { templates, total } = await res.json();
     templatesCache[toolType] = templates;
-    
     renderTemplates(container, templates, toolType);
   } catch (err) {
     console.error('加载模板失败:', err);
@@ -390,19 +382,16 @@ function renderTemplates(container, templates, toolType) {
       <div class="marketplace-empty">
         <div class="empty-icon">📭</div>
         <div class="empty-text">暂无模板</div>
-        <div class="empty-hint">该频道暂无官方模板，敬请期待</div>
       </div>
     `;
     return;
   }
-  
-  const html = `
+
+  container.innerHTML = `
     <div class="marketplace-grid">
       ${templates.map(t => renderTemplateCard(t)).join('')}
     </div>
   `;
-  
-  container.innerHTML = html;
 }
 
 /**
@@ -411,7 +400,7 @@ function renderTemplates(container, templates, toolType) {
 function renderTemplateCard(template) {
   const isExpanded = expandedTemplateId === template.id;
   const tags = template.tags || [];
-  
+
   return `
     <div class="template-card ${isExpanded ? 'expanded' : ''}" data-id="${template.id}">
       <div class="template-card-header" onclick="toggleTemplateExpand(${template.id})">
@@ -455,39 +444,14 @@ function renderTemplateCard(template) {
 }
 
 /**
- * 渲染导入按钮（根据用户权限）
+ * 渲染导入按钮
  */
 function renderImportButton(template) {
-  const token = AuthState.getToken();
-  const isLoggedIn = AuthState.isLoggedIn();
-
-  // 未登录
-  if (!isLoggedIn || !token) {
-    return `
-      <button class="import-btn login-required" onclick="window.location.href='/login?redirect=${encodeURIComponent(window.location.pathname)}'">
-        <span>🔐</span> 登录后导入
-      </button>
-    `;
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    return `<button class="import-btn login-required" onclick="alert('请先激活')">🔐 请先激活</button>`;
   }
-
-  // 获取用户信息
-  const user = AuthState.getCurrentUser();
-
-  // 免费/次数用光
-  if (!user || (user.usage_count !== undefined && user.usage_count <= 0)) {
-    return `
-      <button class="import-btn upgrade-required" onclick="showUpgradeTip()">
-        <span>🔒</span> 升级后可用
-      </button>
-    `;
-  }
-
-  // 付费用户
-  return `
-    <button class="import-btn can-import" onclick="importTemplate(${template.id}, '${template.title}')">
-      <span>📥</span> 一键导入
-    </button>
-  `;
+  return `<button class="import-btn can-import" onclick="importTemplate(${template.id}, '${template.title}')">📥 一键导入</button>`;
 }
 
 /**
@@ -496,18 +460,14 @@ function renderImportButton(template) {
 async function toggleTemplateExpand(templateId) {
   const container = document.getElementById('marketplace-content');
   const templates = templatesCache[currentChannel] || [];
-  
+
   if (expandedTemplateId === templateId) {
-    // 收起
     expandedTemplateId = null;
   } else {
-    // 展开
     expandedTemplateId = templateId;
-    
-    // 异步加载 Prompt 内容
     loadPromptPreview(templateId);
   }
-  
+
   renderTemplates(container, templates, currentChannel);
 }
 
@@ -517,17 +477,13 @@ async function toggleTemplateExpand(templateId) {
 async function loadPromptPreview(templateId) {
   const previewEl = document.getElementById(`prompt-preview-${templateId}`);
   if (!previewEl) return;
-  
+
   try {
     const res = await fetch(`/api/marketplace/templates/${templateId}`);
-    
     if (!res.ok) throw new Error('加载失败');
-    
+
     const template = await res.json();
-    const content = template.prompt_content || '';
-    
-    // 格式化显示
-    previewEl.innerHTML = `<pre class="prompt-text">${escapeHtml(content)}</pre>`;
+    previewEl.innerHTML = `<pre class="prompt-text">${escapeHtml(template.prompt_content || '')}</pre>`;
   } catch (err) {
     previewEl.innerHTML = `<div class="error-text">加载失败: ${err.message}</div>`;
   }
@@ -537,85 +493,48 @@ async function loadPromptPreview(templateId) {
  * 导入模板
  */
 async function importTemplate(templateId, templateTitle) {
-  const token = AuthState.getToken();
-  if (!token) {
-    showToast('请先登录', 'err');
-    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    showToast('请先激活', 'err');
     return;
   }
-  
-  // 显示加载状态
+
   const btn = document.querySelector(`.template-card[data-id="${templateId}"] .import-btn`);
   const originalText = btn?.innerHTML;
   if (btn) {
-    btn.innerHTML = '<span>⏳</span> 导入中...';
+    btn.innerHTML = '⏳ 导入中...';
     btn.disabled = true;
   }
-  
+
   try {
     const res = await fetch(`/api/marketplace/templates/${templateId}/import`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
-    
+
     const data = await res.json();
-    
+
     if (!res.ok) {
-      if (res.status === 403) {
-        showToast('使用次数不足，请充值后使用', 'err');
-        showUpgradeTip();
-      } else {
-        showToast(data.detail || '导入失败', 'err');
-      }
+      showToast(data.detail || '导入失败', 'err');
       return;
     }
-    
-    showToast(`✓ 已导入「${templateTitle}」，前往配置页查看`, 'ok');
-    
-    // 更新按钮状态
+
+    showToast(`✓ 已导入「${templateTitle}」`, 'ok');
+
     if (btn) {
-      btn.innerHTML = '<span>✓</span> 已导入';
+      btn.innerHTML = '✓ 已导入';
       btn.classList.remove('can-import');
       btn.classList.add('imported');
-      btn.onclick = () => showToast('已导入，前往配置页查看', 'ok');
     }
-    
   } catch (err) {
     showToast(`导入失败: ${err.message}`, 'err');
   } finally {
-    // 恢复按钮（如果失败）
     if (btn && originalText && btn.innerHTML.includes('导入中')) {
       btn.innerHTML = originalText;
       btn.disabled = false;
     }
   }
-}
-
-/**
- * 显示升级提示
- */
-function showUpgradeTip() {
-  const modal = document.createElement('div');
-  modal.className = 'upgrade-modal';
-  modal.innerHTML = `
-    <div class="upgrade-modal-overlay" onclick="this.parentElement.remove()"></div>
-    <div class="upgrade-modal-content">
-      <div class="upgrade-icon">💎</div>
-      <h3>升级解锁完整功能</h3>
-      <p>充值使用次数后即可导入预设模板</p>
-      <div class="upgrade-actions">
-        <button class="btn-cancel" onclick="this.closest('.upgrade-modal').remove()">稍后再说</button>
-        <a href="/account#usage" class="btn-upgrade">立即充值</a>
-      </div>
-    </div>
-  `;
-  document.body.appendChild(modal);
-  
-  // 添加动画
-  requestAnimationFrame(() => modal.classList.add('show'));
 }
 
 /**
@@ -632,7 +551,6 @@ window.initMarketplace = initMarketplace;
 window.switchMarketplaceChannel = switchMarketplaceChannel;
 window.toggleTemplateExpand = toggleTemplateExpand;
 window.importTemplate = importTemplate;
-window.showUpgradeTip = showUpgradeTip;
 window.openPromptEditor = openPromptEditor;
 window.closePromptEditor = closePromptEditor;
 window.savePromptConfig = savePromptConfig;

@@ -1,44 +1,46 @@
 # -*- coding: utf-8 -*-
 """
-管理员 API 路由
+管理员 API 路由（v2.1 激活码架构）
 
-提供用户管理、兑换码管理、模板管理等管理员专用接口
+提供激活码管理、模板管理、审计日志等管理员专用接口
 """
 
+import json
 import logging
-from datetime import datetime
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from datetime import datetime, timedelta
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from src.database.connection import get_db
-from src.database.models import User
-from src.auth.dependencies import get_admin_user
-from src.admin.service import AdminService
+from src.database.models import AdminUser, ActivationCode, Device, ReferralCode, AuditLog
+from src.database import crud
+from src.admin.dependencies import (
+    get_admin_from_session,
+    get_client_ip,
+    create_admin_session,
+    revoke_admin_session,
+    verify_password,
+    hash_password,
+    get_admin_optional,
+)
 from src.admin.schemas import (
-    UserListResponse,
-    UserDetailResponse,
-    BanUserRequest,
-    BanUserResponse,
-    UnbanUserResponse,
-    UserStatsResponse,
-    RevenueStatsResponse,
-    GenerateCodesRequest,
-    GenerateCodesResponse,
-    BatchListResponse,
-    BatchDetailResponse,
-    ExportCodesResponse,
-    BatchBanRequest,
-    BatchBanResponse,
-    AuditLogListResponse,
-    AuditAction,
-    AuditCategory,
+    # 管理员登录
+    AdminLoginRequest,
+    AdminLoginResponse,
+    AdminInfoResponse,
+    # 激活码管理
+    GenerateActivationCodesRequest,
+    GenerateActivationCodesResponse,
+    ActivationCodeListResponse,
+    ActivationCodeData,
+    RevokeActivationCodeResponse,
+    ActivationCodeDevicesResponse,
+    DeviceBindingData,
+    DashboardStatsResponse,
+    # 审计日志
+    AuditLogResponse,
 )
-from src.marketplace.schemas import (
-    TemplateResponse,
-    TemplateCreateRequest,
-    TemplateUpdateRequest,
-    TemplatePublishRequest,
-)
+from src.marketplace.schemas import TemplateResponse
 from src.marketplace.crud import (
     get_templates,
     get_template_by_id,
@@ -53,285 +55,467 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-# ── 辅助函数 ───────────────────────────────────────────────
+# ==========================================
+# 管理员登录 API
+# ==========================================
 
-def get_client_ip(request: Request) -> str:
-    """获取客户端IP地址"""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    return request.client.host if request.client else None
-
-
-# ── 用户管理 API ───────────────────────────────────────────────
-
-@router.get("/users", response_model=dict)
-def admin_list_users(
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(20, ge=1, le=100, description="每页数量"),
-    search: str = Query(None, description="搜索关键词"),
-    is_banned: bool = Query(None, description="筛选封禁状态"),
-    current_user: User = Depends(get_admin_user),
+@router.post("/login", response_model=AdminLoginResponse)
+def admin_login(
+    request: AdminLoginRequest,
+    http_request: Request,
+    response: Response,
     db: Session = Depends(get_db),
 ):
     """
-    获取用户列表（管理员）
+    管理员登录
+    
+    使用管理员账号密码登录，返回会话Token
+    """
+    # 查询管理员
+    admin = db.query(AdminUser).filter(
+        AdminUser.username == request.username
+    ).first()
+    
+    if not admin:
+        raise HTTPException(
+            status_code=401,
+            detail="账号或密码错误",
+        )
+    
+    # 验证密码
+    if not verify_password(request.password, admin.password_hash):
+        raise HTTPException(
+            status_code=401,
+            detail="账号或密码错误",
+        )
+    
+    # 创建会话
+    ip = get_client_ip(http_request)
+    token = create_admin_session(admin.id, ip)
+    
+    
+    logger.info(f"管理员登录成功: username={admin.username}, ip={ip}")
+    
+    # 设置 Cookie
+    response.set_cookie(
+        key="admin_token",
+        value=token,
+        max_age=86400,  # 24小时
+        httponly=True,
+        samesite="strict",
+    )
+    
+    return AdminLoginResponse(
+        success=True,
+        message="登录成功",
+        token=token,
+        admin_id=admin.id,
+        username=admin.username,
+    )
 
+
+@router.post("/logout")
+def admin_logout(
+    http_request: Request,
+    response: Response,
+    admin: AdminUser = Depends(get_admin_optional),
+):
+    """
+    管理员登出
+    
+    撤销会话Token
+    """
+    token = http_request.headers.get("X-Admin-Token")
+    if not token:
+        token = http_request.cookies.get("admin_token")
+    
+    if token:
+        revoke_admin_session(token)
+    
+    response.delete_cookie("admin_token")
+    
+    return {"success": True, "message": "已登出"}
+
+
+@router.get("/me", response_model=AdminInfoResponse)
+def admin_get_me(
+    admin: AdminUser = Depends(get_admin_from_session),
+):
+    """
+    获取当前管理员信息
+    """
+    return AdminInfoResponse(
+        id=admin.id,
+        username=admin.username,
+        is_active=True,  # AdminUser 没有 is_active 字段，默认返回 True
+        created_at=admin.created_at,
+        last_login_at=None,  # AdminUser 没有 last_login_at 字段
+    )
+
+
+@router.get("/check")
+def admin_check_login(
+    admin: AdminUser = Depends(get_admin_optional),
+):
+    """
+    检查管理员登录状态
+    """
+    if admin:
+        return {"is_logged_in": True, "username": admin.username}
+    return {"is_logged_in": False}
+
+
+# ==========================================
+# 仪表盘统计 API
+# ==========================================
+
+@router.get("/stats", response_model=DashboardStatsResponse)
+def admin_get_stats(
+    admin: AdminUser = Depends(get_admin_from_session),
+    db: Session = Depends(get_db),
+):
+    """
+    获取仪表盘统计数据
+    
+    - 总激活码数
+    - 已激活/未激活数
+    - 总次数/剩余次数
+    - 设备数、推荐数
+    - 今日/本周激活数
+    """
+    # 统计激活码
+    total_codes = db.query(ActivationCode).count()
+    activated_codes = db.query(ActivationCode).filter(
+        ActivationCode.is_activated == True
+    ).count()
+    unused_codes = total_codes - activated_codes
+    
+    # 统计次数
+    total_quota = db.query(ActivationCode).with_entities(
+        ActivationCode.quota
+    ).all()
+    total_quota_sum = sum(q[0] or 0 for q in total_quota)
+    
+    total_remaining = db.query(ActivationCode).with_entities(
+        ActivationCode.remaining
+    ).all()
+    total_remaining_sum = sum(r[0] or 0 for r in total_remaining)
+    
+    # 统计设备
+    total_devices = db.query(Device).count()
+    
+    # 统计推荐
+    total_referrals = db.query(ReferralCode).count()
+    
+    # 今日激活数
+    today_start = datetime.utcnow().replace(hour=0, minute=0, second=0)
+    today_activations = db.query(ActivationCode).filter(
+        ActivationCode.activated_at >= today_start
+    ).count()
+    
+    # 本周激活数
+    week_start = today_start - timedelta(days=today_start.weekday())
+    week_activations = db.query(ActivationCode).filter(
+        ActivationCode.activated_at >= week_start
+    ).count()
+    
+    return DashboardStatsResponse(
+        total_codes=total_codes,
+        activated_codes=activated_codes,
+        unused_codes=unused_codes,
+        total_quota=total_quota_sum,
+        total_remaining=total_remaining_sum,
+        total_devices=total_devices,
+        total_referrals=total_referrals,
+        today_activations=today_activations,
+        week_activations=week_activations,
+    )
+
+
+# ==========================================
+# 激活码管理 API
+# ==========================================
+
+@router.post("/codes/generate", response_model=GenerateActivationCodesResponse)
+def admin_generate_activation_codes(
+    request: GenerateActivationCodesRequest,
+    http_request: Request,
+    admin: AdminUser = Depends(get_admin_from_session),
+    db: Session = Depends(get_db),
+):
+    """
+    批量生成激活码（管理员）
+    
+    Args:
+        count: 生成数量（1-1000）
+        quota: 每个激活码的次数
+    
+    Returns:
+        生成的激活码列表
+    """
+    codes = []
+    
+    for _ in range(request.count):
+        activation_code = crud.create_activation_code(db, quota=request.quota)
+        if activation_code:
+            codes.append(activation_code.code)
+    
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="generate_activation_codes",
+        action_category="activation_code_management",
+        target_type="activation_codes",
+        target_id=None,
+        action_detail=json.dumps({
+            "count": request.count,
+            "quota": request.quota,
+            "note": request.note,
+        }),
+        ip_address=get_client_ip(http_request),
+    )
+    db.add(audit_log)
+    db.commit()
+    
+    logger.info(f"管理员 {admin.username} 生成激活码: count={request.count}, quota={request.quota}")
+    
+    return GenerateActivationCodesResponse(
+        success=True,
+        message=f"成功生成 {request.count} 个激活码",
+        codes=codes,
+        count=len(codes),
+        quota=request.quota,
+    )
+
+
+@router.get("/codes", response_model=ActivationCodeListResponse)
+def admin_list_activation_codes(
+    page: int = Query(1, ge=1),
+    limit: int = Query(20, ge=1, le=100),
+    search: str = Query(None),
+    is_activated: bool = Query(None),
+    admin: AdminUser = Depends(get_admin_from_session),
+    db: Session = Depends(get_db),
+):
+    """
+    查看激活码列表（管理员）
+    
     Args:
         page: 页码
         limit: 每页数量
-        search: 搜索关键词（邮箱/昵称）
-        is_banned: 封禁状态筛选
-        admin: 当前管理员
-        db: 数据库会话
-
+        search: 搜索激活码
+        is_activated: 筛选激活状态
+    
     Returns:
-        用户列表
+        激活码列表
     """
-    service = AdminService(db)
-    users, total = service.get_users(
+    query = db.query(ActivationCode)
+    
+    # 筛选
+    if search:
+        query = query.filter(ActivationCode.code.ilike(f"%{search}%"))
+    
+    if is_activated is not None:
+        query = query.filter(ActivationCode.is_activated == is_activated)
+    
+    # 排序（未激活优先）
+    query = query.order_by(ActivationCode.is_activated.asc(), ActivationCode.id.desc())
+    
+    # 分页
+    total = query.count()
+    codes = query.offset((page - 1) * limit).limit(limit).all()
+    
+    code_list = []
+    for code in codes:
+        # 统计设备数量
+        device_count = db.query(Device).filter(Device.code_id == code.id).count()
+        
+        code_list.append(ActivationCodeData(
+            id=code.id,
+            code=code.code,
+            quota=code.quota,
+            remaining=code.remaining,
+            is_activated=code.is_activated,
+            activated_at=code.activated_at,
+            device_count=device_count,
+            referral_code_used=code.referral_code_used,
+            referral_rewarded=code.referral_rewarded,
+            created_at=code.created_at,
+        ))
+    
+    return ActivationCodeListResponse(
+        codes=code_list,
+        total=total,
         page=page,
         limit=limit,
-        search=search,
-        is_banned=is_banned,
-    )
-
-    user_list = []
-    for user in users:
-        user_list.append({
-            "id": user.id,
-            "email": user.email,
-            "nickname": user.nickname,
-            "usage_count": user.usage_count,
-            "invite_code": user.invite_code,
-            "is_active": user.is_active,
-            "is_banned": user.is_banned,
-            "banned_at": user.banned_at.isoformat() if user.banned_at else None,
-            "banned_reason": user.banned_reason,
-            "created_at": user.created_at.isoformat() if user.created_at else None,
-            "last_login_at": user.last_login_at.isoformat() if user.last_login_at else None,
-        })
-
-    return {
-        "users": user_list,
-        "total": total,
-        "page": page,
-        "limit": limit,
-    }
-
-
-@router.get("/users/{user_id}", response_model=dict)
-def admin_get_user_detail(
-    user_id: int,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    获取用户详情（管理员）
-
-    Args:
-        user_id: 用户 ID
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        用户详情
-    """
-    service = AdminService(db)
-    user_detail = service.get_user_detail(user_id)
-
-    if not user_detail:
-        raise HTTPException(status_code=404, detail="用户不存在")
-
-    # 处理 datetime 字段
-    for key in ["created_at", "last_login_at", "banned_at"]:
-        if user_detail.get(key):
-            user_detail[key] = user_detail[key].isoformat()
-
-    return {
-        "success": True,
-        "data": user_detail,
-    }
-
-
-@router.patch("/users/{user_id}/ban", response_model=BanUserResponse)
-def admin_ban_user(
-    user_id: int,
-    request: BanUserRequest,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    封禁用户（管理员）
-
-    Args:
-        user_id: 用户 ID
-        request: 封禁请求
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        封禁结果
-    """
-    service = AdminService(db)
-    result = service.ban_user(user_id, request.reason)
-
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["message"])
-
-    logger.info(f"管理员 {current_user.id} 封禁用户: user_id={user_id}, reason={request.reason}")
-
-    return BanUserResponse(
-        success=True,
-        message=result["message"],
-        user_id=user_id,
-        banned_at=result["banned_at"],
-        banned_reason=request.reason,
     )
 
 
-@router.patch("/users/{user_id}/unban", response_model=UnbanUserResponse)
-def admin_unban_user(
-    user_id: int,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    解禁用户（管理员）
-
-    Args:
-        user_id: 用户 ID
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        解禁结果
-    """
-    service = AdminService(db)
-    result = service.unban_user(user_id)
-
-    if not result["success"]:
-        raise HTTPException(status_code=400, detail=result["message"])
-
-    logger.info(f"管理员 {current_user.id} 解禁用户: user_id={user_id}")
-
-    return UnbanUserResponse(
-        success=True,
-        message=result["message"],
-        user_id=user_id,
-    )
-
-
-@router.post("/users/batch-ban", response_model=BatchBanResponse)
-def admin_batch_ban_users(
-    request: BatchBanRequest,
+@router.delete("/codes/{code_id}", response_model=RevokeActivationCodeResponse)
+def admin_revoke_activation_code(
+    code_id: int,
     http_request: Request,
-    current_user: User = Depends(get_admin_user),
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
-    批量封禁用户（管理员）
-
-    Args:
-        request: 批量封禁请求
-        http_request: HTTP请求对象
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        批量封禁结果
+    作废激活码（管理员）
+    
+    将激活码的次数设为0，禁止继续使用
     """
-    service = AdminService(db)
-
-    # 获取管理员邮箱
-    from src.database.crud import get_user_by_id
-    admin_user = get_user_by_id(db, current_user.id)
-    admin_email = admin_user.email if admin_user else "unknown"
-
-    result = service.batch_ban_users(
-        user_ids=request.user_ids,
-        reason=request.reason,
-        admin_id=current_user.id,
-        admin_email=admin_email,
+    activation_code = db.query(ActivationCode).filter(ActivationCode.id == code_id).first()
+    
+    if not activation_code:
+        raise HTTPException(status_code=404, detail="激活码不存在")
+    
+    # 作废激活码
+    activation_code.remaining = 0
+    db.commit()
+    
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="revoke_activation_code",
+        action_category="activation_code_management",
+        target_type="activation_code",
+        target_id=str(code_id),
+        action_detail=json.dumps({
+            "code": activation_code.code,
+            "original_remaining": activation_code.remaining,
+        }),
         ip_address=get_client_ip(http_request),
     )
-
-    logger.info(f"管理员 {current_user.id} 批量封禁用户: count={len(request.user_ids)}, succeeded={result['succeeded']}")
-
-    return BatchBanResponse(
-        success=result["success"],
-        message=result["message"],
-        total=result["total"],
-        succeeded=result["succeeded"],
-        failed=result["failed"],
-        failed_ids=result["failed_ids"],
-        details=result["details"],
+    db.add(audit_log)
+    db.commit()
+    
+    logger.info(f"管理员 {admin.username} 作废激活码: id={code_id}, code={activation_code.code}")
+    
+    return RevokeActivationCodeResponse(
+        success=True,
+        message="激活码已作废",
+        code_id=code_id,
+        code=activation_code.code,
     )
 
 
-# ── 审计日志 API ───────────────────────────────────────────────
+@router.get("/codes/{code_id}/devices", response_model=ActivationCodeDevicesResponse)
+def admin_get_activation_code_devices(
+    code_id: int,
+    admin: AdminUser = Depends(get_admin_from_session),
+    db: Session = Depends(get_db),
+):
+    """
+    查看激活码绑定的设备（管理员）
+    
+    显示该激活码绑定的所有设备信息
+    """
+    activation_code = db.query(ActivationCode).filter(ActivationCode.id == code_id).first()
+    
+    if not activation_code:
+        raise HTTPException(status_code=404, detail="激活码不存在")
+    
+    # 查询设备
+    devices = db.query(Device).filter(Device.code_id == code_id).all()
+    
+    device_list = [
+        DeviceBindingData(
+            id=d.id,
+            device_id=d.device_id,
+            device_name=d.device_name,
+            last_seen=d.last_seen,
+            created_at=d.created_at,
+        )
+        for d in devices
+    ]
+    
+    return ActivationCodeDevicesResponse(
+        success=True,
+        code_id=code_id,
+        code=activation_code.code,
+        devices=device_list,
+        device_count=len(device_list),
+    )
+
+
+# ==========================================
+# 审计日志 API
+# ==========================================
 
 @router.get("/audit-logs")
 def admin_get_audit_logs(
-    page: int = Query(1, ge=1, description="页码"),
-    limit: int = Query(50, ge=1, le=200, description="每页数量"),
-    admin_id: int = Query(None, description="管理员ID筛选"),
-    action: str = Query(None, description="操作类型筛选"),
-    action_category: str = Query(None, description="操作分类筛选"),
-    target_type: str = Query(None, description="目标类型筛选"),
-    start_date: str = Query(None, description="开始日期 (YYYY-MM-DD)"),
-    end_date: str = Query(None, description="结束日期 (YYYY-MM-DD)"),
-    current_user: User = Depends(get_admin_user),
+    page: int = Query(1, ge=1),
+    limit: int = Query(50, ge=1, le=200),
+    action: str = Query(None),
+    action_category: str = Query(None),
+    start_date: str = Query(None),
+    end_date: str = Query(None),
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     获取审计日志列表（管理员）
-
+    
     Args:
         page: 页码
         limit: 每页数量
-        admin_id: 管理员ID筛选
         action: 操作类型筛选
         action_category: 操作分类筛选
-        target_type: 目标类型筛选
-        start_date: 开始日期
-        end_date: 结束日期
-        admin: 当前管理员
-        db: 数据库会话
-
+        start_date: 开始日期 (YYYY-MM-DD)
+        end_date: 结束日期 (YYYY-MM-DD)
+    
     Returns:
         审计日志列表
     """
-    service = AdminService(db)
-
-    # 解析日期
-    start_dt = None
-    end_dt = None
+    query = db.query(AuditLog)
+    
+    # 筛选
+    if action:
+        query = query.filter(AuditLog.action == action)
+    
+    if action_category:
+        query = query.filter(AuditLog.action_category == action_category)
+    
     if start_date:
         try:
             start_dt = datetime.strptime(start_date, "%Y-%m-%d")
+            query = query.filter(AuditLog.created_at >= start_dt)
         except ValueError:
             pass
+    
     if end_date:
         try:
             end_dt = datetime.strptime(end_date, "%Y-%m-%d")
             end_dt = end_dt.replace(hour=23, minute=59, second=59)
+            query = query.filter(AuditLog.created_at <= end_dt)
         except ValueError:
             pass
-
-    logs, total = service.get_audit_logs(
-        page=page,
-        limit=limit,
-        admin_id=admin_id,
-        action=action,
-        action_category=action_category,
-        target_type=target_type,
-        start_date=start_dt,
-        end_date=end_dt,
-    )
-
+    
+    # 排序
+    query = query.order_by(AuditLog.id.desc())
+    
+    # 分页
+    total = query.count()
+    logs = query.offset((page - 1) * limit).limit(limit).all()
+    
+    log_list = []
+    for log in logs:
+        log_list.append({
+            "id": log.id,
+            "admin_id": log.admin_id,
+            "admin_username": log.admin_username,
+            "action": log.action,
+            "action_category": log.action_category,
+            "target_type": log.target_type,
+            "target_id": log.target_id,
+            "action_detail": log.action_detail,
+            "ip_address": log.ip_address,
+            "created_at": log.created_at.isoformat() if log.created_at else None,
+        })
+    
     return {
-        "logs": [log.to_dict() for log in logs],
+        "logs": log_list,
         "total": total,
         "page": page,
         "limit": limit,
@@ -340,411 +524,108 @@ def admin_get_audit_logs(
 
 @router.get("/audit-logs/actions")
 def admin_get_audit_actions(
-    current_user: User = Depends(get_admin_user),
+    admin: AdminUser = Depends(get_admin_from_session),
 ):
     """
     获取所有审计操作类型（管理员）
-
-    Args:
-        admin: 当前管理员
-
-    Returns:
-        操作类型列表
     """
     return {
         "actions": [
-            {"value": AuditAction.BAN_USER, "label": "封禁用户"},
-            {"value": AuditAction.UNBAN_USER, "label": "解禁用户"},
-            {"value": AuditAction.BATCH_BAN_USERS, "label": "批量封禁用户"},
-            {"value": AuditAction.GENERATE_CODES, "label": "生成兑换码"},
-            {"value": AuditAction.EXPORT_CODES, "label": "导出兑换码"},
-            {"value": AuditAction.CREATE_TEMPLATE, "label": "创建模板"},
-            {"value": AuditAction.UPDATE_TEMPLATE, "label": "更新模板"},
-            {"value": AuditAction.DELETE_TEMPLATE, "label": "删除模板"},
+            {"value": "generate_activation_codes", "label": "生成激活码"},
+            {"value": "revoke_activation_code", "label": "作废激活码"},
+            {"value": "view_activation_code_devices", "label": "查看设备绑定"},
+            {"value": "create_template", "label": "创建模板"},
+            {"value": "update_template", "label": "更新模板"},
+            {"value": "delete_template", "label": "删除模板"},
+            {"value": "admin_login", "label": "管理员登录"},
+            {"value": "admin_logout", "label": "管理员登出"},
         ],
         "categories": [
-            {"value": AuditCategory.USER_MANAGEMENT, "label": "用户管理"},
-            {"value": AuditCategory.CODE_MANAGEMENT, "label": "兑换码管理"},
-            {"value": AuditCategory.TEMPLATE_MANAGEMENT, "label": "模板管理"},
-            {"value": AuditCategory.SYSTEM_CONFIG, "label": "系统配置"},
+            {"value": "activation_code_management", "label": "激活码管理"},
+            {"value": "template_management", "label": "模板管理"},
+            {"value": "admin_auth", "label": "管理员认证"},
         ]
     }
 
 
-@router.get("/stats/users", response_model=UserStatsResponse)
-def admin_get_user_stats(
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    获取用户统计（管理员）
+# ==========================================
+# 模板管理 API（保留）
+# ==========================================
 
-    Args:
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        用户统计信息
-    """
-    service = AdminService(db)
-    stats = service.get_user_stats()
-
-    return UserStatsResponse(**stats)
-
-
-@router.get("/stats/revenue", response_model=RevenueStatsResponse)
-def admin_get_revenue_stats(
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    获取充值统计（管理员）
-
-    Args:
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        充值统计信息
-    """
-    service = AdminService(db)
-    stats = service.get_revenue_stats()
-
-    return RevenueStatsResponse(**stats)
-
-
-# ── 兑换码管理 API ───────────────────────────────────────────────
-
-@router.post("/codes/generate", response_model=GenerateCodesResponse)
-def admin_generate_codes(
-    request: GenerateCodesRequest,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    批量生成兑换码（管理员）
-
-    Args:
-        request: 生成请求
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        生成结果
-    """
-    service = AdminService(db)
-    result = service.generate_codes(
-        count=request.count,
-        usage_count=request.usage_count,
-        expire_days=request.expire_days,
-        note=request.note,
-    )
-
-    logger.info(f"管理员 {current_user.id} 生成兑换码: batch_id={result['batch_id']}, count={request.count}")
-
-    return GenerateCodesResponse(
-        success=True,
-        message=result["message"],
-        batch_id=result["batch_id"],
-        codes=result["codes"],
-        count=result["count"],
-        usage_count_per_code=result["usage_count_per_code"],
-        expires_at=result["expires_at"],
-    )
-
-
-@router.get("/codes/batches")
-def admin_list_batches(
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    获取兑换码批次列表（管理员）
-
-    Args:
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        批次列表
-    """
-    service = AdminService(db)
-    batches = service.get_batches()
-
-    # 处理 datetime 字段
-    for batch in batches:
-        if batch.get("created_at"):
-            batch["created_at"] = batch["created_at"].isoformat()
-        if batch.get("expires_at"):
-            batch["expires_at"] = batch["expires_at"].isoformat()
-
-    return {
-        "batches": batches,
-        "total": len(batches),
-    }
-
-
-@router.get("/codes/batches/{batch_id}")
-def admin_get_batch_detail(
-    batch_id: str,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    获取批次详情（管理员）
-
-    Args:
-        batch_id: 批次号
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        批次详情
-    """
-    service = AdminService(db)
-    detail = service.get_batch_detail(batch_id)
-
-    if not detail:
-        raise HTTPException(status_code=404, detail="批次不存在")
-
-    # 处理 datetime 字段
-    for key in ["created_at", "expires_at"]:
-        if detail.get(key):
-            detail[key] = detail[key].isoformat()
-
-    for code in detail["codes"]:
-        for key in ["created_at", "expires_at", "used_at"]:
-            if code.get(key):
-                code[key] = code[key].isoformat()
-
-    return {
-        "success": True,
-        "data": detail,
-    }
-
-
-@router.get("/codes/batches/{batch_id}/export")
-def admin_export_codes(
-    batch_id: str,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    导出兑换码（管理员）
-
-    Args:
-        batch_id: 批次号
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        导出结果
-    """
-    service = AdminService(db)
-    result = service.export_codes(batch_id)
-
-    if not result["success"]:
-        raise HTTPException(status_code=404, detail=result["message"])
-
-    logger.info(f"管理员 {current_user.id} 导出兑换码: batch_id={batch_id}")
-
-    return {
-        "success": True,
-        "message": result["message"],
-        "batch_id": batch_id,
-        "codes": result["codes"],
-    }
-
-
-# ── 模板管理 API ───────────────────────────────────────────────
-
-@router.post("/marketplace/templates", response_model=TemplateResponse)
+@router.post("/marketplace/templates")
 def admin_create_template(
-    request: TemplateCreateRequest,
-    current_user: User = Depends(get_admin_user),
+    request: dict,
+    http_request: Request,
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     新增模板（管理员）
-
-    Args:
-        request: 模板创建请求
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        创建的模板
     """
-    # 验证 tool_type
-    if request.tool_type not in VALID_TOOL_TYPES:
+    tool_type = request.get("tool_type")
+    if tool_type not in VALID_TOOL_TYPES:
         raise HTTPException(
             status_code=400,
             detail=f"无效的 tool_type，有效值: {', '.join(VALID_TOOL_TYPES)}"
         )
-
+    
     template = create_template(
         db=db,
-        title=request.title,
-        description=request.description,
-        tool_type=request.tool_type,
-        prompt_content=request.prompt_content,
-        tags=request.tags,
-        is_official=request.is_official,
-        is_published=request.is_published,
+        title=request.get("title"),
+        description=request.get("description"),
+        tool_type=tool_type,
+        prompt_content=request.get("prompt_content"),
+        tags=request.get("tags"),
+        is_official=request.get("is_official", False),
+        is_published=request.get("is_published", False),
     )
-
-    logger.info(f"管理员 {current_user.id} 创建模板: id={template.id}, title={template.title}")
-
-    data = template.to_dict()
-    return TemplateResponse(
-        id=template.id,
-        title=template.title,
-        description=template.description,
-        tool_type=template.tool_type,
-        prompt_content=template.prompt_content,
-        tags=data.get("tags", []),
-        is_official=template.is_official,
-        is_published=template.is_published,
-        import_count=template.import_count,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
-    )
+    
+    logger.info(f"管理员 {admin.username} 创建模板: id={template.id}")
+    
+    return {"success": True, "template": template.to_dict()}
 
 
-@router.put("/marketplace/templates/{template_id}", response_model=TemplateResponse)
+@router.put("/marketplace/templates/{template_id}")
 def admin_update_template(
     template_id: int,
-    request: TemplateUpdateRequest,
-    current_user: User = Depends(get_admin_user),
+    request: dict,
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     编辑模板（管理员）
-
-    Args:
-        template_id: 模板 ID
-        request: 模板更新请求
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        更新后的模板
-    """
-    # 验证 tool_type（如果提供）
-    if request.tool_type and request.tool_type not in VALID_TOOL_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"无效的 tool_type，有效值: {', '.join(VALID_TOOL_TYPES)}"
-        )
-
-    # 构建更新字段
-    update_data = {}
-    if request.title is not None:
-        update_data["title"] = request.title
-    if request.description is not None:
-        update_data["description"] = request.description
-    if request.tool_type is not None:
-        update_data["tool_type"] = request.tool_type
-    if request.prompt_content is not None:
-        update_data["prompt_content"] = request.prompt_content
-    if request.tags is not None:
-        update_data["tags"] = request.tags
-    if request.is_official is not None:
-        update_data["is_official"] = request.is_official
-    if request.is_published is not None:
-        update_data["is_published"] = request.is_published
-
-    template = update_template(db=db, template_id=template_id, **update_data)
-
-    if not template:
-        raise HTTPException(status_code=404, detail="模板不存在")
-
-    logger.info(f"管理员 {current_user.id} 更新模板: id={template_id}")
-
-    data = template.to_dict()
-    return TemplateResponse(
-        id=template.id,
-        title=template.title,
-        description=template.description,
-        tool_type=template.tool_type,
-        prompt_content=template.prompt_content,
-        tags=data.get("tags", []),
-        is_official=template.is_official,
-        is_published=template.is_published,
-        import_count=template.import_count,
-        created_at=template.created_at,
-        updated_at=template.updated_at,
-    )
-
-
-@router.patch("/marketplace/templates/{template_id}/publish")
-def admin_publish_template(
-    template_id: int,
-    request: TemplatePublishRequest,
-    current_user: User = Depends(get_admin_user),
-    db: Session = Depends(get_db),
-):
-    """
-    上架/下架模板（管理员）
-
-    Args:
-        template_id: 模板 ID
-        request: 发布请求
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        操作结果
     """
     template = update_template(
         db=db,
         template_id=template_id,
-        is_published=request.is_published,
+        **request
     )
-
+    
     if not template:
         raise HTTPException(status_code=404, detail="模板不存在")
-
-    action = "上架" if request.is_published else "下架"
-    logger.info(f"管理员 {current_user.id} {action}模板: id={template_id}")
-
-    return {
-        "success": True,
-        "message": f"模板已{action}",
-        "template_id": template_id,
-        "is_published": request.is_published,
-    }
+    
+    logger.info(f"管理员 {admin.username} 更新模板: id={template_id}")
+    
+    return {"success": True, "template": template.to_dict()}
 
 
 @router.delete("/marketplace/templates/{template_id}")
 def admin_delete_template(
     template_id: int,
-    current_user: User = Depends(get_admin_user),
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     删除模板（管理员）
-
-    Args:
-        template_id: 模板 ID
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        操作结果
     """
     success = delete_template(db=db, template_id=template_id)
-
+    
     if not success:
         raise HTTPException(status_code=404, detail="模板不存在")
-
-    logger.info(f"管理员 {current_user.id} 删除模板: id={template_id}")
-
-    return {
-        "success": True,
-        "message": "模板已删除",
-        "template_id": template_id,
-    }
+    
+    logger.info(f"管理员 {admin.username} 删除模板: id={template_id}")
+    
+    return {"success": True, "message": "模板已删除"}
 
 
 @router.get("/marketplace/templates")
@@ -753,31 +634,12 @@ def admin_list_templates(
     include_unpublished: bool = True,
     skip: int = 0,
     limit: int = 50,
-    current_user: User = Depends(get_admin_user),
+    admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     获取模板列表（管理员，可查看未发布的）
-
-    Args:
-        tool_type: 可选，筛选工具类型
-        include_unpublished: 是否包含未发布的模板
-        skip: 跳过数量
-        limit: 返回数量
-        admin: 当前管理员
-        db: 数据库会话
-
-    Returns:
-        模板列表
     """
-    # 验证 tool_type
-    if tool_type and tool_type not in VALID_TOOL_TYPES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"无效的 tool_type，有效值: {', '.join(VALID_TOOL_TYPES)}"
-        )
-
-    # include_unpublished=True 时不过滤 is_published
     templates, total = get_templates(
         db=db,
         tool_type=tool_type,
@@ -785,7 +647,7 @@ def admin_list_templates(
         skip=skip,
         limit=limit,
     )
-
+    
     return {
         "templates": [t.to_dict() for t in templates],
         "total": total,

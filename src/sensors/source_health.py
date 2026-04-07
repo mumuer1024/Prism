@@ -576,45 +576,34 @@ class SourceHealthChecker:
 # ==========================================
 
 def create_health_router():
-    """创建健康检测 API 路由"""
-    from fastapi import APIRouter, Depends
-    from src.auth.dependencies import get_current_user_optional
-    from src.database.models import User
+    """创建健康检测 API 路由（公开接口，无需认证）"""
+    from fastapi import APIRouter
 
     router = APIRouter(prefix="/api/sources", tags=["sources"])
 
     @router.get("/health")
-    def get_sources_health(current_user: User = Depends(get_current_user_optional)):
+    def get_sources_health():
         """
-        获取所有数据源健康状态
-
-        Args:
-            current_user: 当前登录用户（可选）
+        获取所有数据源健康状态（公开接口）
 
         Returns:
             健康状态摘要
         """
-        user_id = current_user.id if current_user else None
         with SourceHealthChecker() as checker:
-            checker.check_all_sources(user_id=user_id)
+            checker.check_all_sources(user_id=None)
             return checker.get_health_summary()
 
     @router.get("/health/{source_name}")
-    def get_source_health(
-        source_name: str,
-        current_user: User = Depends(get_current_user_optional)
-    ):
+    def get_source_health(source_name: str):
         """
-        获取单个数据源健康状态
+        获取单个数据源健康状态（公开接口）
 
         Args:
             source_name: 数据源名称
-            current_user: 当前登录用户（可选）
 
         Returns:
             健康检测结果
         """
-        user_id = current_user.id if current_user else None
         with SourceHealthChecker() as checker:
             # 查找数据源
             source = None
@@ -626,23 +615,19 @@ def create_health_router():
             if not source:
                 return {"error": f"数据源不存在: {source_name}"}
 
-            result = checker.check_source(source, user_id=user_id)
+            result = checker.check_source(source, user_id=None)
             return result.to_dict()
 
     @router.post("/health/check")
-    def trigger_health_check(current_user: User = Depends(get_current_user_optional)):
+    def trigger_health_check():
         """
-        手动触发健康检测
-
-        Args:
-            current_user: 当前登录用户（可选）
+        手动触发健康检测（公开接口）
 
         Returns:
             健康状态摘要
         """
-        user_id = current_user.id if current_user else None
         with SourceHealthChecker() as checker:
-            checker.check_all_sources(user_id=user_id)
+            checker.check_all_sources(user_id=None)
             return checker.get_health_summary()
 
     return router

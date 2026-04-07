@@ -2910,6 +2910,237 @@ body {
   background: var(--bg-tertiary);
 }
 
+/* ===== Activation Code Panel Styles ===== */
+
+/* Activated user panel */
+.user-panel-activated {
+  text-align: center;
+}
+
+.user-panel-activated-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.user-panel-activated-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--success);
+}
+
+/* Exhausted user panel */
+.user-panel-exhausted {
+  text-align: center;
+}
+
+.user-panel-exhausted-icon {
+  font-size: 32px;
+  margin-bottom: 8px;
+}
+
+.user-panel-exhausted-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* Activation input */
+.user-panel-activation {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.activation-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.activation-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  font-size: 14px;
+  font-family: 'JetBrains Mono', monospace;
+  background: var(--bg-secondary);
+  color: var(--text);
+  transition: all 0.2s ease;
+}
+
+.activation-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-bg);
+}
+
+.activation-input::placeholder {
+  color: var(--text-muted);
+}
+
+/* Referral section */
+.user-panel-referral {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.referral-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.referral-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.referral-copy-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.referral-copy-btn:hover {
+  background: var(--accent-bg);
+}
+
+.referral-code {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  padding: 8px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  text-align: center;
+}
+
+.referral-stats {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+}
+
+.referral-stats strong {
+  color: var(--accent);
+}
+
+/* Devices section */
+.user-panel-devices {
+  background: var(--bg-tertiary);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.devices-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.devices-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.devices-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.devices-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.device-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: var(--bg-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.device-item.current {
+  border: 1px solid var(--accent);
+  background: var(--accent-bg);
+}
+
+.device-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-icon {
+  font-size: 14px;
+}
+
+.device-name {
+  color: var(--text);
+  font-weight: 500;
+}
+
+.device-current-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background: var(--accent);
+  color: white;
+  border-radius: 4px;
+  font-weight: 600;
+}
+
+.device-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.device-last-seen {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.device-unbind-btn {
+  padding: 4px 8px;
+  font-size: 11px;
+  color: var(--error);
+  background: transparent;
+  border: 1px solid var(--error);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.device-unbind-btn:hover {
+  background: rgba(192, 57, 43, 0.1);
+}
+
+/* Usage count static */
+.usage-count-static {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 /* ===== Sources Login Prompt ===== */
 .sources-login-prompt {
   margin-top: 24px;

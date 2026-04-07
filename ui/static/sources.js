@@ -1,6 +1,8 @@
 /**
  * Sources Module - Data source management
  * 数据源模块 - 数据源管理
+ *
+ * v2.1 激活码架构：使用 device_id 认证
  */
 
 // DailyHotApi 分类配置缓存
@@ -17,15 +19,28 @@ let userSourceState = {
 };
 
 /**
+ * 获取设备 ID
+ */
+function getDeviceId() {
+  return localStorage.getItem('prism_device_id');
+}
+
+/**
+ * 检查是否已激活
+ */
+function isActivated() {
+  return !!getDeviceId();
+}
+
+/**
  * Load data sources list
- * 加载数据源列表
  */
 async function loadSources() {
   const list = document.getElementById('sources-list');
   if (!list) return;
 
   // 初始化用户状态
-  userSourceState.isLoggedIn = AuthState.isLoggedIn();
+  userSourceState.isLoggedIn = isActivated();
 
   try {
     // 并行加载数据源、DailyHotApi 配置和用户次数
@@ -66,7 +81,9 @@ async function loadSources() {
     if (userSourceState.isLoggedIn) {
       try {
         const userConfigRes = await fetch('/api/user-config/dailyhot/categories', {
-          headers: getAuthHeaders()
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ device_id: getDeviceId() })
         });
         if (userConfigRes.ok) {
           const userConfig = await userConfigRes.json();
@@ -99,11 +116,18 @@ async function loadSources() {
 }
 
 /**
- * 获取认证头
+ * 获取认证参数（用于POST请求body）
+ */
+function getAuthParams() {
+  const deviceId = getDeviceId();
+  return deviceId ? { device_id: deviceId } : {};
+}
+
+/**
+ * 获取认证头（用于GET请求）
  */
 function getAuthHeaders() {
-  const token = AuthState.getToken();
-  return token ? { 'Authorization': `Bearer ${token}` } : {};
+  return {};  // device_id 通过 query params 传递
 }
 
 /**
@@ -119,20 +143,16 @@ function renderSources(container, sources) {
 
   // 2. 根据用户状态显示不同的数据源
   if (!userSourceState.isLoggedIn) {
-    // 未登录用户：只显示热榜数据源 + 登录引导
-    const loginPrompt = document.createElement('div');
-    loginPrompt.className = 'sources-login-prompt';
-    loginPrompt.innerHTML = `
+    // 未激活用户：只显示热榜数据源 + 激活引导
+    const activatePrompt = document.createElement('div');
+    activatePrompt.className = 'sources-login-prompt';
+    activatePrompt.innerHTML = `
       <div class="login-prompt-content">
         <div class="login-prompt-icon">🔐</div>
-        <div class="login-prompt-text">登录后解锁更多数据源</div>
-        <div class="login-prompt-actions">
-          <a href="/login" class="login-prompt-btn">登录</a>
-          <a href="/register" class="login-prompt-btn primary">注册</a>
-        </div>
+        <div class="login-prompt-text">请在右侧面板输入激活码以解锁更多数据源</div>
       </div>
     `;
-    container.appendChild(loginPrompt);
+    container.appendChild(activatePrompt);
   } else {
     // 已登录用户：显示其他数据源
     const freeSourcesHeader = document.createElement('div');
@@ -251,16 +271,15 @@ async function toggleDailyHotCategory(category, isEnabled) {
   // 更新本地缓存
   dailyhotConfig.enabled = enabled;
 
-  // 如果已登录，保存到后端
-  if (AuthState.isLoggedIn()) {
+  // 如果已激活，保存到后端
+  if (isActivated()) {
     try {
       const res = await fetch('/api/user-config/dailyhot/categories', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
-          ...getAuthHeaders()
+          'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ categories: enabled })
+        body: JSON.stringify({ device_id: getDeviceId(), categories: enabled })
       });
 
       if (res.ok) {
@@ -716,13 +735,12 @@ async function loadCustomSources() {
 
   if (!list) return;
 
-  // 检查登录状态
-  if (!AuthState.isLoggedIn()) {
+  // 检查激活状态
+  if (!isActivated()) {
     list.innerHTML = `
       <div class="custom-sources-notice">
         <div class="notice-icon">🔐</div>
-        <div class="notice-text">请先登录以添加自定义数据源</div>
-        <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-link">去登录</a>
+        <div class="notice-text">请先激活以添加自定义数据源</div>
       </div>
     `;
     if (countEl) countEl.textContent = '0';
@@ -732,8 +750,11 @@ async function loadCustomSources() {
   }
 
   try {
+    const deviceId = getDeviceId();
     const res = await fetch('/api/user-config/sources', {
-      headers: getAuthHeaders()
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
 
     if (!res.ok) throw new Error('加载失败');
@@ -816,8 +837,8 @@ function renderCustomSourcesList(container) {
  * 打开添加数据源模态框
  */
 function openAddCustomSourceModal() {
-  if (!AuthState.isLoggedIn()) {
-    alert('请先登录');
+  if (!isActivated()) {
+    alert('请先激活');
     return;
   }
 
@@ -899,13 +920,11 @@ async function submitCustomSource() {
   }
 
   try {
-    const res = await fetch('/api/user-config/sources', {
+    const res = await fetch('/api/user-config/sources/add', {
       method: 'POST',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        device_id: getDeviceId(),
         name,
         url,
         source_type: 'rss',
@@ -933,11 +952,11 @@ async function toggleCustomSource(sourceId, enabled) {
   try {
     const res = await fetch(`/api/user-config/sources/${sourceId}`, {
       method: 'PUT',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ is_enabled: enabled })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        device_id: getDeviceId(),
+        is_enabled: enabled
+      })
     });
 
     if (!res.ok) throw new Error('操作失败');
@@ -1012,14 +1031,11 @@ async function updateCustomSource(sourceId) {
   try {
     const res = await fetch(`/api/user-config/sources/${sourceId}`, {
       method: 'PUT',
-      headers: {
-        ...getAuthHeaders(),
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
+        device_id: getDeviceId(),
         name,
-        url,
-        tool_type: toolType
+        url
       })
     });
 
@@ -1045,7 +1061,8 @@ async function deleteCustomSource(sourceId) {
   try {
     const res = await fetch(`/api/user-config/sources/${sourceId}`, {
       method: 'DELETE',
-      headers: getAuthHeaders()
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: getDeviceId() })
     });
 
     if (!res.ok) throw new Error('删除失败');

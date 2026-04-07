@@ -1,9 +1,9 @@
+# -*- coding: utf-8 -*-
 """
-Prism V2.0 认证模块
+Prism V2.1 认证工具模块
 
-提供用户注册、登录、OAuth 认证等功能
+密码处理等工具函数（认证路由已废弃）
 """
 
-from .router import router as auth_router
-
-__all__ = ['auth_router']
+# auth_router 已废弃，不再导出
+__all__ = []

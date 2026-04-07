@@ -55,43 +55,8 @@
       <button onclick="switchTab('sources')" id="nav-sources" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</button>
       <button onclick="switchTab('marketplace')" id="nav-marketplace" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">Prompt广场</button>
       <button onclick="switchTab('config')" id="nav-config" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</button>
-      <a href="/account" id="nav-account" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all hidden" style="color: var(--text);">用户中心</a>
     </nav>
     <div class="flex items-center gap-2" id="header-right">
-      <!-- User State (will be updated by JS) -->
-      <div id="user-state-container" class="flex items-center gap-2">
-        <!-- Logged out state: show login/register buttons -->
-        <div id="logged-out-state" class="flex items-center gap-2">
-          <a href="/login" class="text-sm font-medium px-4 py-2 rounded-lg hover:bg-bg-tertiary transition-colors" style="color: var(--text);">登录</a>
-          <a href="/register" class="text-sm font-medium px-4 py-2 rounded-lg bg-accent text-white hover:opacity-90 transition-opacity">注册</a>
-        </div>
-        <!-- Logged in state: show user menu (hidden by default) -->
-        <div id="logged-in-state" class="hidden relative">
-          <button onclick="toggleUserMenu()" class="flex items-center gap-2 px-3 py-1.5 rounded-lg hover:bg-bg-tertiary transition-colors">
-            <div id="user-avatar" class="w-8 h-8 rounded-full bg-accent flex items-center justify-center text-white text-sm font-medium">U</div>
-            <span id="user-display-name" class="hidden sm:block text-sm font-medium truncate max-w-[100px]" style="color: var(--text);">用户</span>
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
-            </svg>
-          </button>
-          <!-- User Menu Dropdown -->
-          <div id="user-menu-dropdown" class="user-menu-dropdown">
-            <a href="/account" class="user-menu-item">
-              <span>👤</span>
-              <span>用户中心</span>
-            </a>
-            <a href="/account#usage" class="user-menu-item">
-              <span>💎</span>
-              <span>使用次数</span>
-            </a>
-            <div class="user-menu-divider"></div>
-            <button onclick="logout()" class="user-menu-item danger w-full text-left">
-              <span>🚪</span>
-              <span>退出登录</span>
-            </button>
-          </div>
-        </div>
-      </div>
       <!-- Theme Toggle Button -->
       <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle" title="切换主题">
         <svg id="theme-icon-sun" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -111,7 +76,6 @@
       <button onclick="switchTab('sources'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</button>
       <button onclick="switchTab('marketplace'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">🏪</span> Prompt广场</button>
       <button onclick="switchTab('config'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</button>
-      <a href="/account" id="mobile-nav-account" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all hidden" style="color: var(--text);"><span class="w-5 text-center">👤</span> 用户中心</a>
     </nav>
   </div>
 
@@ -436,7 +400,6 @@
 
   <!-- Scripts -->
   <script src="/static/core.js"></script>
-  <script src="/static/auth.js"></script>
   <script src="/static/user-panel.js"></script>
   <script src="/static/legal.js"></script>
   <script src="/static/navigation.js"></script>
@@ -463,9 +426,6 @@
         versionEl.textContent = window.APP_VERSION;
       }
 
-      // Update user state in header
-      updateUserStateInHeader();
-
       // Initialize user panel
       if (typeof initUserPanel === 'function') {
         initUserPanel();
@@ -477,52 +437,6 @@
       const validTabs = ['console', 'reports', 'sources', 'marketplace', 'config'];
       const initialTab = validTabs.includes(tabParam) ? tabParam : 'console';
       switchTab(initialTab);
-    });
-
-    // Update user state in header
-    function updateUserStateInHeader() {
-      const loggedOutState = document.getElementById('logged-out-state');
-      const loggedInState = document.getElementById('logged-in-state');
-      const userAvatar = document.getElementById('user-avatar');
-      const userDisplayName = document.getElementById('user-display-name');
-
-      if (AuthState.isLoggedIn()) {
-        const user = AuthState.getCurrentUser();
-        if (user) {
-          // Show logged in state
-          loggedOutState?.classList.add('hidden');
-          loggedInState?.classList.remove('hidden');
-
-          // Update avatar
-          if (userAvatar) {
-            userAvatar.textContent = (user.nickname || user.email || 'U')[0].toUpperCase();
-          }
-
-          // Update display name
-          if (userDisplayName) {
-            userDisplayName.textContent = user.nickname || user.email.split('@')[0];
-          }
-        }
-      } else {
-        // Show logged out state
-        loggedOutState?.classList.remove('hidden');
-        loggedInState?.classList.add('hidden');
-      }
-    }
-
-    // Toggle user menu dropdown
-    function toggleUserMenu() {
-      const dropdown = document.getElementById('user-menu-dropdown');
-      dropdown?.classList.toggle('show');
-    }
-
-    // Close dropdown when clicking outside
-    document.addEventListener('click', (e) => {
-      const dropdown = document.getElementById('user-menu-dropdown');
-      const button = e.target.closest('#logged-in-state button');
-      if (!button && dropdown?.classList.contains('show')) {
-        dropdown.classList.remove('show');
-      }
     });
   </script>
 </body>

@@ -1,39 +1,45 @@
 /**
  * config.js - 配置管理模块
- * 处理系统配置加载、保存和模型管理
- *
- * v2.1 改造：配置仅保存在浏览器 localStorage，不上传服务器
- * v2.1 改造2：配置按用户隔离，Key 格式：prism_config_{user_id}_{字段名}
+ * v2.1 激活码架构：使用 device_id 隔离配置
  */
 
 // localStorage key 前缀（基础前缀）
 const LS_PREFIX_BASE = 'prism_config_';
 
 /**
- * 获取当前用户标识（用于配置隔离）
- * @returns {string} 用户ID 或 visitor_id
+ * 获取设备 ID
  */
-function getCurrentUserIdentifier() {
-  // 优先使用登录用户的 ID
-  if (typeof AuthState !== 'undefined' && AuthState.isLoggedIn()) {
-    const user = AuthState.getCurrentUser();
-    if (user && user.id) {
-      return String(user.id);
-    }
-  }
-  
-  // 匿名用户使用 visitor_id
+function getDeviceId() {
+  return localStorage.getItem('prism_device_id');
+}
+
+/**
+ * 获取访客 ID
+ */
+function getVisitorId() {
   let visitorId = localStorage.getItem('prism_visitor_id');
   if (!visitorId) {
     visitorId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
     localStorage.setItem('prism_visitor_id', visitorId);
   }
-  return 'anon_' + visitorId;
+  return visitorId;
+}
+
+/**
+ * 获取当前用户标识（用于配置隔离）
+ * @returns {string} device_id 或 visitor_id
+ */
+function getCurrentUserIdentifier() {
+  const deviceId = getDeviceId();
+  if (deviceId) {
+    return deviceId;
+  }
+  return 'anon_' + getVisitorId();
 }
 
 /**
  * 获取带用户标识的 localStorage key 前缀
- * @returns {string} 格式：prism_config_{user_id}_
+ * @returns {string} 格式：prism_config_{device_id}_
  */
 function getLS_PREFIX() {
   return LS_PREFIX_BASE + getCurrentUserIdentifier() + '_';

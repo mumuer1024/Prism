@@ -1,102 +1,15 @@
 # -*- coding: utf-8 -*-
 """
-预设广场 API 测试
+预设广场 API 测试 - v2.1 激活码架构
 
-测试模板列表、详情、导入等功能
+测试模板列表、详情、导入等接口
+使用 device_id 认证替代 JWT
 """
 
 import pytest
-from datetime import datetime
 from fastapi.testclient import TestClient
 
-from src.database.models import User, MarketplaceTemplate, UserPrompt
-
-
-# ═══════════════════════════════════════════════════════════
-# Fixtures
-# ═══════════════════════════════════════════════════════════
-
-@pytest.fixture
-def test_templates(db_session):
-    """创建测试模板"""
-    templates = []
-
-    template_data = [
-        {
-            "title": "科技日报模板",
-            "description": "适用于科技行业的日报生成",
-            "tool_type": "mission",
-            "prompt_content": "你是一个科技分析师，请分析以下内容...",
-            "tags": '["科技", "日报"]',
-            "is_official": True,
-            "is_published": True,
-        },
-        {
-            "title": "Web3 分析模板",
-            "description": "适用于 Web3/区块链领域分析",
-            "tool_type": "alpha",
-            "prompt_content": "你是一个 Web3 分析师...",
-            "tags": '["Web3", "区块链"]',
-            "is_official": True,
-            "is_published": True,
-        },
-        {
-            "title": "未发布模板",
-            "description": "这是一个未发布的模板",
-            "tool_type": "mission",
-            "prompt_content": "未发布内容...",
-            "tags": '[]',
-            "is_official": False,
-            "is_published": False,
-        },
-    ]
-
-    for data in template_data:
-        template = MarketplaceTemplate(**data)
-        db_session.add(template)
-        templates.append(template)
-
-    db_session.commit()
-    for t in templates:
-        db_session.refresh(t)
-
-    return templates
-
-
-@pytest.fixture
-def paid_user_with_token(db_session):
-    """创建付费用户并返回token"""
-    from src.auth.utils.password_handler import hash_password
-    from src.auth.utils.jwt_handler import create_access_token
-    import secrets
-
-    password_hash = hash_password("TestPassword123!")
-    invite_code = "PAID-" + ''.join(secrets.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(8))
-
-    user = User(
-        email="paid@test.com",
-        password_hash=password_hash,
-        nickname="PaidUser",
-        invite_code=invite_code,
-        usage_count=100,  # 有使用次数
-        is_active=True,
-        is_verified=True,
-    )
-    db_session.add(user)
-    db_session.commit()
-    db_session.refresh(user)
-
-    token = create_access_token(
-        user_id=user.id,
-        email=user.email,
-        usage_count=user.usage_count
-    )
-
-    return {
-        "user": user,
-        "token": token,
-        "headers": {"Authorization": f"Bearer {token}"}
-    }
+from src.database.models import MarketplaceTemplate, ActivationCode, Device
 
 
 # ═══════════════════════════════════════════════════════════
@@ -104,47 +17,76 @@ def paid_user_with_token(db_session):
 # ═══════════════════════════════════════════════════════════
 
 class TestTemplateList:
-    """模板列表测试"""
+    """模板列表接口测试"""
 
-    def test_list_templates(self, client, test_templates):
+    def test_list_templates_success(self, client: TestClient, test_template: MarketplaceTemplate):
         """测试获取模板列表"""
         response = client.get("/api/marketplace/templates")
-        assert response.status_code == 200
 
+        assert response.status_code == 200
         data = response.json()
+
         assert "templates" in data
         assert "total" in data
+        assert data["total"] >= 1
+        assert len(data["templates"]) >= 1
 
-        # 只返回已发布的模板
-        for t in data["templates"]:
-            assert t["is_published"] is True
-
-    def test_list_templates_by_tool_type(self, client, test_templates):
+    def test_list_templates_with_tool_type_filter(self, client: TestClient, db_session):
         """测试按工具类型筛选"""
+        # 创建不同类型的模板
+        template_mission = MarketplaceTemplate(
+            title="Mission模板",
+            description="Mission模板描述",
+            tool_type="mission",
+            prompt_content="Mission {{DATA}}",
+            is_published=True,
+            is_official=True,
+        )
+        template_bounty = MarketplaceTemplate(
+            title="Bounty模板",
+            description="Bounty模板描述",
+            tool_type="bounty_v2ex",
+            prompt_content="Bounty {{DATA}}",
+            is_published=True,
+            is_official=True,
+        )
+        db_session.add_all([template_mission, template_bounty])
+        db_session.commit()
+
+        # 筛选 mission
         response = client.get("/api/marketplace/templates?tool_type=mission")
+
         assert response.status_code == 200
-
         data = response.json()
-        for t in data["templates"]:
-            assert t["tool_type"] == "mission"
+        assert all(t["tool_type"] == "mission" for t in data["templates"])
 
-    def test_list_templates_pagination(self, client, test_templates):
-        """测试分页"""
-        response = client.get("/api/marketplace/templates?skip=0&limit=1")
+    def test_list_templates_invalid_tool_type(self, client: TestClient):
+        """测试无效工具类型"""
+        response = client.get("/api/marketplace/templates?tool_type=invalid_type")
+
+        assert response.status_code == 400
+        assert "无效的 tool_type" in response.json()["detail"]
+
+    def test_list_templates_pagination(self, client: TestClient, db_session):
+        """测试分页参数"""
+        # 创建多个模板
+        for i in range(5):
+            template = MarketplaceTemplate(
+                title=f"模板{i}",
+                description=f"描述{i}",
+                tool_type="mission",
+                prompt_content=f"内容{i}",
+                is_published=True,
+            )
+            db_session.add(template)
+        db_session.commit()
+
+        # 测试 skip 和 limit
+        response = client.get("/api/marketplace/templates?skip=2&limit=2")
+
         assert response.status_code == 200
-
         data = response.json()
-        assert len(data["templates"]) <= 1
-
-    def test_list_templates_no_content(self, client, test_templates):
-        """测试列表不返回 prompt_content"""
-        response = client.get("/api/marketplace/templates")
-        assert response.status_code == 200
-
-        data = response.json()
-        for t in data["templates"]:
-            # 列表接口不应返回 prompt_content
-            assert t.get("prompt_content") is None
+        assert len(data["templates"]) == 2
 
 
 # ═══════════════════════════════════════════════════════════
@@ -152,37 +94,42 @@ class TestTemplateList:
 # ═══════════════════════════════════════════════════════════
 
 class TestTemplateDetail:
-    """模板详情测试"""
+    """模板详情接口测试"""
 
-    def test_get_template_detail(self, client, test_templates):
+    def test_get_template_detail_success(self, client: TestClient, test_template: MarketplaceTemplate):
         """测试获取模板详情"""
-        template_id = test_templates[0].id
-        response = client.get(f"/api/marketplace/templates/{template_id}")
+        response = client.get(f"/api/marketplace/templates/{test_template.id}")
+
         assert response.status_code == 200
-
         data = response.json()
-        assert data["id"] == template_id
-        assert data["title"] == test_templates[0].title
-        # 详情接口应返回 prompt_content
-        assert data["prompt_content"] is not None
 
-    def test_get_template_detail_not_found(self, client):
-        """测试获取不存在的模板"""
+        assert data["id"] == test_template.id
+        assert data["title"] == test_template.title
+        assert data["prompt_content"] == test_template.prompt_content
+
+    def test_get_template_detail_not_found(self, client: TestClient):
+        """测试模板不存在"""
         response = client.get("/api/marketplace/templates/99999")
+
         assert response.status_code == 404
+        assert "模板不存在" in response.json()["detail"]
 
-    def test_get_unpublished_template_denied(self, client, test_templates):
-        """测试获取未发布模板被拒绝"""
-        # 找到未发布的模板
-        unpublished = None
-        for t in test_templates:
-            if not t.is_published:
-                unpublished = t
-                break
+    def test_get_template_detail_unpublished(self, client: TestClient, db_session):
+        """测试未发布模板不可见"""
+        template = MarketplaceTemplate(
+            title="未发布模板",
+            description="未发布描述",
+            tool_type="mission",
+            prompt_content="内容",
+            is_published=False,
+        )
+        db_session.add(template)
+        db_session.commit()
+        db_session.refresh(template)
 
-        if unpublished:
-            response = client.get(f"/api/marketplace/templates/{unpublished.id}")
-            assert response.status_code == 404
+        response = client.get(f"/api/marketplace/templates/{template.id}")
+
+        assert response.status_code == 404
 
 
 # ═══════════════════════════════════════════════════════════
@@ -190,109 +137,111 @@ class TestTemplateDetail:
 # ═══════════════════════════════════════════════════════════
 
 class TestTemplateImport:
-    """模板导入测试"""
+    """模板导入接口测试"""
 
-    def test_import_template_success(self, client, test_templates, paid_user_with_token, db_session):
+    def test_import_template_success(self, client: TestClient, test_device: dict, test_template: MarketplaceTemplate, db_session):
         """测试成功导入模板"""
-        template_id = test_templates[0].id
+        device_id = test_device["device_id"]
+
         response = client.post(
-            f"/api/marketplace/templates/{template_id}/import",
-            headers=paid_user_with_token["headers"]
+            f"/api/marketplace/templates/{test_template.id}/import",
+            json={"device_id": device_id}
         )
+
         assert response.status_code == 200
-
         data = response.json()
-        assert data["success"] is True
-        assert data["tool_type"] == test_templates[0].tool_type
-        assert data["template_title"] == test_templates[0].title
 
-    def test_import_template_not_found(self, client, paid_user_with_token):
+        assert data["success"] is True
+        assert data["tool_type"] == test_template.tool_type
+        assert data["template_title"] == test_template.title
+
+    def test_import_template_no_device_id(self, client: TestClient, test_template: MarketplaceTemplate):
+        """测试缺少 device_id（FastAPI 返回 422 验证错误）"""
+        response = client.post(
+            f"/api/marketplace/templates/{test_template.id}/import",
+            json={}
+        )
+
+        # FastAPI 验证错误返回 422
+        assert response.status_code == 422
+
+    def test_import_template_invalid_device(self, client: TestClient, test_template: MarketplaceTemplate):
+        """测试无效设备"""
+        response = client.post(
+            f"/api/marketplace/templates/{test_template.id}/import",
+            json={"device_id": "INVALID-DEVICE"}
+        )
+
+        assert response.status_code == 401
+        assert "设备未激活" in response.json()["detail"]
+
+    def test_import_template_not_found(self, client: TestClient, test_device: dict):
         """测试导入不存在的模板"""
+        device_id = test_device["device_id"]
+
         response = client.post(
             "/api/marketplace/templates/99999/import",
-            headers=paid_user_with_token["headers"]
+            json={"device_id": device_id}
         )
+
         assert response.status_code == 404
 
-    def test_import_template_unauthorized(self, client, test_templates):
-        """测试未登录导入模板"""
-        template_id = test_templates[0].id
-        response = client.post(f"/api/marketplace/templates/{template_id}/import")
-        assert response.status_code == 401
-
-    def test_import_template_no_usage(self, client, test_templates, db_session):
-        """测试无使用次数导入模板"""
-        from src.auth.utils.password_handler import hash_password
-        from src.auth.utils.jwt_handler import create_access_token
-        import secrets
-
-        # 创建无使用次数的用户
-        password_hash = hash_password("TestPassword123!")
-        invite_code = "FREE-" + ''.join(secrets.choice('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789') for _ in range(8))
-
-        user = User(
-            email="free@test.com",
-            password_hash=password_hash,
-            nickname="FreeUser",
-            invite_code=invite_code,
-            usage_count=0,  # 无使用次数
-            is_active=True,
-            is_verified=True,
+    def test_import_template_no_quota(self, client: TestClient, db_session):
+        """测试次数不足无法导入"""
+        # 创建激活码（次数为0）
+        activation = ActivationCode(
+            code="PRISM-IMPORT-NOQ",
+            quota=10,
+            remaining=0,  # 使用 remaining 字段
+            is_activated=True,
         )
-        db_session.add(user)
+        db_session.add(activation)
         db_session.commit()
-        db_session.refresh(user)
+        db_session.refresh(activation)
 
-        token = create_access_token(
-            user_id=user.id,
-            email=user.email,
-            usage_count=user.usage_count
+        # 绑定设备
+        device = Device(
+            device_id="DEV-IMPORT-NOQ",
+            code_id=activation.id,
         )
+        db_session.add(device)
+        db_session.commit()
 
-        template_id = test_templates[0].id
+        # 创建模板
+        template = MarketplaceTemplate(
+            title="测试模板",
+            description="测试描述",
+            tool_type="mission",
+            prompt_content="内容",
+            is_published=True,
+        )
+        db_session.add(template)
+        db_session.commit()
+        db_session.refresh(template)
+
         response = client.post(
-            f"/api/marketplace/templates/{template_id}/import",
-            headers={"Authorization": f"Bearer {token}"}
+            f"/api/marketplace/templates/{template.id}/import",
+            json={"device_id": "DEV-IMPORT-NOQ"}
         )
+
         assert response.status_code == 403
 
-    def test_import_unpublished_template_denied(self, client, test_templates, paid_user_with_token):
-        """测试导入未发布模板被拒绝"""
-        # 找到未发布的模板
-        unpublished = None
-        for t in test_templates:
-            if not t.is_published:
-                unpublished = t
-                break
-
-        if unpublished:
-            response = client.post(
-                f"/api/marketplace/templates/{unpublished.id}/import",
-                headers=paid_user_with_token["headers"]
-            )
-            assert response.status_code == 404
-
 
 # ═══════════════════════════════════════════════════════════
-# 导入计数测试
+# 公开接口测试（无需认证）
 # ═══════════════════════════════════════════════════════════
 
-class TestImportCount:
-    """导入计数测试"""
+class TestPublicEndpoints:
+    """公开接口测试"""
 
-    def test_import_count_increment(self, client, test_templates, paid_user_with_token, db_session):
-        """测试导入计数增加"""
-        template_id = test_templates[0].id
+    def test_list_templates_no_auth(self, client: TestClient, test_template: MarketplaceTemplate):
+        """测试模板列表无需认证"""
+        response = client.get("/api/marketplace/templates")
 
-        # 获取初始计数
-        initial_count = test_templates[0].import_count
+        assert response.status_code == 200
 
-        # 导入模板
-        client.post(
-            f"/api/marketplace/templates/{template_id}/import",
-            headers=paid_user_with_token["headers"]
-        )
+    def test_get_template_detail_no_auth(self, client: TestClient, test_template: MarketplaceTemplate):
+        """测试模板详情无需认证"""
+        response = client.get(f"/api/marketplace/templates/{test_template.id}")
 
-        # 刷新并检查计数
-        db_session.refresh(test_templates[0])
-        assert test_templates[0].import_count == initial_count + 1
+        assert response.status_code == 200
