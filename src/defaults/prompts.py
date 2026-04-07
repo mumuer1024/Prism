@@ -5,7 +5,7 @@
 存储各功能模块的默认 Prompt 模板
 """
 
-from typing import Optional
+from typing import Optional, Dict
 
 # ============================================================================
 # 情报日报 (Mission) - 报告生成模板
@@ -13,7 +13,7 @@ from typing import Optional
 DEFAULT_MISSION_PROMPT = """# 🌐 全球情报日报 (Global Intel Briefing)
 **日期:** {date_str}
 **生成时间:** {time_str}
-**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X, XHS
+**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X
 
 ---
 
@@ -35,9 +35,6 @@ DEFAULT_MISSION_PROMPT = """# 🌐 全球情报日报 (Global Intel Briefing)
 ## 🗣️ 社区热点 (Community)
 > V2EX 热门
 
-## 📕 小红书雷达 (XHS Radar)
-> 手动搜索指令 (点击链接进入搜索页)
-
 ## 💡 深度洞察 (Insights)
 > HN Top Blogs - 精选技术博客
 
@@ -47,51 +44,102 @@ DEFAULT_MISSION_PROMPT = """# 🌐 全球情报日报 (Global Intel Briefing)
 """
 
 # ============================================================================
-# 赏金猎人 - V2EX 扫描 Prompt
+# 情报日报 (Mission) - AI 深度分析默认 Prompt
 # ============================================================================
-DEFAULT_BOUNTY_V2EX_PROMPT = """筛选 V2EX 论坛中的赚钱机会。
+DEFAULT_MISSION_ANALYSIS_PROMPT = """请基于以上情报日报内容，从商业机会和行业趋势角度提供深度洞察。
 
-关键词匹配规则：
-- 必须包含：有偿、外包、兼职、求助、急、付费、悬赏 等关键词
-- 排除：纯技术讨论、招聘正式员工
+要求：
+1. 提供 3-5 条核心洞察，每条洞察包含：
+   - 洞察标题（简洁有力）
+   - 背景分析（为什么会发生）
+   - 行动建议（具体可执行）
 
-紧急程度评分标准：
-- 90-100分：明确标价 + 时间紧迫 + 需求清晰
-- 70-89分：有偿意向 + 需求较清晰
-- 50-69分：可能付费 + 需求模糊
-- 0-49分：潜在机会
+2. 重点关注：
+   - 新兴技术趋势的变现潜力
+   - 市场空白和用户痛点
+   - 可在 1-2 周内启动的小而快机会
 
-输出格式：
-- 标题
-- 链接
-- 紧急程度评分
-- 标签分类
-- 发布时间
-- 摘要
-"""
+3. 输出风格：
+   - 专业但易懂
+   - 避免泛泛而谈，给出具体建议
+   - 适合技术从业者阅读
+
+请直接输出分析内容，不需要重复报告内容。"""
 
 # ============================================================================
-# 赏金猎人 - Chrome 扩展扫描 Prompt
+# 赏金猎人 (Bounty Hunter) - 关键词配置
 # ============================================================================
-DEFAULT_BOUNTY_CHROME_PROMPT = """扫描 Chrome 扩展商店，寻找"丑小鸭"机会。
+DEFAULT_BOUNTY_KEYWORDS = {
+    "money_keywords": [
+        "外包", "兼职", "有偿", "预算", "报价", "招", "急", "付费",
+        "代写", "私活", "合作", "开发", "求购", "悬赏", "报酬",
+        "价格", "费用", "多少钱", "收费", "接单", "项目", "甲方"
+    ],
+    "pain_keywords": [
+        "求助", "帮忙", "不懂", "救命", "怎么做", "太难", "崩溃", "无法", "报错",
+        "不会", "求教", "求大佬", "有没有人", "小白", "新手", "搞不定",
+        "折腾", "卡住", "解决不了", "求指导", "求解答", "头疼"
+    ],
+    "desperation_keywords": [
+        "在线等", "有偿", "急", "救命", "红包", "崩溃", "求大佬", "付费解决",
+        "今晚", "明天", "截止", "最后", "加急", "马上", "立刻", "紧急",
+        "求求", "跪求", "在线等", "速回"
+    ],
+    "tech_keywords": [
+        "FPGA", "Verilog", "Python", "爬虫", "脚本", "Web3", "Solana",
+        "Rust", "图像", "视觉", "识别", "抠图", "Automation", "Bot",
+        "Vue", "React", "Node", "Java", "Go", "TypeScript", "小程序",
+        "App", "网站", "后端", "前端", "数据库", "API", "自动化",
+        "Chrome", "插件", "扩展", "爬虫", "数据采集", "机器学习", "AI"
+    ],
+}
 
-筛选条件：
-- 用户量 >= 1000
-- 评分 <= 4.2
-- 有明显痛点可优化
+# ============================================================================
+# 赏金猎人 (Bounty Hunter) - 分析 Prompt
+# ============================================================================
+DEFAULT_BOUNTY_ANALYSIS_PROMPT = """请基于以下赏金猎人报告内容，提供深度洞察和行动建议。
 
-机会评估标准：
-- 用户量大但评分低 = 重写竞品机会
-- 功能单一但需求明确 = 快速复制机会
-- 界面老旧但用户多 = UI优化机会
+要求：
+1. 分析当前商机机会的特点：
+   - 技术领域分布（前端/后端/AI/Web3等）
+   - 预估价格区间（基于帖子描述）
+   - 紧急程度排序建议
 
-输出格式：
-- 扩展名称
-- 链接
-- 评分
-- 用户量
-- 描述
-- 痛点分析（kill_shot）
+2. 提供具体行动建议：
+   - 如何快速验证需求真实性
+   - 如何准备简历/作品集
+   - 如何报价和议价技巧
+
+3. 重点关注科技/AI行业需求信号：
+   - AI 相关外包需求趋势
+   - Web3/区块链开发机会
+   - 自动化工具需求
+   - 移动端/小程序需求
+
+请直接输出分析内容，简洁有力，避免泛泛而谈。"""
+
+# ============================================================================
+# 赏金猎人 (Bounty Hunter) - 报告模板
+# ============================================================================
+DEFAULT_BOUNTY_REPORT_TEMPLATE = """# 💰 赏金猎人报告 (Bounty Hunter Report)
+**日期:** {date_str}
+**扫描范围:** 过去 {days} 天
+**生成时间:** {time_str}
+
+---
+
+## 🎯 执行摘要
+
+{summary}
+
+---
+
+{content}
+
+---
+
+> 🤖 **本文由 AI 生成，仅供参考。** 内容可能存在偏差，不构成任何投资或决策建议。
+*报告由赏金猎人系统自动生成*
 """
 
 # ============================================================================
@@ -193,11 +241,12 @@ DEFAULT_REVENUE_PROMPT = """你是一位资深的商业分析师和独立开发�
 # 工具类型枚举
 # ============================================================================
 TOOL_TYPES = [
-    "mission",        # 情报日报
-    "bounty_v2ex",    # 赏金猎人 - V2EX
-    "bounty_chrome",  # 赏金猎人 - Chrome
-    "alpha",          # Alpha 雷达
-    "revenue",        # 营收分析师
+    "mission",           # 情报日报
+    "mission_analysis",  # 情报日报 - AI 分析
+    "bounty",            # 赏金猎人
+    "bounty_analysis",   # 赏金猎人 - AI 分析
+    "alpha",             # Alpha 雷达
+    "revenue",           # 营收分析师
 ]
 
 
@@ -206,19 +255,30 @@ def get_default_prompt(tool_type: str) -> Optional[str]:
     获取指定工具类型的默认 Prompt
 
     Args:
-        tool_type: 工具类型 (mission / bounty_v2ex / bounty_chrome / alpha / revenue)
+        tool_type: 工具类型 (mission / mission_analysis / bounty / bounty_analysis / alpha / revenue)
 
     Returns:
         默认 Prompt 字符串，如果类型无效则返回 None
     """
     prompts = {
         "mission": DEFAULT_MISSION_PROMPT,
-        "bounty_v2ex": DEFAULT_BOUNTY_V2EX_PROMPT,
-        "bounty_chrome": DEFAULT_BOUNTY_CHROME_PROMPT,
+        "mission_analysis": DEFAULT_MISSION_ANALYSIS_PROMPT,
+        "bounty": DEFAULT_BOUNTY_ANALYSIS_PROMPT,
+        "bounty_analysis": DEFAULT_BOUNTY_ANALYSIS_PROMPT,
         "alpha": DEFAULT_ALPHA_PROMPT,
         "revenue": DEFAULT_REVENUE_PROMPT,
     }
     return prompts.get(tool_type)
+
+
+def get_default_bounty_keywords() -> Dict:
+    """
+    获取赏金猎人的默认关键词配置
+
+    Returns:
+        关键词配置字典
+    """
+    return DEFAULT_BOUNTY_KEYWORDS.copy()
 
 
 def get_tool_display_name(tool_type: str) -> str:
@@ -233,8 +293,9 @@ def get_tool_display_name(tool_type: str) -> str:
     """
     names = {
         "mission": "情报日报",
-        "bounty_v2ex": "赏金猎人 - V2EX",
-        "bounty_chrome": "赏金猎人 - Chrome扩展",
+        "mission_analysis": "情报日报 - AI分析",
+        "bounty": "赏金猎人",
+        "bounty_analysis": "赏金猎人 - AI分析",
         "alpha": "Alpha雷达",
         "revenue": "营收分析师",
     }

@@ -64,7 +64,6 @@ class PromptValidator:
     PLACEHOLDERS: Dict[str, List[str]] = {
         "mission": ["{date_str}", "{time_str}"],
         "bounty_v2ex": [],  # 无占位符
-        "bounty_chrome": [],  # 无占位符
         "alpha": ["{query}"],
         "revenue": ["{content}"],
     }
@@ -101,7 +100,7 @@ class PromptValidator:
         验证 Prompt
 
         Args:
-            tool_type: 工具类型 (mission / bounty_v2ex / bounty_chrome / alpha / revenue)
+            tool_type: 工具类型 (mission / bounty_v2ex / alpha / revenue)
             prompt: Prompt 内容
 
         Returns:

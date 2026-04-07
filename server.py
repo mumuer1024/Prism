@@ -31,7 +31,7 @@ if sys.platform == "win32":
 app = FastAPI(
     title="Prism API",
     description="情报聚合系统 API",
-    version="2.0.0",
+    version="2.1.0",
 )
 
 # ── CORS 中间件 ────────────────────────────────────────────
@@ -46,6 +46,10 @@ app.add_middleware(
 BASE_DIR = Path(__file__).parent.resolve()
 ENV_FILE = BASE_DIR / ".env"
 REPORTS_DIR = BASE_DIR / "reports"
+
+# 自部署模式控制（环境变量）
+import os
+SELF_HOSTED = os.getenv("SELF_HOSTED", "").lower() in ("true", "1", "yes", "on")
 
 # ── Health Check ──────────────────────────────────────────
 
@@ -189,12 +193,36 @@ class EnvUpdate(BaseModel):
 
 @app.get("/api/config")
 def get_config():
-    if not ENV_FILE.exists():
+    """
+    获取配置（官方托管版返回空对象，防止 API Key 泄露）
+    
+    自部署用户（SELF_HOSTED=true）：可返回 .env 配置作为默认值
+    """
+    if SELF_HOSTED:
+        # 自部署模式：返回 .env 配置（可选的默认值）
+        if not ENV_FILE.exists():
+            return {}
+        return dict(dotenv_values(ENV_FILE))
+    else:
+        # 官方托管版：不返回敏感配置
         return {}
-    return dict(dotenv_values(ENV_FILE))
 
 @app.post("/api/config")
 def save_config(body: EnvUpdate):
+    """
+    保存配置到 .env 文件
+    
+    自部署用户（SELF_HOSTED=true）：允许通过 Web UI 保存配置
+    官方托管版：禁用，返回 403（配置仅保存在浏览器 localStorage）
+    """
+    if not SELF_HOSTED:
+        # 官方托管版：禁止写入服务器配置
+        raise HTTPException(
+            status_code=403,
+            detail="官方托管版不支持服务器保存配置，请使用浏览器本地存储"
+        )
+    
+    # 自部署模式：允许写入 .env
     ENV_FILE.touch()
     for key, value in body.data.items():
         set_key(str(ENV_FILE), key, value)
@@ -292,19 +320,62 @@ def get_client_ip(request: Request) -> str:
     return "127.0.0.1"
 
 
+# 敏感Key列表（需要base64解码）
+SENSITIVE_CONFIG_KEYS = [
+    'LLM_API_KEY', 'XAI_API_KEY', 'GITHUB_TOKEN',
+    'TAVILY_TOKEN', 'PRODUCTHUNT_TOKEN', 'TRANSLATOR_API_KEY'
+]
+
+
+def _decode_sensitive_key(value: str, key: str) -> str:
+    """解码敏感Key（前端base64编码）"""
+    import base64
+    if key in SENSITIVE_CONFIG_KEYS and value:
+        try:
+            return base64.b64decode(value).decode('utf-8')
+        except Exception:
+            # 如果解码失败，可能是未编码的值（兼容旧版）
+            return value
+    return value
+
+
 @app.get("/api/run/{script_id}")
 async def run_script(
     script_id: str,
     request: Request,
     visitor_id: str = None,
-    token: str = None,  # 通过查询参数传递的 token
+    token: str = None,
+    # 用户配置参数（前端传入）
+    LLM_API_KEY: str = None,
+    LLM_BASE_URL: str = None,
+    LLM_MODEL: str = None,
+    LLM_API_FORMAT: str = None,
+    XAI_API_KEY: str = None,
+    XAI_BASE_URL: str = None,
+    XAI_MODEL: str = None,
+    GITHUB_TOKEN: str = None,
+    TAVILY_TOKEN: str = None,
+    PRODUCTHUNT_TOKEN: str = None,
+    TRANSLATOR_API_KEY: str = None,
+    TRANSLATOR_BASE_URL: str = None,
+    TRANSLATOR_MODEL: str = None,
 ):
-    """运行脚本（带使用次数检查和扣减）"""
+    """
+    运行脚本（带使用次数检查和扣减）
+    
+    v2.1 改造：
+    - 接收前端传入的用户配置
+    - 通过环境变量传给子进程
+    - 支持用户隔离
+    """
     if script_id not in SCRIPTS:
         raise HTTPException(status_code=404, detail="Unknown script")
 
     script = SCRIPTS[script_id]
     tool_type = SCRIPT_TOOL_MAP.get(script_id)
+    
+    # 用户身份（用于报告隔离）
+    user_id_for_env = None
 
     # 检查并扣减使用次数
     try:
@@ -319,25 +390,30 @@ async def run_script(
             try:
                 # 尝试从请求中获取用户
                 user = None
-                
+
                 # 优先使用查询参数中的 token
                 auth_token = token
                 if not auth_token:
                     auth_header = request.headers.get("Authorization")
                     if auth_header and auth_header.startswith("Bearer "):
                         auth_token = auth_header.replace("Bearer ", "")
-                
+
                 if auth_token:
                     try:
                         from src.auth.utils import verify_token
                         payload = verify_token(auth_token)
                         if payload:
                             from src.database import crud
-                            user_id = payload.get("user_id") or payload.get("sub")
-                            if user_id:
-                                user = crud.get_user_by_id(db, int(user_id))
+                            uid = payload.get("user_id") or payload.get("sub")
+                            if uid:
+                                user = crud.get_user_by_id(db, int(uid))
+                                user_id_for_env = str(user.id)
                     except Exception:
                         pass
+
+                # 匿名用户使用 visitor_id
+                if not user_id_for_env and visitor_id:
+                    user_id_for_env = "anon_" + visitor_id
 
                 # 获取客户端 IP
                 ip_address = get_client_ip(request)
@@ -380,11 +456,62 @@ async def run_script(
         logger.warning(f"使用次数检查失败，跳过: {e}")
 
     async def stream():
+        # 构建用户专属环境变量
+        env = os.environ.copy()
+        
+        # 传递用户ID（用于报告隔离）
+        if user_id_for_env:
+            env["USER_ID"] = user_id_for_env
+        
+        # 传递用户配置（敏感Key需要解码）
+        config_mapping = {
+            'LLM_API_KEY': 'USER_LLM_API_KEY',
+            'LLM_BASE_URL': 'USER_LLM_BASE_URL',
+            'LLM_MODEL': 'USER_LLM_MODEL',
+            'LLM_API_FORMAT': 'USER_LLM_API_FORMAT',
+            'XAI_API_KEY': 'USER_XAI_API_KEY',
+            'XAI_BASE_URL': 'USER_XAI_BASE_URL',
+            'XAI_MODEL': 'USER_XAI_MODEL',
+            'GITHUB_TOKEN': 'USER_GITHUB_TOKEN',
+            'TAVILY_TOKEN': 'USER_TAVILY_TOKEN',
+            'PRODUCTHUNT_TOKEN': 'USER_PRODUCTHUNT_TOKEN',
+            'TRANSLATOR_API_KEY': 'USER_TRANSLATOR_API_KEY',
+            'TRANSLATOR_BASE_URL': 'USER_TRANSLATOR_BASE_URL',
+            'TRANSLATOR_MODEL': 'USER_TRANSLATOR_MODEL',
+        }
+        
+        # 获取所有传入的配置参数
+        config_values = {
+            'LLM_API_KEY': LLM_API_KEY,
+            'LLM_BASE_URL': LLM_BASE_URL,
+            'LLM_MODEL': LLM_MODEL,
+            'LLM_API_FORMAT': LLM_API_FORMAT,
+            'XAI_API_KEY': XAI_API_KEY,
+            'XAI_BASE_URL': XAI_BASE_URL,
+            'XAI_MODEL': XAI_MODEL,
+            'GITHUB_TOKEN': GITHUB_TOKEN,
+            'TAVILY_TOKEN': TAVILY_TOKEN,
+            'PRODUCTHUNT_TOKEN': PRODUCTHUNT_TOKEN,
+            'TRANSLATOR_API_KEY': TRANSLATOR_API_KEY,
+            'TRANSLATOR_BASE_URL': TRANSLATOR_BASE_URL,
+            'TRANSLATOR_MODEL': TRANSLATOR_MODEL,
+        }
+        
+        # 设置环境变量
+        for src_key, env_key in config_mapping.items():
+            value = config_values.get(src_key)
+            if value:
+                # 敏感Key需要base64解码
+                decoded_value = _decode_sensitive_key(value, src_key)
+                env[env_key] = decoded_value
+        
+        # 启动子进程
         proc = await asyncio.create_subprocess_exec(
             "python", script,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.STDOUT,
             cwd=str(BASE_DIR),
+            env=env,  # 传入用户专属环境变量
         )
         running_processes[script_id] = proc
         try:
@@ -401,26 +528,100 @@ async def run_script(
 
 # ── Reports ──────────────────────────────────────────────
 
+def _get_user_id_from_request(request: Request, token: str = None) -> str:
+    """从请求中获取用户ID（用于报告隔离）"""
+    # 优先使用查询参数中的 token
+    auth_token = token
+    if not auth_token:
+        auth_header = request.headers.get("Authorization")
+        if auth_header and auth_header.startswith("Bearer "):
+            auth_token = auth_header.replace("Bearer ", "")
+    
+    if auth_token:
+        try:
+            from src.auth.utils import verify_token
+            payload = verify_token(auth_token)
+            if payload:
+                user_id = payload.get("user_id") or payload.get("sub")
+                if user_id:
+                    return str(user_id)
+        except Exception:
+            pass
+    
+    return None
+
+
 @app.get("/api/reports")
-def list_reports():
-    if not REPORTS_DIR.exists():
+def list_reports(
+    request: Request,
+    token: str = None,
+    visitor_id: str = None,
+):
+    """
+    获取报告列表（按用户隔离）
+    
+    v2.1 改造：只返回当前用户的报告
+    """
+    # 获取用户ID
+    user_id = _get_user_id_from_request(request, token)
+    
+    # 确定报告目录
+    if user_id:
+        user_report_dir = REPORTS_DIR / f"user_{user_id}"
+    elif visitor_id:
+        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
+    else:
+        # 无用户信息，返回空列表
         return []
+    
+    if not user_report_dir.exists():
+        return []
+    
     result = []
-    for f in sorted(REPORTS_DIR.rglob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True):
+    for f in sorted(user_report_dir.rglob("*.md"), key=lambda x: x.stat().st_mtime, reverse=True):
         # 统一使用正斜杠，避免 Windows 路径在 JavaScript 中的转义问题
-        rel_path = str(f.relative_to(REPORTS_DIR)).replace("\\", "/")
+        rel_path = str(f.relative_to(user_report_dir)).replace("\\", "/")
         result.append({
             "path": rel_path,
             "name": f.name,
-            "folder": str(f.parent.relative_to(REPORTS_DIR)).replace("\\", "/"),
+            "folder": str(f.parent.relative_to(user_report_dir)).replace("\\", "/"),
             "mtime": f.stat().st_mtime,
         })
     return result
 
 @app.get("/api/reports/content")
-def get_report(path: str):
-    # 统一路径分隔符，确保 Windows 兼容
-    full = REPORTS_DIR / path.replace("\\", "/")
+def get_report(
+    path: str,
+    request: Request,
+    token: str = None,
+    visitor_id: str = None,
+):
+    """
+    获取报告内容（按用户隔离）
+    
+    v2.1 改造：只能读取当前用户的报告
+    """
+    # 获取用户ID
+    user_id = _get_user_id_from_request(request, token)
+    
+    # 确定报告目录
+    if user_id:
+        user_report_dir = REPORTS_DIR / f"user_{user_id}"
+    elif visitor_id:
+        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
+    else:
+        raise HTTPException(status_code=403, detail="未授权访问")
+    
+    # 安全检查：防止路径遍历攻击
+    full = user_report_dir / path.replace("\\", "/")
+    try:
+        full = full.resolve()
+        user_report_dir = user_report_dir.resolve()
+        if not str(full).startswith(str(user_report_dir)):
+            raise HTTPException(status_code=403, detail="无权访问该报告")
+    except Exception:
+        raise HTTPException(status_code=403, detail="无效的路径")
+    
     if not full.exists() or not full.is_file():
         raise HTTPException(status_code=404)
     return {"content": full.read_text(encoding="utf-8")}
@@ -429,10 +630,35 @@ def get_report(path: str):
 # ── Report Download ───────────────────────────────────────
 
 @app.get("/api/reports/download")
-def download_report(path: str, format: str = "md"):
-    """单篇报告下载"""
-    # 统一路径分隔符，确保 Windows 兼容
-    full = REPORTS_DIR / path.replace("\\", "/")
+def download_report(
+    path: str,
+    request: Request,
+    token: str = None,
+    visitor_id: str = None,
+    format: str = "md",
+):
+    """单篇报告下载（按用户隔离）"""
+    # 获取用户ID
+    user_id = _get_user_id_from_request(request, token)
+    
+    # 确定报告目录
+    if user_id:
+        user_report_dir = REPORTS_DIR / f"user_{user_id}"
+    elif visitor_id:
+        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
+    else:
+        raise HTTPException(status_code=403, detail="未授权访问")
+    
+    # 安全检查：防止路径遍历攻击
+    full = user_report_dir / path.replace("\\", "/")
+    try:
+        full = full.resolve()
+        user_report_dir = user_report_dir.resolve()
+        if not str(full).startswith(str(user_report_dir)):
+            raise HTTPException(status_code=403, detail="无权访问该报告")
+    except Exception:
+        raise HTTPException(status_code=403, detail="无效的路径")
+    
     if not full.exists() or not full.is_file():
         raise HTTPException(status_code=404, detail="报告不存在")
     
@@ -475,20 +701,47 @@ def download_report(path: str, format: str = "md"):
 
 
 @app.get("/api/reports/batch-download")
-def batch_download_reports(paths: str = Query(...), format: str = "md"):
-    """批量报告打包下载"""
-    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+def batch_download_reports(
+    request: Request,
+    paths: str = Query(...),
+    token: str = None,
+    visitor_id: str = None,
+    format: str = "md",
+):
+    """批量报告打包下载（按用户隔离）"""
+    # 获取用户ID
+    user_id = _get_user_id_from_request(request, token)
     
+    # 确定报告目录
+    if user_id:
+        user_report_dir = REPORTS_DIR / f"user_{user_id}"
+    elif visitor_id:
+        user_report_dir = REPORTS_DIR / f"anon_{visitor_id}"
+    else:
+        raise HTTPException(status_code=403, detail="未授权访问")
+    
+    # 解析用户报告目录的绝对路径（用于安全检查）
+    user_report_dir = user_report_dir.resolve()
+    
+    path_list = [p.strip() for p in paths.split(",") if p.strip()]
+
     if not path_list:
         raise HTTPException(status_code=400, detail="未选择报告")
-    
+
     # 创建内存中的 zip 文件
     zip_buffer = io.BytesIO()
-    
+
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
         for path in path_list:
-            # 统一路径分隔符，确保 Windows 兼容
-            full = REPORTS_DIR / path.replace("\\", "/")
+            # 安全检查：防止路径遍历攻击
+            full = user_report_dir / path.replace("\\", "/")
+            try:
+                full = full.resolve()
+                if not str(full).startswith(str(user_report_dir)):
+                    continue  # 跳过非法路径
+            except Exception:
+                continue
+            
             if not full.exists() or not full.is_file():
                 continue
             
@@ -582,7 +835,6 @@ SOURCES_META = [
     {"key": "36kr", "env_key": "SOURCE_ENABLED_36KR", "name": "36氪", "icon": "🇨🇳", "desc": "中国科技创业媒体", "requires_key": None},
     {"key": "wallstreet", "env_key": "SOURCE_ENABLED_WALLSTREET", "name": "华尔街见闻", "icon": "📈", "desc": "中国财经资讯", "requires_key": None},
     {"key": "hn_blogs", "env_key": "SOURCE_ENABLED_HN_BLOGS", "name": "HN Top Blogs", "icon": "📝", "desc": "Hacker News 热门博客", "requires_key": None},
-    {"key": "chrome", "env_key": "SOURCE_ENABLED_CHROME", "name": "Chrome 扩展雷达", "icon": "🔌", "desc": "Chrome 扩展商店趋势", "requires_key": None},
     {"key": "tavily", "env_key": "SOURCE_ENABLED_TAVILY", "name": "Tavily 搜索", "icon": "🔍", "desc": "AI 驱动的实时搜索", "requires_key": "TAVILY_TOKEN"},
 ]
 

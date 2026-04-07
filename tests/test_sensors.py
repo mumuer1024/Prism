@@ -9,12 +9,12 @@ import httpx
 
 # 导入被测模块
 from src.sensors.hacker_news import HNStory, fetch_top_stories
-from src.sensors.github_trending import fetch_trending_repos
+from src.sensors.github_trending import fetch_trending
 
 
 class TestHNStory:
     """HNStory 数据类测试"""
-    
+
     def test_hn_url_property_with_url(self):
         """测试有 URL 时返回原始 URL"""
         story = HNStory(
@@ -26,7 +26,7 @@ class TestHNStory:
             descendants=50
         )
         assert story.url == "https://example.com/article"
-    
+
     def test_hn_url_property_without_url(self):
         """测试无 URL 时返回 Hacker News 链接"""
         story = HNStory(
@@ -38,7 +38,7 @@ class TestHNStory:
             descendants=50
         )
         assert story.url is None
-    
+
     def test_hn_url_derived_property(self):
         """测试 hn_url 派生属性"""
         story = HNStory(
@@ -50,7 +50,7 @@ class TestHNStory:
             descendants=50
         )
         assert story.hn_url == "https://news.ycombinator.com/item?id=12345"
-    
+
     def test_hn_url_derived_with_url(self):
         """测试有 URL 时 hn_url 仍返回 HN 链接"""
         story = HNStory(
@@ -67,14 +67,14 @@ class TestHNStory:
 
 class TestFetchTopStories:
     """fetch_top_stories 函数测试"""
-    
+
     @patch('src.sensors.hacker_news.httpx.get')
     def test_fetch_success(self, mock_get):
         """测试成功获取故事列表"""
         # Mock 顶层故事 ID 响应
         mock_top_response = Mock()
         mock_top_response.json.return_value = [123, 456, 789]
-        
+
         # Mock 单个故事详情响应
         def create_item_response(sid):
             mock_item = Mock()
@@ -101,57 +101,58 @@ class TestFetchTopStories:
             else:
                 mock_item.json.return_value = None  # 第三个故事不存在
             return mock_item
-        
+
         mock_get.side_effect = [mock_top_response] + [create_item_response(sid) for sid in [123, 456, 789]]
-        
+
         # 执行
         stories = fetch_top_stories(limit=3)
-        
+
         # 验证
         assert len(stories) == 2  # 只有前两个有效
         assert stories[0].title == "First Story"
         assert stories[0].score == 100
         assert stories[1].title == "Second Story"
         assert stories[1].score == 80
-    
+
     @patch('src.sensors.hacker_news.httpx.get')
     def test_fetch_empty(self, mock_get):
         """测试获取空列表"""
         mock_response = Mock()
         mock_response.json.return_value = []
         mock_get.return_value = mock_response
-        
+
         stories = fetch_top_stories(limit=10)
         assert stories == []
-    
+
     @patch('src.sensors.hacker_news.httpx.get')
     def test_fetch_timeout(self, mock_get):
         """测试请求超时"""
         mock_get.side_effect = httpx.TimeoutException("Request timeout")
-        
+
         with pytest.raises(httpx.TimeoutException):
             fetch_top_stories()
-    
+
     @patch('src.sensors.hacker_news.httpx.get')
     def test_fetch_http_error(self, mock_get):
         """测试 HTTP 错误"""
+        # 函数未调用 raise_for_status，直接让 mock_get 抛出异常
         mock_response = Mock()
-        mock_response.raise_for_status.side_effect = httpx.HTTPStatusError(
+        mock_response.status_code = 500
+        mock_get.side_effect = httpx.HTTPStatusError(
             "Server Error",
             request=Mock(),
-            response=Mock(status_code=500)
+            response=mock_response
         )
-        mock_get.return_value = mock_response
-        
+
         with pytest.raises(httpx.HTTPStatusError):
             fetch_top_stories()
-    
+
     @patch('src.sensors.hacker_news.httpx.get')
     def test_fetch_skips_non_story_items(self, mock_get):
         """测试跳过非 story 类型"""
         mock_top_response = Mock()
         mock_top_response.json.return_value = [123, 456]
-        
+
         def create_item_response(sid):
             mock_item = Mock()
             if sid == 123:
@@ -172,11 +173,11 @@ class TestFetchTopStories:
                     "title": "Job Post",
                 }
             return mock_item
-        
+
         mock_get.side_effect = [mock_top_response] + [create_item_response(sid) for sid in [123, 456]]
-        
+
         stories = fetch_top_stories(limit=2)
-        
+
         # 应该只返回 story 类型的项目
         assert len(stories) == 1
         assert stories[0].title == "Valid Story"
@@ -184,13 +185,13 @@ class TestFetchTopStories:
 
 class TestGitHubTrending:
     """GitHub Trending 传感器测试（占位，需要根据实际实现调整）"""
-    
+
     @pytest.mark.skip(reason="需要 GITHUB_TOKEN 环境变量")
     def test_fetch_trending_real(self):
         """真实 API 测试（需要配置）"""
-        repos = fetch_trending_repos(language="python", limit=5)
+        repos = fetch_trending(language="python")
         assert isinstance(repos, list)
-    
+
     @patch('src.sensors.github_trending.httpx.get')
     def test_fetch_trending_mock(self, mock_get):
         """Mock 测试"""
@@ -207,9 +208,9 @@ class TestGitHubTrending:
             }
         }
         mock_get.return_value = mock_response
-        
+
         # 根据实际函数签名调整
-        # repos = fetch_trending_repos(language="python", limit=5)
+        # repos = fetch_trending(language="python")
         # assert len(repos) == 2
 
 
@@ -219,7 +220,7 @@ class TestGitHubTrending:
 
 class TestSensorIntegration:
     """传感器集成测试"""
-    
+
     @pytest.mark.integration
     @pytest.mark.skipif(
         not httpx.get("https://hacker-news.firebaseio.com/v0/topstories.json", timeout=5.0),

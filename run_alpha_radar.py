@@ -6,6 +6,8 @@ Alpha 雷达 (Alpha Radar)
 - Solana / Web3 领域的 CLI 工具
 - 有"包装变现"潜力的开源代码
 - 自动验证 GitHub 链接是否有效
+
+v2.1 改造：报告按用户隔离
 """
 import sys
 import os
@@ -14,7 +16,12 @@ import logging
 import datetime
 import re
 import json
+from pathlib import Path
 from typing import Optional, List
+
+# Windows 控制台 UTF-8 支持
+if sys.platform == "win32":
+    sys.stdout.reconfigure(encoding='utf-8')
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
@@ -25,7 +32,20 @@ from src.config import setup_logging
 
 logger = logging.getLogger(__name__)
 
-REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "web3")
+# 基础目录
+BASE_DIR = Path(__file__).parent.resolve()
+
+
+def get_user_report_dir() -> Path:
+    """
+    获取用户报告目录（按用户隔离）
+    
+    Returns:
+        报告目录路径
+    """
+    user_id = os.getenv("USER_ID", "anonymous")
+    return BASE_DIR / "reports" / f"user_{user_id}" / "web3"
+
 
 # Alpha 雷达专用搜索查询（默认值）
 DEFAULT_ALPHA_QUERIES = [
@@ -215,8 +235,10 @@ def generate_alpha_radar_report(user_id: Optional[int] = None):
     print("=" * 60)
     print(f"\n开始扫描 Web3/Solana 开源项目... 日期: {date_str}")
 
-    os.makedirs(REPORT_DIR, exist_ok=True)
-    report_file = os.path.join(REPORT_DIR, f"Alpha_Radar_{date_str}.md")
+    # 获取用户报告目录（按用户隔离）
+    report_dir = get_user_report_dir()
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / f"Alpha_Radar_{date_str}.md"
 
     all_projects = []
 

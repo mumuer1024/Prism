@@ -1,6 +1,8 @@
 /**
  * Reports Module - Report listing and viewing
  * 报告模块 - 报告列表和查看
+ *
+ * v2.1 改造：报告按用户隔离，API调用传递认证参数
  */
 
 // 当前选中的报告路径
@@ -9,6 +11,32 @@ let selectedReports = new Set();
 let currentReport = null;
 // 所有报告数据
 let allReports = [];
+
+/**
+ * 获取认证参数（用于API调用）
+ * @returns {URLSearchParams} 包含 token 或 visitor_id 的参数
+ */
+function getReportAuthParams() {
+  const params = new URLSearchParams();
+  
+  // 添加 token（如果已登录）
+  if (typeof AuthState !== 'undefined') {
+    const token = AuthState.getToken();
+    if (token) {
+      params.append('token', token);
+    }
+  }
+  
+  // 添加 visitor_id（用于匿名用户）
+  let visitorId = localStorage.getItem('prism_visitor_id');
+  if (!visitorId) {
+    visitorId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('prism_visitor_id', visitorId);
+  }
+  params.append('visitor_id', visitorId);
+  
+  return params;
+}
 
 /**
  * Load reports list
@@ -21,7 +49,9 @@ async function loadReports() {
   list.innerHTML = '<div class="text-center py-8 text-text-muted text-sm">加载中...</div>';
 
   try {
-    const res = await fetch('/api/reports');
+    // 传递认证参数
+    const authParams = getReportAuthParams();
+    const res = await fetch('/api/reports?' + authParams.toString());
     allReports = await res.json();
 
     if (!allReports.length) {
@@ -93,7 +123,7 @@ function createReportItem(report) {
   });
 
   div.innerHTML = `
-    <input type="checkbox" class="report-checkbox mt-1 flex-shrink-0" 
+    <input type="checkbox" class="report-checkbox mt-1 flex-shrink-0"
            onchange="toggleReportSelection('${report.path}', this.checked)"
            onclick="event.stopPropagation()">
     <div class="flex-1 min-w-0" onclick="loadReport('${report.path}', this.parentElement)">
@@ -214,7 +244,9 @@ async function loadReport(path, element) {
   `;
 
   try {
-    const res = await fetch('/api/reports/content?path=' + encodeURIComponent(path));
+    // 传递认证参数
+    const authParams = getReportAuthParams();
+    const res = await fetch('/api/reports/content?path=' + encodeURIComponent(path) + '&' + authParams.toString());
     const data = await res.json();
 
     // Render markdown
@@ -238,8 +270,10 @@ function downloadCurrent(format) {
     showToast('请先选择报告', 'warn');
     return;
   }
-  
-  const url = `/api/reports/download?path=${encodeURIComponent(currentReport)}&format=${format}`;
+
+  // 传递认证参数
+  const authParams = getReportAuthParams();
+  const url = `/api/reports/download?path=${encodeURIComponent(currentReport)}&format=${format}&${authParams.toString()}`;
   window.location.href = url;
 }
 
@@ -253,8 +287,10 @@ function downloadBatch(format) {
     return;
   }
 
+  // 传递认证参数
+  const authParams = getReportAuthParams();
   const paths = Array.from(selectedReports).join(',');
-  const url = `/api/reports/batch-download?paths=${encodeURIComponent(paths)}&format=${format}`;
+  const url = `/api/reports/batch-download?paths=${encodeURIComponent(paths)}&format=${format}&${authParams.toString()}`;
   window.location.href = url;
 }
 

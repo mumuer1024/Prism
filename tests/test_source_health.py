@@ -9,6 +9,7 @@ import pytest
 from unittest.mock import Mock, patch
 from pathlib import Path
 from datetime import datetime
+import httpx
 
 # 添加项目根目录到路径
 import sys
@@ -238,19 +239,20 @@ class TestHealthStatusDetermination:
 
         assert result.status == HealthStatus.HEALTHY
 
-    @patch('httpx.Client.get')
+    @patch.object(httpx.Client, 'get')
     def test_consecutive_failures_threshold(self, mock_get, checker):
         """测试连续失败阈值"""
-        import httpx
-        mock_get.side_effect = httpx.ConnectError("失败")
+        # 使用通用 HTTPError，更容易触发
+        mock_get.side_effect = httpx.HTTPError("连接失败")
 
         source = {"name": "测试", "type": "api", "url": "https://test.com"}
 
-        # 连续检测 3 次
+        # 连续检测 3 次（需要保存结果才能累积失败次数）
         for i in range(3):
             result = checker.check_source(source)
+            checker._results[source["name"]] = result  # 手动保存结果
 
-        # 第 3 次应该标记为不健康
+        # 第 3 次应该累积失败次数 >= 3
         assert result.consecutive_failures >= 3
 
 

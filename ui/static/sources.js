@@ -90,6 +90,9 @@ async function loadSources() {
     }
 
     renderSources(list, sources);
+
+    // 加载自定义数据源
+    loadCustomSources();
   } catch (e) {
     list.innerHTML = '<div class="text-center py-8" style="color: #ff6b6b;">加载失败</div>';
   }
@@ -598,10 +601,17 @@ function renderHealthCards(container, data) {
     card.className = `health-card health-${source.status}`;
 
     const icon = source.status === 'healthy' ? '✅' :
-                 source.status === 'degraded' ? '⚠️' : '❌';
+                 source.status === 'degraded' ? '⚠️' :
+                 source.status === 'not_configured' ? '🔒' : '❌';
 
     const responseTime = source.response_time_ms > 0 ?
       `${source.response_time_ms.toFixed(0)}ms` : '-';
+
+    // 为 not_configured 状态添加特殊处理
+    const errorHtml = source.error_message ?
+      (source.status === 'not_configured' ?
+        `<div class="health-error-msg health-not-configured">${source.error_message}</div>` :
+        `<div class="health-error-msg">${source.error_message}</div>`) : '';
 
     card.innerHTML = `
       <div class="health-icon">${icon}</div>
@@ -611,7 +621,7 @@ function renderHealthCards(container, data) {
           <span class="health-type">${source.source_type}</span>
           <span class="health-time">${responseTime}</span>
         </div>
-        ${source.error_message ? `<div class="health-error-msg">${source.error_message}</div>` : ''}
+        ${errorHtml}
       </div>
     `;
 
@@ -685,6 +695,390 @@ function formatTime(isoString) {
   }
 }
 
+// ==========================================
+// 自定义 RSS 数据源管理
+// ==========================================
+
+let customSourcesData = {
+  sources: [],
+  maxFree: 3,
+  maxPaid: 10
+};
+
+/**
+ * 加载自定义数据源
+ */
+async function loadCustomSources() {
+  const list = document.getElementById('custom-sources-list');
+  const countEl = document.getElementById('custom-sources-count');
+  const maxEl = document.getElementById('custom-sources-max');
+  const addBtn = document.getElementById('btn-add-custom-source');
+
+  if (!list) return;
+
+  // 检查登录状态
+  if (!AuthState.isLoggedIn()) {
+    list.innerHTML = `
+      <div class="custom-sources-notice">
+        <div class="notice-icon">🔐</div>
+        <div class="notice-text">请先登录以添加自定义数据源</div>
+        <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-link">去登录</a>
+      </div>
+    `;
+    if (countEl) countEl.textContent = '0';
+    if (maxEl) maxEl.textContent = '3';
+    if (addBtn) addBtn.disabled = true;
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/user-config/sources', {
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) throw new Error('加载失败');
+
+    const data = await res.json();
+    // 只显示用户自定义数据源（is_preset=FALSE）
+    customSourcesData.sources = (data.sources || []).filter(s => !s.is_preset);
+
+    // 更新计数
+    const count = customSourcesData.sources.length;
+    const maxLimit = userSourceState.isPaid ? customSourcesData.maxPaid : customSourcesData.maxFree;
+
+    if (countEl) countEl.textContent = count;
+    if (maxEl) maxEl.textContent = maxLimit;
+
+    // 更新添加按钮状态
+    if (addBtn) {
+      addBtn.disabled = count >= maxLimit;
+      if (addBtn.disabled) {
+        addBtn.title = '已达上限';
+      } else {
+        addBtn.title = '';
+      }
+    }
+
+    renderCustomSourcesList(list);
+  } catch (err) {
+    console.error('加载自定义数据源失败:', err);
+    list.innerHTML = `
+      <div class="custom-sources-error">
+        <div class="error-text">加载失败: ${err.message}</div>
+        <button onclick="loadCustomSources()" class="retry-btn">重试</button>
+      </div>
+    `;
+  }
+}
+
+/**
+ * 渲染自定义数据源列表
+ */
+function renderCustomSourcesList(container) {
+  if (customSourcesData.sources.length === 0) {
+    container.innerHTML = `
+      <div class="custom-sources-empty">
+        <div class="empty-icon">📡</div>
+        <div class="empty-text">暂无自定义数据源</div>
+        <div class="empty-hint">点击上方按钮添加 RSS 源</div>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = customSourcesData.sources.map(source => `
+    <div class="custom-source-item" data-id="${source.id}">
+      <div class="custom-source-info">
+        <div class="custom-source-name">${escapeHtml(source.name)}</div>
+        <div class="custom-source-url">${escapeHtml(source.url)}</div>
+        <div class="custom-source-meta">
+          <span class="custom-source-tool">${getToolTypeLabel(source.tool_type)}</span>
+          <span class="custom-source-type">${source.source_type.toUpperCase()}</span>
+        </div>
+      </div>
+      <div class="custom-source-actions">
+        <label class="custom-source-toggle">
+          <input type="checkbox" ${source.is_enabled ? 'checked' : ''} onchange="toggleCustomSource(${source.id}, this.checked)">
+          <span class="toggle-slider"></span>
+        </label>
+        <button onclick="editCustomSource(${source.id})" class="btn-icon" title="编辑">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+        </button>
+        <button onclick="deleteCustomSource(${source.id})" class="btn-icon btn-danger" title="删除">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+/**
+ * 打开添加数据源模态框
+ */
+function openAddCustomSourceModal() {
+  if (!AuthState.isLoggedIn()) {
+    alert('请先登录');
+    return;
+  }
+
+  const count = customSourcesData.sources.length;
+  const maxLimit = userSourceState.isPaid ? customSourcesData.maxPaid : customSourcesData.maxFree;
+
+  if (count >= maxLimit) {
+    alert(`已达上限（${maxLimit}条），请升级或删除现有数据源`);
+    return;
+  }
+
+  const modal = document.createElement('div');
+  modal.id = 'custom-source-modal';
+  modal.className = 'custom-source-modal-overlay';
+  modal.innerHTML = `
+    <div class="custom-source-modal-content">
+      <div class="modal-header">
+        <h3>添加 RSS 数据源</h3>
+        <button onclick="closeCustomSourceModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>名称 <span class="required">*</span></label>
+          <input type="text" id="custom-source-name" placeholder="例如：TechCrunch 中文" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label>RSS 地址 <span class="required">*</span></label>
+          <input type="url" id="custom-source-url" placeholder="https://example.com/feed.xml">
+        </div>
+        <div class="form-group">
+          <label>所属工具 <span class="required">*</span></label>
+          <select id="custom-source-tool">
+            <option value="mission">情报日报</option>
+            <option value="alpha">Alpha 雷达</option>
+            <option value="bounty">赏金猎人</option>
+          </select>
+        </div>
+        <div class="form-hint">
+          * 仅支持 RSS 格式，不支持网页抓取
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeCustomSourceModal()" class="btn btn-secondary">取消</button>
+        <button onclick="submitCustomSource()" class="btn btn-primary">添加</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+/**
+ * 关闭数据源模态框
+ */
+function closeCustomSourceModal() {
+  const modal = document.getElementById('custom-source-modal');
+  if (modal) modal.remove();
+}
+
+/**
+ * 提交新数据源
+ */
+async function submitCustomSource() {
+  const name = document.getElementById('custom-source-name')?.value?.trim();
+  const url = document.getElementById('custom-source-url')?.value?.trim();
+  const toolType = document.getElementById('custom-source-tool')?.value;
+
+  if (!name || !url || !toolType) {
+    alert('请填写所有必填项');
+    return;
+  }
+
+  // 简单验证 URL
+  try {
+    new URL(url);
+  } catch {
+    alert('请输入有效的 URL');
+    return;
+  }
+
+  try {
+    const res = await fetch('/api/user-config/sources', {
+      method: 'POST',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name,
+        url,
+        source_type: 'rss',
+        tool_type: toolType
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '添加失败');
+    }
+
+    closeCustomSourceModal();
+    loadCustomSources();
+    alert('添加成功');
+  } catch (err) {
+    alert('添加失败: ' + err.message);
+  }
+}
+
+/**
+ * 切换数据源启用状态
+ */
+async function toggleCustomSource(sourceId, enabled) {
+  try {
+    const res = await fetch(`/api/user-config/sources/${sourceId}`, {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ is_enabled: enabled })
+    });
+
+    if (!res.ok) throw new Error('操作失败');
+
+    // 更新本地数据
+    const source = customSourcesData.sources.find(s => s.id === sourceId);
+    if (source) source.is_enabled = enabled;
+  } catch (err) {
+    alert('操作失败: ' + err.message);
+    // 恢复开关状态
+    loadCustomSources();
+  }
+}
+
+/**
+ * 编辑数据源
+ */
+async function editCustomSource(sourceId) {
+  const source = customSourcesData.sources.find(s => s.id === sourceId);
+  if (!source) return;
+
+  const modal = document.createElement('div');
+  modal.id = 'custom-source-modal';
+  modal.className = 'custom-source-modal-overlay';
+  modal.innerHTML = `
+    <div class="custom-source-modal-content">
+      <div class="modal-header">
+        <h3>编辑数据源</h3>
+        <button onclick="closeCustomSourceModal()" class="close-btn">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>名称 <span class="required">*</span></label>
+          <input type="text" id="custom-source-name" value="${escapeHtml(source.name)}" maxlength="50">
+        </div>
+        <div class="form-group">
+          <label>RSS 地址 <span class="required">*</span></label>
+          <input type="url" id="custom-source-url" value="${escapeHtml(source.url)}">
+        </div>
+        <div class="form-group">
+          <label>所属工具 <span class="required">*</span></label>
+          <select id="custom-source-tool">
+            <option value="mission" ${source.tool_type === 'mission' ? 'selected' : ''}>情报日报</option>
+            <option value="alpha" ${source.tool_type === 'alpha' ? 'selected' : ''}>Alpha 雷达</option>
+            <option value="bounty" ${source.tool_type === 'bounty' ? 'selected' : ''}>赏金猎人</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button onclick="closeCustomSourceModal()" class="btn btn-secondary">取消</button>
+        <button onclick="updateCustomSource(${sourceId})" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+/**
+ * 更新数据源
+ */
+async function updateCustomSource(sourceId) {
+  const name = document.getElementById('custom-source-name')?.value?.trim();
+  const url = document.getElementById('custom-source-url')?.value?.trim();
+  const toolType = document.getElementById('custom-source-tool')?.value;
+
+  if (!name || !url || !toolType) {
+    alert('请填写所有必填项');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/user-config/sources/${sourceId}`, {
+      method: 'PUT',
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name,
+        url,
+        tool_type: toolType
+      })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '更新失败');
+    }
+
+    closeCustomSourceModal();
+    loadCustomSources();
+    alert('保存成功');
+  } catch (err) {
+    alert('保存失败: ' + err.message);
+  }
+}
+
+/**
+ * 删除数据源
+ */
+async function deleteCustomSource(sourceId) {
+  if (!confirm('确定要删除这个数据源吗？')) return;
+
+  try {
+    const res = await fetch(`/api/user-config/sources/${sourceId}`, {
+      method: 'DELETE',
+      headers: getAuthHeaders()
+    });
+
+    if (!res.ok) throw new Error('删除失败');
+
+    loadCustomSources();
+    alert('删除成功');
+  } catch (err) {
+    alert('删除失败: ' + err.message);
+  }
+}
+
+/**
+ * 获取工具类型标签
+ */
+function getToolTypeLabel(toolType) {
+  const labels = {
+    mission: '情报日报',
+    alpha: 'Alpha雷达',
+    bounty: '赏金猎人'
+  };
+  return labels[toolType] || toolType;
+}
+
+/**
+ * HTML 转义
+ */
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
 // 导出函数
 window.loadSources = loadSources;
 window.toggleDailyHotCategory = toggleDailyHotCategory;
@@ -694,3 +1088,11 @@ window.resetTavilyKeywords = resetTavilyKeywords;
 window.toggleSource = toggleSource;
 window.loadSourceHealth = loadSourceHealth;
 window.refreshSourceHealth = refreshSourceHealth;
+window.loadCustomSources = loadCustomSources;
+window.openAddCustomSourceModal = openAddCustomSourceModal;
+window.closeCustomSourceModal = closeCustomSourceModal;
+window.submitCustomSource = submitCustomSource;
+window.toggleCustomSource = toggleCustomSource;
+window.editCustomSource = editCustomSource;
+window.updateCustomSource = updateCustomSource;
+window.deleteCustomSource = deleteCustomSource;

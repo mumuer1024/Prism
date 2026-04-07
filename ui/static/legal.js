@@ -4,7 +4,7 @@
  */
 
 // 应用版本号
-const APP_VERSION = 'v1.3.0';
+const APP_VERSION = 'v2.1.0';
 
 // 法律声明内容
 const LEGAL_CONTENT = {
@@ -66,7 +66,7 @@ const LEGAL_CONTENT = {
 </ul>
 
 <h4>3.2 AI 请求流向</h4>
-<pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-size: 13px;">
+<pre style="background: var(--bg-tertiary); padding: 12px; border-radius: 8px; font-size: 13px; color: var(--text);">
 您的浏览器 → 棱镜工具前端 → 您选择的 AI 服务商
                     ↑
                我们不参与此环节
@@ -309,13 +309,11 @@ const LEGAL_CONTENT = {
 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
 <tr><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">数据源</th><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">获取方式</th><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">内容类型</th></tr>
 <tr><td style="padding: 8px; border: 1px solid var(--border);">X (Twitter)</td><td style="padding: 8px; border: 1px solid var(--border);">用户自备 API Key</td><td style="padding: 8px; border: 1px solid var(--border);">社交情绪</td></tr>
-<tr><td style="padding: 8px; border: 1px solid var(--border);">小红书</td><td style="padding: 8px; border: 1px solid var(--border);">搜索链接指引</td><td style="padding: 8px; border: 1px solid var(--border);">消费趋势</td></tr>
 </table>
 
 <h4>2.5 扩展与机会</h4>
 <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
 <tr><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">数据源</th><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">获取方式</th><th style="text-align: left; padding: 8px; border: 1px solid var(--border);">内容类型</th></tr>
-<tr><td style="padding: 8px; border: 1px solid var(--border);">Chrome Web Store</td><td style="padding: 8px; border: 1px solid var(--border);">公开页面</td><td style="padding: 8px; border: 1px solid var(--border);">扩展机会</td></tr>
 <tr><td style="padding: 8px; border: 1px solid var(--border);">Tavily</td><td style="padding: 8px; border: 1px solid var(--border);">用户自备 API Key</td><td style="padding: 8px; border: 1px solid var(--border);">深度搜索</td></tr>
 </table>
 </div>

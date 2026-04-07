@@ -55,6 +55,7 @@ class User(Base):
     # 状态
     is_active = Column(Boolean, default=True, nullable=False)
     is_verified = Column(Boolean, default=False, nullable=False)  # 邮箱是否验证
+    is_admin = Column(Boolean, default=False, nullable=False)  # 是否为管理员
     is_banned = Column(Boolean, default=False, nullable=False)  # 是否被封禁
     banned_at = Column(DateTime, nullable=True)  # 封禁时间
     banned_reason = Column(Text, nullable=True)  # 封禁原因
@@ -116,6 +117,7 @@ class User(Base):
             "usage_count": self.usage_count,
             "invite_code": self.invite_code,
             "is_verified": self.is_verified,
+            "is_admin": self.is_admin,
             "is_banned": self.is_banned,
             "banned_at": self.banned_at.isoformat() if self.banned_at else None,
             "banned_reason": self.banned_reason,
@@ -461,7 +463,7 @@ class UserPrompt(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / bounty_chrome / alpha / revenue
+    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / alpha / revenue
     prompt_content = Column(Text, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
@@ -598,7 +600,7 @@ class MarketplaceTemplate(Base):
     id = Column(Integer, primary_key=True, autoincrement=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=False)
-    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / bounty_chrome / alpha / revenue
+    tool_type = Column(String(50), nullable=False)  # mission / bounty_v2ex / alpha / revenue
     prompt_content = Column(Text, nullable=False)
     tags = Column(Text, nullable=True)  # JSON 数组，如 ["科技", "日报", "中文"]
     is_official = Column(Boolean, default=True, nullable=False)
@@ -640,6 +642,35 @@ class MarketplaceTemplate(Base):
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class UserConfig(Base):
+    """
+    用户配置表（键值对存储）
+
+    存储用户的各类配置，如 GitHub Token 等
+    """
+    __tablename__ = "user_configs"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    config_key = Column(String(100), nullable=False)  # github_token, producthunt_token, etc.
+    config_value = Column(Text, nullable=True)  # 配置值（可能是敏感信息）
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    # 关系
+    user = relationship("User")
+
+    # 索引
+    __table_args__ = (
+        Index("idx_user_config_user", "user_id"),
+        Index("idx_user_config_key", "config_key"),
+        Index("idx_user_config_user_key", "user_id", "config_key", unique=True),
+    )
+
+    def __repr__(self):
+        return f"<UserConfig(user_id={self.user_id}, key='{self.config_key}')>"
 
 
 class DailyHotCategoryConfig(Base):

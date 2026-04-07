@@ -79,10 +79,8 @@ function loadTabData(tab) {
       }
       break;
     case 'console':
-      // Initialize user panel when switching to console tab
-      if (typeof initUserPanel === 'function') {
-        initUserPanel();
-      }
+      // Console tab - no additional data loading needed
+      // User panel is initialized on page load (see index.html DOMContentLoaded)
       break;
     default:
       // console tab doesn't need data loading

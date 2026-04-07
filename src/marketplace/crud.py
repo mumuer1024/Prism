@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 VALID_TOOL_TYPES = [
     "mission",
     "bounty_v2ex",
-    "bounty_chrome",
     "alpha",
     "revenue",
 ]

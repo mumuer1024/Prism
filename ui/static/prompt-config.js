@@ -8,7 +8,6 @@
 const PROMPT_TOOLS = [
   { key: 'mission', name: '情报日报', icon: '📊', desc: '从 10+ 数据源抓取，生成 8 大板块中文日报' },
   { key: 'bounty_v2ex', name: '赏金猎人 - V2EX', icon: '💰', desc: 'V2EX 急单筛选规则和关键词' },
-  { key: 'bounty_chrome', name: '赏金猎人 - Chrome', icon: '🔌', desc: 'Chrome 扩展机会筛选条件' },
   { key: 'alpha', name: 'Alpha 雷达', icon: '⛏️', desc: 'Web3/Solana 开源项目搜索 Prompt' },
   { key: 'revenue', name: '营收分析师', icon: '🏗️', desc: '商业机会分析 Prompt' }
 ];

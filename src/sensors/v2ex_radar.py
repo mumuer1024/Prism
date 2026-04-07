@@ -125,8 +125,9 @@ class MirrorTracker:
     RESPONSE_TIME_UNHEALTHY_MS = 10000  # 不健康阈值
     CONSECUTIVE_FAILURES_THRESHOLD = 3  # 连续失败阈值
 
-    def __init__(self, cache_file: str = "cache/v2ex_mirror_stats.json"):
-        self._cache_file = CACHE_DIR / "v2ex_mirror_stats.json"
+    def __init__(self, cache_file: str = None):
+        # 使用传入的路径，或默认路径
+        self._cache_file = Path(cache_file) if cache_file else CACHE_DIR / "v2ex_mirror_stats.json"
         self._stats: Dict[str, MirrorStats] = {}
         self._load_stats()
 

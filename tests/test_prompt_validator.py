@@ -138,9 +138,9 @@ class TestPlaceholderValidation:
         assert len(result.missing_placeholders) == 0
         assert len(result.used_placeholders) == 0
 
-    def test_no_placeholders_required_for_chrome(self, validator):
-        """测试无占位符工具（bounty_chrome）"""
-        result = validator.validate("bounty_chrome", "扩展筛选")
+    def test_no_placeholders_required_for_bounty(self, validator):
+        """测试无占位符工具（bounty_v2ex）"""
+        result = validator.validate("bounty_v2ex", "急单筛选")
 
         assert result.is_valid is True
         assert len(result.missing_placeholders) == 0
@@ -250,10 +250,8 @@ class TestGetPlaceholders:
     def test_get_bounty_placeholders_empty(self, validator):
         """测试获取 bounty 占位符（应为空）"""
         placeholders_v2ex = validator.get_supported_placeholders("bounty_v2ex")
-        placeholders_chrome = validator.get_supported_placeholders("bounty_chrome")
 
         assert len(placeholders_v2ex) == 0
-        assert len(placeholders_chrome) == 0
 
     def test_get_invalid_tool_placeholders(self, validator):
         """测试无效工具类型返回空列表"""
@@ -268,7 +266,6 @@ class TestGetPlaceholders:
         assert "alpha" in all_placeholders
         assert "revenue" in all_placeholders
         assert "bounty_v2ex" in all_placeholders
-        assert "bounty_chrome" in all_placeholders
 
     def test_placeholder_info_to_dict(self, validator):
         """测试 PlaceholderInfo 转换为字典"""

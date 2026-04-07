@@ -33,6 +33,7 @@ def admin_user(db_session):
         usage_count=0,
         is_active=True,
         is_verified=True,
+        is_admin=True,
     )
     db_session.add(user)
     db_session.commit()

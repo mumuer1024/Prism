@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from src.database.connection import get_db, get_db_context
-from src.database.models import User, MarketplaceTemplate
+from src.database.models import User, MarketplaceTemplate, UserConfig, UserSource
 from src.auth.dependencies import get_current_user
 from src.config_loader import (
     get_user_prompt,
@@ -56,6 +56,7 @@ class PromptResponse(BaseModel):
     tool_name: str
     has_custom: bool
     prompt_content: str
+    default_prompt: Optional[str] = None  # 系统默认 Prompt
     is_active: bool = True
 
     class Config:
@@ -80,6 +81,7 @@ class SourceResponse(BaseModel):
     source_type: str
     tool_type: str
     is_enabled: bool = True
+    is_preset: bool = False  # 是否预设数据源
     is_user_defined: bool = False
     requires_key: Optional[str] = None
     icon: Optional[str] = None
@@ -93,7 +95,7 @@ class SourceCreateRequest(BaseModel):
     """数据源创建请求"""
     name: str = Field(..., min_length=1, max_length=255, description="数据源名称")
     url: str = Field(..., min_length=1, max_length=500, description="数据源 URL")
-    source_type: str = Field(..., pattern="^(rss|webpage)$", description="数据源类型")
+    source_type: str = Field(default="rss", pattern="^rss$", description="数据源类型（仅支持 RSS）")
     tool_type: str = Field(..., description="所属工具类型")
 
 
@@ -101,7 +103,7 @@ class SourceUpdateRequest(BaseModel):
     """数据源更新请求"""
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     url: Optional[str] = Field(None, min_length=1, max_length=500)
-    source_type: Optional[str] = Field(None, pattern="^(rss|webpage)$")
+    source_type: Optional[str] = Field(None, pattern="^rss$")
     tool_type: Optional[str] = None
     is_enabled: Optional[bool] = None
 
@@ -200,6 +202,7 @@ async def get_prompt(
         tool_name=get_tool_display_name(tool_type),
         has_custom=has_custom,
         prompt_content=prompt_content,
+        default_prompt=default_prompt,
         is_active=record.is_active if record else True,
     )
 
@@ -650,11 +653,12 @@ async def list_sources_by_tool(
     response_model=SourceResponse,
     status_code=status.HTTP_201_CREATED,
     summary="添加自定义数据源",
-    description="添加用户自定义数据源（RSS 或网页）",
+    description="添加用户自定义数据源（仅支持 RSS）",
 )
 async def create_source(
     request: SourceCreateRequest,
     current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
     """添加自定义数据源"""
     # 验证 tool_type
@@ -663,6 +667,24 @@ async def create_source(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"无效的工具类型: {request.tool_type}。有效类型: {', '.join(valid_tool_types)}"
+        )
+
+    # 仅支持 RSS
+    if request.source_type != "rss":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="仅支持 RSS 格式数据源"
+        )
+
+    # 检查上限
+    current_count = db.query(UserSource).filter(UserSource.user_id == current_user.id).count()
+    is_paid = current_user.usage_count > 0
+    max_limit = 10 if is_paid else 3
+
+    if current_count >= max_limit:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"已达上限（{max_limit}条），{'升级后可添加更多' if not is_paid else '请删除现有数据源'}"
         )
 
     source_id = add_user_source(
@@ -858,3 +880,186 @@ async def get_dailyhot_category_map():
         })
 
     return {"categories": result}
+
+
+# ============================================================================
+# 用户配置 API（GitHub Token 等）
+# ============================================================================
+
+class UserConfigResponse(BaseModel):
+    """用户配置响应"""
+    config_key: str
+    has_value: bool
+    updated_at: Optional[str] = None
+
+
+class UserConfigUpdateRequest(BaseModel):
+    """用户配置更新请求"""
+    value: str = Field(..., min_length=1, max_length=2000, description="配置值")
+
+
+class UserConfigListResponse(BaseModel):
+    """用户配置列表响应"""
+    configs: List[UserConfigResponse]
+
+
+# 支持的用户配置键
+SUPPORTED_CONFIG_KEYS = {
+    "github_token": {
+        "name": "GitHub Token",
+        "description": "GitHub Personal Access Token，用于 GitHub Trending 数据源",
+        "placeholder": "ghp_xxxx 或 github_pat_xxxx",
+    },
+    "producthunt_token": {
+        "name": "Product Hunt Token",
+        "description": "Product Hunt API Token，用于 Product Hunt 数据源",
+        "placeholder": "API Token",
+    },
+    "tavily_token": {
+        "name": "Tavily Token",
+        "description": "Tavily AI 搜索 API Token",
+        "placeholder": "tvly-xxxx",
+    },
+}
+
+
+@router.get(
+    "/keys",
+    summary="获取支持的配置键列表",
+    description="获取支持的用户配置键及其描述（公开接口）",
+)
+async def get_supported_config_keys():
+    """获取支持的配置键列表"""
+    return {"keys": SUPPORTED_CONFIG_KEYS}
+
+
+@router.get(
+    "/keys/values",
+    response_model=UserConfigListResponse,
+    summary="获取用户所有配置",
+    description="获取当前用户的所有配置值（敏感值已脱敏）",
+)
+async def get_user_config_values(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取用户所有配置"""
+    configs = db.query(UserConfig).filter(
+        UserConfig.user_id == current_user.id,
+    ).all()
+
+    config_map = {c.config_key: c for c in configs}
+
+    result = []
+    for key in SUPPORTED_CONFIG_KEYS:
+        config = config_map.get(key)
+        result.append(UserConfigResponse(
+            config_key=key,
+            has_value=config is not None and bool(config.config_value),
+            updated_at=config.updated_at.isoformat() if config and config.updated_at else None,
+        ))
+
+    return UserConfigListResponse(configs=result)
+
+
+@router.get(
+    "/keys/{config_key}",
+    response_model=UserConfigResponse,
+    summary="获取指定配置",
+    description="获取当前用户指定配置的状态（敏感值不返回）",
+)
+async def get_user_config(
+    config_key: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """获取指定配置"""
+    if config_key not in SUPPORTED_CONFIG_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的配置键: {config_key}"
+        )
+
+    config = db.query(UserConfig).filter(
+        UserConfig.user_id == current_user.id,
+        UserConfig.config_key == config_key,
+    ).first()
+
+    return UserConfigResponse(
+        config_key=config_key,
+        has_value=config is not None and bool(config.config_value),
+        updated_at=config.updated_at.isoformat() if config and config.updated_at else None,
+    )
+
+
+@router.put(
+    "/keys/{config_key}",
+    response_model=MessageResponse,
+    summary="更新配置",
+    description="更新当前用户的指定配置",
+)
+async def update_user_config(
+    config_key: str,
+    request: UserConfigUpdateRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """更新配置"""
+    if config_key not in SUPPORTED_CONFIG_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的配置键: {config_key}"
+        )
+
+    # 查找现有配置
+    config = db.query(UserConfig).filter(
+        UserConfig.user_id == current_user.id,
+        UserConfig.config_key == config_key,
+    ).first()
+
+    if config:
+        config.config_value = request.value
+    else:
+        config = UserConfig(
+            user_id=current_user.id,
+            config_key=config_key,
+            config_value=request.value,
+        )
+        db.add(config)
+
+    db.commit()
+
+    key_info = SUPPORTED_CONFIG_KEYS[config_key]
+    return MessageResponse(message=f"{key_info['name']} 已保存")
+
+
+@router.delete(
+    "/keys/{config_key}",
+    response_model=MessageResponse,
+    summary="删除配置",
+    description="删除当前用户的指定配置",
+)
+async def delete_user_config(
+    config_key: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """删除配置"""
+    if config_key not in SUPPORTED_CONFIG_KEYS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"不支持的配置键: {config_key}"
+        )
+
+    deleted = db.query(UserConfig).filter(
+        UserConfig.user_id == current_user.id,
+        UserConfig.config_key == config_key,
+    ).delete()
+
+    db.commit()
+
+    key_info = SUPPORTED_CONFIG_KEYS[config_key]
+    if deleted > 0:
+        return MessageResponse(message=f"{key_info['name']} 已删除")
+    else:
+        return MessageResponse(message=f"{key_info['name']} 未配置")

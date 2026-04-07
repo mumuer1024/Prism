@@ -66,7 +66,6 @@ class TestReportGenerator:
             "community": [],
             "research": [],
             "social": [],
-            "xhs_directives": [],
             "insights": [],
         }
         report = generate_report(intel, "2026-01-01")
@@ -87,7 +86,6 @@ class TestReportGenerator:
             ],
             "research": [],
             "social": [],
-            "xhs_directives": [],
             "insights": [],
         }
         report = generate_report(intel, "2026-01-01")

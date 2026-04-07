@@ -32,14 +32,14 @@ logger = logging.getLogger(__name__)
 
 def get_user_prompt(user_id: int, tool_type: str) -> str:
     """
-    获取用户自定义 Prompt，无则返回默认 Prompt
+    获取用户自定义 Prompt，无则返回空字符串
 
     Args:
         user_id: 用户 ID
-        tool_type: 工具类型 (mission / bounty_v2ex / bounty_chrome / alpha / revenue)
+        tool_type: 工具类型 (mission / bounty_v2ex / alpha / revenue)
 
     Returns:
-        Prompt 内容字符串
+        Prompt 内容字符串，无自定义配置时返回空字符串
     """
     with get_db_context() as db:
         prompt = db.query(UserPrompt).filter(
@@ -52,14 +52,34 @@ def get_user_prompt(user_id: int, tool_type: str) -> str:
             logger.debug(f"使用用户自定义 Prompt: user_id={user_id}, tool_type={tool_type}")
             return prompt.prompt_content
 
-        # 返回默认 Prompt
-        default = get_default_prompt(tool_type)
-        if default:
-            logger.debug(f"使用默认 Prompt: tool_type={tool_type}")
-            return default
-
-        logger.warning(f"未找到 Prompt 配置: tool_type={tool_type}")
+        # 无自定义配置，返回空字符串
+        logger.debug(f"用户无自定义 Prompt: user_id={user_id}, tool_type={tool_type}")
         return ""
+
+
+def get_user_prompt_with_default(user_id: int, tool_type: str) -> str:
+    """
+    获取用户自定义 Prompt，无则返回默认 Prompt
+
+    Args:
+        user_id: 用户 ID
+        tool_type: 工具类型 (mission / bounty_v2ex / alpha / revenue)
+
+    Returns:
+        Prompt 内容字符串
+    """
+    user_prompt = get_user_prompt(user_id, tool_type)
+    if user_prompt:
+        return user_prompt
+
+    # 返回默认 Prompt
+    default = get_default_prompt(tool_type)
+    if default:
+        logger.debug(f"使用默认 Prompt: tool_type={tool_type}")
+        return default
+
+    logger.warning(f"未找到 Prompt 配置: tool_type={tool_type}")
+    return ""
 
 
 def get_user_prompt_record(user_id: int, tool_type: str, db: Session) -> Optional[UserPrompt]:
@@ -146,10 +166,12 @@ def _save_prompt_history(
         prompt: Prompt 记录
         change_reason: 更改原因
     """
-    # 获取当前最大版本号
-    max_version = db.query(UserPromptHistory).filter(
+    from sqlalchemy import func
+
+    # 获取当前最大版本号（使用 func.max 而非 count，确保事务内正确性）
+    max_version = db.query(func.max(UserPromptHistory.version)).filter(
         UserPromptHistory.user_prompt_id == prompt.id,
-    ).count()
+    ).scalar() or 0
 
     history = UserPromptHistory(
         user_prompt_id=prompt.id,
@@ -160,6 +182,7 @@ def _save_prompt_history(
         change_reason=change_reason,
     )
     db.add(history)
+    db.flush()  # 立即刷新，确保后续调用能获取正确的版本号
 
 
 def get_prompt_history(
@@ -367,6 +390,7 @@ def get_all_user_sources(user_id: int, tool_type: Optional[str] = None) -> List[
         for src in official_sources:
             result.append({
                 **src,
+                "is_preset": True,  # 官方预设数据源
                 "is_user_defined": False,
                 "user_source_id": None,
             })
@@ -374,6 +398,7 @@ def get_all_user_sources(user_id: int, tool_type: Optional[str] = None) -> List[
         for src in user_sources:
             result.append({
                 **src.to_dict(),
+                "is_preset": src.is_preset,  # 用户数据源使用数据库中的值
                 "is_user_defined": True,
                 "user_source_id": src.id,
             })

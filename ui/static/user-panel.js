@@ -40,6 +40,31 @@ async function loadUserPanelData() {
   }
 
   renderUserPanel();
+  updateAccountNavLink(isLoggedIn);
+}
+
+/**
+ * 更新"用户中心"导航链接的显示状态
+ */
+function updateAccountNavLink(isLoggedIn) {
+  const navAccount = document.getElementById('nav-account');
+  const mobileNavAccount = document.getElementById('mobile-nav-account');
+
+  if (navAccount) {
+    if (isLoggedIn) {
+      navAccount.classList.remove('hidden');
+    } else {
+      navAccount.classList.add('hidden');
+    }
+  }
+
+  if (mobileNavAccount) {
+    if (isLoggedIn) {
+      mobileNavAccount.classList.remove('hidden');
+    } else {
+      mobileNavAccount.classList.add('hidden');
+    }
+  }
 }
 
 /**
@@ -124,41 +149,43 @@ function renderAnonymousPanel() {
   const remaining = usage.free_remaining || 0;
   const limit = usage.free_limit || 3;
   const percentage = Math.round((remaining / limit) * 100);
-  const progressColor = getProgressColor(percentage);
+  const progressClass = getProgressClass(percentage);
 
   return `
     <div class="user-panel-section">
-      <div class="user-panel-header">
-        <span class="user-panel-icon">🔒</span>
-        <span class="user-panel-title">游客模式</span>
+      <div class="user-panel-anonymous">
+        <div class="user-panel-anonymous-icon">🔒</div>
+        <div class="user-panel-anonymous-title">游客模式</div>
       </div>
-      
+
       <div class="user-panel-divider"></div>
-      
+
       <div class="user-panel-usage">
-        <div class="usage-label">免费次数</div>
+        <div class="usage-label">今日免费次数</div>
         <div class="usage-progress-container">
           <div class="usage-progress-bar">
-            <div class="usage-progress-fill" style="width: ${percentage}%; background: ${progressColor};"></div>
+            <div class="usage-progress-fill ${progressClass}" style="width: ${percentage}%"></div>
           </div>
           <div class="usage-count">${remaining} / ${limit} 次</div>
         </div>
         ${remaining === 0 ? '<div class="usage-warning">今日次数已用完，明日重置</div>' : ''}
       </div>
-      
-      <div class="user-panel-actions">
+
+      <div class="user-panel-divider"></div>
+
+      <div class="user-panel-btn-group">
         <a href="/login" class="user-panel-btn user-panel-btn-outline">登录</a>
         <a href="/register" class="user-panel-btn user-panel-btn-primary">注册</a>
       </div>
-      
-      <div class="user-panel-benefits">
-        <div class="benefits-title">登录后获得更多功能：</div>
-        <ul class="benefits-list">
-          <li>• 配置自定义 Prompt</li>
-          <li>• 更多数据源选择</li>
-          <li>• 历史报告保存</li>
-        </ul>
-      </div>
+
+      <div class="user-panel-divider"></div>
+
+      <ul class="user-panel-features">
+        <li>配置自定义 Prompt</li>
+        <li>更多数据源选择</li>
+        <li>历史报告保存</li>
+        <li>解锁付费功能</li>
+      </ul>
     </div>
   `;
 }
@@ -169,12 +196,12 @@ function renderAnonymousPanel() {
 function renderFreeUserPanel() {
   const user = panelState.user || {};
   const usage = panelState.usage || { free_remaining: 0, free_limit: 3, paid_count: 0 };
-  
+
   const freeRemaining = usage.free_remaining || 0;
   const freeLimit = usage.free_limit || 3;
   const freePercentage = Math.round((freeRemaining / freeLimit) * 100);
-  const freeProgressColor = getProgressColor(freePercentage);
-  
+  const freeProgressClass = getProgressClass(freePercentage);
+
   const paidCount = usage.paid_count || 0;
 
   const displayName = user.nickname || user.email?.split('@')[0] || '用户';
@@ -189,31 +216,33 @@ function renderFreeUserPanel() {
           <div class="user-type-badge free">免费账户</div>
         </div>
       </div>
-      
+
       <div class="user-panel-divider"></div>
-      
+
       <div class="user-panel-usage">
         <div class="usage-label">今日免费次数</div>
         <div class="usage-progress-container">
           <div class="usage-progress-bar">
-            <div class="usage-progress-fill" style="width: ${freePercentage}%; background: ${freeProgressColor};"></div>
+            <div class="usage-progress-fill ${freeProgressClass}" style="width: ${freePercentage}%"></div>
           </div>
           <div class="usage-count">${freeRemaining} / ${freeLimit} 次</div>
         </div>
         ${freeRemaining === 0 ? '<div class="usage-warning">今日次数已用完，明日重置</div>' : ''}
       </div>
-      
+
       <div class="user-panel-usage">
         <div class="usage-label">付费次数</div>
         <div class="usage-count-static">${paidCount} 次</div>
       </div>
-      
+
       <div class="user-panel-divider"></div>
-      
+
+      ${user.is_admin ? '<div class="user-panel-actions"><a href="/admin" class="user-panel-btn user-panel-btn-admin">🛡️ 管理后台</a></div><div class="user-panel-divider"></div>' : ''}
+
       <div class="user-panel-actions">
         <a href="/account#usage" class="user-panel-btn user-panel-btn-upgrade">升级解锁全功能</a>
       </div>
-      
+
       <div class="user-panel-link">
         <a href="/account#redeem">兑换激活码 →</a>
       </div>
@@ -227,16 +256,15 @@ function renderFreeUserPanel() {
 function renderPaidUserPanel() {
   const user = panelState.user || {};
   const usage = panelState.usage || { free_remaining: 0, free_limit: 3, paid_count: 0 };
-  
+
   const paidCount = usage.paid_count || 0;
-  const paidLimit = 100; // 假设付费次数上限为100
-  const paidPercentage = Math.min(100, Math.round((paidCount / paidLimit) * 100));
-  const paidProgressColor = getProgressColor(paidPercentage);
-  
+  const paidPercentage = paidCount > 0 ? 100 : 0; // 付费次数不设上限，直接显示是否有余
+  const paidProgressClass = getProgressClass(paidPercentage);
+
   const freeRemaining = usage.free_remaining || 0;
   const freeLimit = usage.free_limit || 3;
   const freePercentage = Math.round((freeRemaining / freeLimit) * 100);
-  const freeProgressColor = getProgressColor(freePercentage);
+  const freeProgressClass = getProgressClass(freePercentage);
 
   const displayName = user.nickname || user.email?.split('@')[0] || '用户';
   const initial = displayName[0].toUpperCase();
@@ -250,31 +278,34 @@ function renderPaidUserPanel() {
           <div class="user-type-badge paid">💎 付费用户</div>
         </div>
       </div>
-      
+
       <div class="user-panel-divider"></div>
-      
+
       <div class="user-panel-usage">
-        <div class="usage-label">剩余次数</div>
+        <div class="usage-label">剩余付费次数</div>
         <div class="usage-progress-container">
           <div class="usage-progress-bar">
-            <div class="usage-progress-fill" style="width: ${paidPercentage}%; background: ${paidProgressColor};"></div>
+            <div class="usage-progress-fill ${paidProgressClass}" style="width: ${paidPercentage}%"></div>
           </div>
           <div class="usage-count">${paidCount} 次</div>
         </div>
+        ${paidCount === 0 ? '<div class="usage-warning">付费次数已耗尽</div>' : ''}
       </div>
-      
+
       <div class="user-panel-usage">
         <div class="usage-label">今日免费次数</div>
         <div class="usage-progress-container">
           <div class="usage-progress-bar">
-            <div class="usage-progress-fill" style="width: ${freePercentage}%; background: ${freeProgressColor};"></div>
+            <div class="usage-progress-fill ${freeProgressClass}" style="width: ${freePercentage}%"></div>
           </div>
           <div class="usage-count">${freeRemaining} / ${freeLimit} 次</div>
         </div>
       </div>
-      
+
       <div class="user-panel-divider"></div>
-      
+
+      ${user.is_admin ? '<div class="user-panel-actions column"><a href="/admin" class="user-panel-btn user-panel-btn-admin">🛡️ 管理后台</a></div><div class="user-panel-divider"></div>' : ''}
+
       <div class="user-panel-actions column">
         <a href="/account" class="user-panel-btn user-panel-btn-outline">前往用户中心</a>
         <a href="/account#redeem" class="user-panel-btn user-panel-btn-primary">兑换激活码</a>
@@ -284,17 +315,32 @@ function renderPaidUserPanel() {
 }
 
 /**
- * 获取进度条颜色
+ * 获取进度条颜色类名
+ * @param {number} percentage - 剩余百分比
+ * @returns {string} - CSS 类名
+ */
+function getProgressClass(percentage) {
+  if (percentage > 50) {
+    return 'normal';
+  } else if (percentage > 20) {
+    return 'warn';
+  } else {
+    return 'danger';
+  }
+}
+
+/**
+ * 获取进度条颜色（兼容旧代码）
  * @param {number} percentage - 剩余百分比
  * @returns {string} - 颜色值
  */
 function getProgressColor(percentage) {
   if (percentage > 50) {
-    return 'var(--accent)'; // 正常
+    return 'var(--accent)';
   } else if (percentage > 20) {
-    return 'var(--warn)'; // 警告
+    return 'var(--warn)';
   } else {
-    return 'var(--error)'; // 危险
+    return 'var(--error)';
   }
 }
 

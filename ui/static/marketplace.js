@@ -1,19 +1,18 @@
 /**
- * marketplace.js - 预设广场模块
- * 提供 Prompt 模板的浏览和导入功能
+ * marketplace.js - Prompt广场模块
+ * 提供 Prompt 模板的浏览和导入功能，以及用户自定义 Prompt 管理
  */
 
-// 频道配置
+// 频道配置（不包含 my_prompts，它作为特殊频道处理）
 const MARKETPLACE_CHANNELS = [
   { key: 'mission', name: '情报日报', icon: '📊' },
   { key: 'alpha', name: 'Alpha雷达', icon: '⛏️' },
   { key: 'bounty_v2ex', name: '赏金·V2EX', icon: '💰' },
-  { key: 'bounty_chrome', name: '赏金·Chrome', icon: '🔌' },
   { key: 'revenue', name: '营收分析', icon: '🏗️' }
 ];
 
 // 当前状态
-let currentChannel = 'mission';
+let currentChannel = 'my_prompts';
 let templatesCache = {};
 let expandedTemplateId = null;
 
@@ -21,7 +20,7 @@ let expandedTemplateId = null;
  * 初始化广场
  */
 async function initMarketplace() {
-  await loadTemplates(currentChannel);
+  await loadChannelContent(currentChannel);
 }
 
 /**
@@ -29,10 +28,24 @@ async function initMarketplace() {
  */
 function switchMarketplaceChannel(channel) {
   if (currentChannel === channel) return;
-  
+
   currentChannel = channel;
-  
-  // 更新 Tab 样式
+
+  // 更新 Tab 样式（包括 my_prompts）
+  const myPromptsTab = document.getElementById('marketplace-tab-my_prompts');
+  if (myPromptsTab) {
+    if (channel === 'my_prompts') {
+      myPromptsTab.classList.add('active');
+      myPromptsTab.style.borderColor = 'var(--accent)';
+      myPromptsTab.style.color = 'var(--text)';
+    } else {
+      myPromptsTab.classList.remove('active');
+      myPromptsTab.style.borderColor = 'transparent';
+      myPromptsTab.style.color = 'var(--text-secondary)';
+    }
+  }
+
+  // 更新其他频道 Tab 样式
   MARKETPLACE_CHANNELS.forEach(ch => {
     const tab = document.getElementById(`marketplace-tab-${ch.key}`);
     if (tab) {
@@ -47,9 +60,286 @@ function switchMarketplaceChannel(channel) {
       }
     }
   });
-  
-  // 加载模板
-  loadTemplates(channel);
+
+  // 加载内容
+  loadChannelContent(channel);
+}
+
+/**
+ * 加载频道内容
+ */
+async function loadChannelContent(channel) {
+  if (channel === 'my_prompts') {
+    await loadMyPrompts();
+  } else {
+    await loadTemplates(channel);
+  }
+}
+
+/**
+ * 加载"我的Prompt"
+ */
+async function loadMyPrompts() {
+  const container = document.getElementById('marketplace-content');
+  if (!container) return;
+
+  // 检查登录状态
+  const token = AuthState.getToken();
+  if (!token) {
+    container.innerHTML = `
+      <div class="my-prompts-notice">
+        <div class="notice-icon">🔐</div>
+        <div class="notice-title">请先登录</div>
+        <div class="notice-text">登录后可配置自定义 Prompt，个性化情报生成</div>
+        <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-btn">去登录</a>
+      </div>
+    `;
+    return;
+  }
+
+  // 显示加载状态
+  container.innerHTML = `
+    <div class="flex items-center justify-center py-12 text-text-secondary">
+      <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+      </svg>
+      加载中...
+    </div>
+  `;
+
+  try {
+    const res = await fetch('/api/user-config/prompt', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    if (res.status === 401) {
+      container.innerHTML = `
+        <div class="my-prompts-notice">
+          <div class="notice-icon">🔐</div>
+          <div class="notice-title">登录已过期</div>
+          <div class="notice-text">请重新登录以配置自定义 Prompt</div>
+          <a href="/login?redirect=${encodeURIComponent(window.location.pathname)}" class="notice-btn">去登录</a>
+        </div>
+      `;
+      return;
+    }
+
+    if (!res.ok) throw new Error('加载失败');
+
+    const { prompts } = await res.json();
+    renderMyPrompts(container, prompts);
+  } catch (err) {
+    console.error('加载我的 Prompt 失败:', err);
+    container.innerHTML = `
+      <div class="marketplace-empty">
+        <div class="empty-icon">⚠️</div>
+        <div class="empty-text">加载失败: ${err.message}</div>
+        <button onclick="loadMyPrompts()" class="retry-btn">重试</button>
+      </div>
+    `;
+  }
+}
+
+/**
+ * 渲染"我的Prompt"列表
+ */
+function renderMyPrompts(container, prompts) {
+  // 构建 prompt 数据映射
+  const promptMap = {};
+  prompts.forEach(p => { promptMap[p.tool_type] = p; });
+
+  // 工具配置（复用 prompt-config.js 的配置）
+  const tools = [
+    { key: 'mission', name: '情报日报', icon: '📊', desc: '从 10+ 数据源抓取，生成 8 大板块中文日报' },
+    { key: 'bounty_v2ex', name: '赏金猎人 - V2EX', icon: '💰', desc: '扫描市场需求信号，发现真实存在的机会缺口。默认追踪 V2EX 急单与 HN 招聘动态。' },
+    { key: 'alpha', name: 'Alpha 雷达', icon: '⛏️', desc: '使用 Grok 搜索 X/Twitter 上的行业动态。默认聚焦 Web3/Solana 开源项目方向。' },
+    { key: 'revenue', name: '营收分析师', icon: '🏗️', desc: '基于今日情报日报，由 AI 深度解读行业动态，提炼 5 类商业机会与可执行建议。' }
+  ];
+
+  const html = `
+    <div class="my-prompts-header">
+      <h3>自定义 Prompt</h3>
+      <p>为各功能模块配置专属 Prompt，运行时将使用您的自定义配置</p>
+    </div>
+    <div class="prompt-cards">
+      ${tools.map(tool => {
+        const data = promptMap[tool.key] || {};
+        const hasCustom = data.has_custom || false;
+        return `
+          <div class="prompt-card ${hasCustom ? 'has-custom' : ''}" onclick="openPromptEditor('${tool.key}')">
+            <div class="prompt-card-icon">${tool.icon}</div>
+            <div class="prompt-card-info">
+              <div class="prompt-card-title">
+                ${tool.name}
+                ${hasCustom ? '<span class="custom-badge">已自定义</span>' : ''}
+              </div>
+              <div class="prompt-card-desc">${tool.desc}</div>
+            </div>
+            <div class="prompt-card-action">
+              <span class="action-text">${hasCustom ? '编辑' : '配置'}</span>
+              <span class="action-arrow">→</span>
+            </div>
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+  container.innerHTML = html;
+}
+
+/**
+ * 打开 Prompt 编辑器
+ */
+async function openPromptEditor(toolType) {
+  const tool = [
+    { key: 'mission', name: '情报日报', icon: '📊' },
+    { key: 'bounty_v2ex', name: '赏金猎人 - V2EX', icon: '💰' },
+    { key: 'alpha', name: 'Alpha 雷达', icon: '⛏️' },
+    { key: 'revenue', name: '营收分析师', icon: '🏗️' }
+  ].find(t => t.key === toolType);
+
+  if (!tool) return;
+
+  const token = AuthState.getToken();
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+
+  // 获取当前配置
+  let currentPrompt = '';
+  let defaultPromptContent = '';
+  try {
+    const res = await fetch(`/api/user-config/prompt/${toolType}`, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      currentPrompt = data.prompt_content || '';
+      defaultPromptContent = data.default_prompt || '';
+    }
+  } catch (e) {
+    console.error('获取 Prompt 失败:', e);
+  }
+
+  // 获取占位符信息
+  let placeholders = [];
+  try {
+    const res = await fetch(`/api/user-config/prompt/${toolType}/placeholders`);
+    if (res.ok) {
+      const data = await res.json();
+      placeholders = data.placeholders || [];
+    }
+  } catch (e) {
+    console.error('获取占位符失败:', e);
+  }
+
+  // 创建模态框
+  const modal = document.createElement('div');
+  modal.id = 'prompt-editor-modal';
+  modal.className = 'prompt-modal-overlay';
+  modal.dataset.defaultPrompt = defaultPromptContent;  // 存储默认 Prompt
+  modal.innerHTML = `
+    <div class="prompt-modal-content">
+      <div class="prompt-modal-header">
+        <h3>${tool.icon} ${tool.name} - Prompt 配置</h3>
+        <button onclick="closePromptEditor()" class="close-btn">&times;</button>
+      </div>
+      <div class="prompt-modal-body">
+        ${placeholders.length > 0 ? `
+          <div class="placeholder-hints">
+            <div class="hint-title">支持的占位符</div>
+            <div class="hint-list">
+              ${placeholders.map(p => `
+                <span class="hint-tag" title="${p.description}">${p.placeholder}</span>
+              `).join('')}
+            </div>
+          </div>
+        ` : ''}
+        <div class="form-group">
+          <label>自定义 Prompt</label>
+          <textarea id="prompt-editor-textarea" rows="15" placeholder="输入自定义 Prompt...">${currentPrompt}</textarea>
+        </div>
+      </div>
+      <div class="prompt-modal-footer">
+        <button onclick="resetPromptToDefault()" class="btn btn-secondary">重置为默认</button>
+        <button onclick="closePromptEditor()" class="btn btn-secondary">取消</button>
+        <button onclick="savePromptConfig('${toolType}')" class="btn btn-primary">保存</button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+}
+
+/**
+ * 重置为默认 Prompt
+ */
+function resetPromptToDefault() {
+  const modal = document.getElementById('prompt-editor-modal');
+  const textarea = document.getElementById('prompt-editor-textarea');
+  if (!modal || !textarea) return;
+
+  const defaultPrompt = modal.dataset.defaultPrompt || '';
+  if (defaultPrompt) {
+    textarea.value = defaultPrompt;
+    // 提示用户
+    const originalValue = textarea.style.borderColor;
+    textarea.style.borderColor = 'var(--accent)';
+    setTimeout(() => {
+      textarea.style.borderColor = originalValue || '';
+    }, 1000);
+  } else {
+    alert('未找到默认 Prompt');
+  }
+}
+
+/**
+ * 关闭 Prompt 编辑器
+ */
+function closePromptEditor() {
+  const modal = document.getElementById('prompt-editor-modal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+/**
+ * 保存 Prompt 配置
+ */
+async function savePromptConfig(toolType) {
+  const textarea = document.getElementById('prompt-editor-textarea');
+  if (!textarea) return;
+
+  const content = textarea.value.trim();
+  const token = AuthState.getToken();
+  if (!token) {
+    alert('请先登录');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/user-config/prompt/${toolType}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ prompt_content: content })
+    });
+
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || '保存失败');
+    }
+
+    alert('保存成功');
+    closePromptEditor();
+    loadMyPrompts(); // 刷新列表
+  } catch (err) {
+    alert('保存失败: ' + err.message);
+  }
 }
 
 /**
@@ -168,24 +458,21 @@ function renderTemplateCard(template) {
  * 渲染导入按钮（根据用户权限）
  */
 function renderImportButton(template) {
-  const token = localStorage.getItem('access_token');
-  const userStr = localStorage.getItem('user');
-  
+  const token = AuthState.getToken();
+  const isLoggedIn = AuthState.isLoggedIn();
+
   // 未登录
-  if (!token) {
+  if (!isLoggedIn || !token) {
     return `
-      <button class="import-btn login-required" onclick="window.location.href='/login'">
+      <button class="import-btn login-required" onclick="window.location.href='/login?redirect=${encodeURIComponent(window.location.pathname)}'">
         <span>🔐</span> 登录后导入
       </button>
     `;
   }
-  
-  // 解析用户信息
-  let user = null;
-  try {
-    user = userStr ? JSON.parse(userStr) : null;
-  } catch (e) {}
-  
+
+  // 获取用户信息
+  const user = AuthState.getCurrentUser();
+
   // 免费/次数用光
   if (!user || (user.usage_count !== undefined && user.usage_count <= 0)) {
     return `
@@ -194,7 +481,7 @@ function renderImportButton(template) {
       </button>
     `;
   }
-  
+
   // 付费用户
   return `
     <button class="import-btn can-import" onclick="importTemplate(${template.id}, '${template.title}')">
@@ -250,10 +537,10 @@ async function loadPromptPreview(templateId) {
  * 导入模板
  */
 async function importTemplate(templateId, templateTitle) {
-  const token = localStorage.getItem('access_token');
+  const token = AuthState.getToken();
   if (!token) {
     showToast('请先登录', 'err');
-    window.location.href = '/login';
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
     return;
   }
   
@@ -346,3 +633,7 @@ window.switchMarketplaceChannel = switchMarketplaceChannel;
 window.toggleTemplateExpand = toggleTemplateExpand;
 window.importTemplate = importTemplate;
 window.showUpgradeTip = showUpgradeTip;
+window.openPromptEditor = openPromptEditor;
+window.closePromptEditor = closePromptEditor;
+window.savePromptConfig = savePromptConfig;
+window.resetPromptToDefault = resetPromptToDefault;

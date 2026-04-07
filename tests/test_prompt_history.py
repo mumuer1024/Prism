@@ -75,7 +75,7 @@ class TestPromptConfig:
 
         data = response.json()
         assert "prompts" in data
-        assert len(data["prompts"]) == 5  # 5 个工具类型
+        assert len(data["prompts"]) == 6  # 6 个工具类型 (mission, mission_analysis, bounty, bounty_analysis, alpha, revenue)
 
     def test_get_prompt_invalid_tool_type(self, client, prompt_user_headers):
         """测试无效的工具类型"""

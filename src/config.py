@@ -108,8 +108,7 @@ SOURCE_ENABLED_36KR = _parse_bool(os.getenv("SOURCE_ENABLED_36KR"), True)
 SOURCE_ENABLED_WALLSTREET = _parse_bool(os.getenv("SOURCE_ENABLED_WALLSTREET"), True)
 SOURCE_ENABLED_X_GROK = _parse_bool(os.getenv("SOURCE_ENABLED_X_GROK"), True)
 SOURCE_ENABLED_HN_BLOGS = _parse_bool(os.getenv("SOURCE_ENABLED_HN_BLOGS"), True)
-SOURCE_ENABLED_CHROME = _parse_bool(os.getenv("SOURCE_ENABLED_CHROME"), True)
-SOURCE_ENABLED_XHS = _parse_bool(os.getenv("SOURCE_ENABLED_XHS"), True)
+# Chrome 扩展雷达已移除
 
 
 # ============================================================
@@ -119,7 +118,7 @@ SOURCE_ENABLED_XHS = _parse_bool(os.getenv("SOURCE_ENABLED_XHS"), True)
 # --- 基础配置 ---
 DEBUG = _parse_bool(os.getenv("DEBUG"), False)
 APP_NAME = os.getenv("APP_NAME", "Prism")
-APP_VERSION = os.getenv("APP_VERSION", "2.0.0")
+APP_VERSION = os.getenv("APP_VERSION", "2.1.0")
 
 # --- JWT 配置 ---
 JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY", "prism-secret-key-change-in-production")
@@ -200,7 +199,7 @@ try:
 
         # 基础配置
         APP_NAME: str = "Prism"
-        APP_VERSION: str = "2.0.0"
+        APP_VERSION: str = "2.1.0"
         DEBUG: bool = False
 
         # JWT 配置

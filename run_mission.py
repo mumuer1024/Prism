@@ -3,6 +3,7 @@ import os
 import argparse
 import logging
 import datetime
+from pathlib import Path
 from typing import Optional
 
 from src.intel_collector import fetch_all_sources
@@ -11,8 +12,24 @@ from src.config import setup_logging
 
 logger = logging.getLogger(__name__)
 
-# Configuration
-REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "daily_briefings")
+# 基础目录
+BASE_DIR = Path(__file__).parent.resolve()
+
+
+def get_user_report_dir(user_id: Optional[str] = None) -> Path:
+    """
+    获取用户报告目录（按用户隔离）
+    
+    Args:
+        user_id: 用户ID（来自环境变量 USER_ID）
+    
+    Returns:
+        报告目录路径
+    """
+    if not user_id:
+        user_id = os.getenv("USER_ID", "anonymous")
+    
+    return BASE_DIR / "reports" / f"user_{user_id}" / "daily_briefings"
 
 
 def generate_morning_report(days: int = 1, user_id: Optional[int] = None):
@@ -26,6 +43,9 @@ def generate_morning_report(days: int = 1, user_id: Optional[int] = None):
     """
     setup_logging()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # 获取用户报告目录（按用户隔离）
+    report_dir = get_user_report_dir()
 
     # 读取用户配置（如果有 user_id）
     user_prompt = None
@@ -50,8 +70,8 @@ def generate_morning_report(days: int = 1, user_id: Optional[int] = None):
         file_name = f"Weekly_Report_{days}Days_{date_str}.md"
         limit = 30
 
-    report_file = os.path.join(REPORT_DIR, file_name)
-    os.makedirs(REPORT_DIR, exist_ok=True)
+    report_file = report_dir / file_name
+    report_dir.mkdir(parents=True, exist_ok=True)
 
     logger.info(f"开始生成情报简报 (Unified V2) - 周期: {days} 天, 目标: {file_name}")
 
@@ -70,14 +90,10 @@ def generate_morning_report(days: int = 1, user_id: Optional[int] = None):
         logger.info(f"DailyHotApi 数据已添加: {len(dailyhot_data)} 条")
 
     # 3. Generate Report
-    body = generate_report(intel, date_str)
+    body = generate_report(intel, date_str, user_prompt=user_prompt)
 
-    # 如果有用户自定义 prompt，添加到报告开头作为说明
-    prompt_note = ""
-    if user_prompt:
-        prompt_note = f"\n> ⚙️ **用户自定义配置已生效**\n> \n> {user_prompt[:200]}{'...' if len(user_prompt) > 200 else ''}\n"
-
-    final_content = f"# {report_title}{prompt_note}\n\n" + body.replace("# 🌐 全球情报日报 (Global Intel Briefing)", "")
+    # 构建最终报告
+    final_content = f"# {report_title}\n\n" + body.replace("# 🌐 全球情报日报 (Global Intel Briefing)", "")
 
     # 4. Save
     with open(report_file, "w", encoding="utf-8") as f:

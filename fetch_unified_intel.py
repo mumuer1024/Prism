@@ -6,7 +6,7 @@ Unified Intelligence Fetcher - Operation Wide-Net V2
 
 Sources:
 - External (news-aggregator): HN, GitHub, 36Kr, WallStreetCN, V2EX
-- Local: Product Hunt, ArXiv, X (Grok), XHS, HN Blogs
+- Local: Product Hunt, ArXiv, X (Grok), HN Blogs
 """
 
 import sys

@@ -8,6 +8,8 @@ Grok API 调用传感器（优化版）
 - 结构化错误处理
 - 批量舆情核查支持
 - 请求日志记录
+
+v2.1 改造：优先读取用户传入的 XAI Key（USER_* 环境变量）
 """
 
 import os
@@ -27,16 +29,26 @@ if sys.platform == 'win32':
 # 配置日志
 logger = logging.getLogger(__name__)
 
-# 从 config 导入配置
+
+def get_user_xai_config():
+    """
+    获取 XAI 配置（优先用户传入，回退全局 .env）
+    
+    Returns:
+        dict: XAI 配置字典
+    """
+    return {
+        'api_key': os.getenv("USER_XAI_API_KEY") or os.getenv("XAI_API_KEY", ""),
+        'base_url': os.getenv("USER_XAI_BASE_URL") or os.getenv("XAI_BASE_URL", "https://api.x.ai/v1/chat/completions"),
+        'model': os.getenv("USER_XAI_MODEL") or os.getenv("XAI_MODEL", "grok-3"),
+        'timeout': int(os.getenv("GROK_TIMEOUT", "60")),
+    }
+
+
+# 默认配置（用于类初始化）
 try:
-    from config import XAI_API_KEY, XAI_BASE_URL, XAI_MODEL, GROK_TIMEOUT
+    from config import GROK_TIMEOUT
 except ImportError:
-    # 兼容直接运行
-    from dotenv import load_dotenv
-    load_dotenv()
-    XAI_API_KEY = os.getenv("XAI_API_KEY")
-    XAI_BASE_URL = os.getenv("XAI_BASE_URL", "https://api.x.ai/v1/chat/completions")
-    XAI_MODEL = os.getenv("XAI_MODEL", "grok-3")  # 更新默认模型
     GROK_TIMEOUT = int(os.getenv("GROK_TIMEOUT", "60"))
 
 
@@ -69,10 +81,12 @@ class GrokSensor:
         model: str = None,
         timeout: int = None,
     ):
-        self.api_key = api_key or XAI_API_KEY
-        self.base_url = base_url or XAI_BASE_URL
-        self.model = model or XAI_MODEL
-        self.timeout = timeout or GROK_TIMEOUT
+        # 优先读取用户传入的配置
+        user_config = get_user_xai_config()
+        self.api_key = api_key or user_config['api_key']
+        self.base_url = base_url or user_config['base_url']
+        self.model = model or user_config['model']
+        self.timeout = timeout or user_config['timeout']
 
         # 创建复用的 HTTP 客户端
         self._client = httpx.Client(timeout=self.timeout)
@@ -179,11 +193,11 @@ class GrokSensor:
             GrokResponse 结构化响应
         """
         if not self.api_key:
-            logger.error("XAI_API_KEY 未配置")
+            logger.error("XAI API Key 未配置（请在配置页填写 XAI API Key）")
             return GrokResponse(
                 success=False,
                 content="",
-                error="API Key 未配置",
+                error="API Key 未配置，请在配置页填写 XAI API Key",
             )
 
         logger.info(f"Grok Sensor: 开始查询 '{query}'")

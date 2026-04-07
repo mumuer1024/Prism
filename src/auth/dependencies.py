@@ -219,12 +219,35 @@ class RateLimiter:
         return current_user
 
 
+async def get_admin_user(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """
+    获取当前管理员用户（基于 User.is_admin 字段）
+
+    Args:
+        current_user: 当前用户
+
+    Returns:
+        User: 管理员用户对象
+
+    Raises:
+        HTTPException: 用户不是管理员
+    """
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="需要管理员权限"
+        )
+    return current_user
+
+
 async def get_current_admin(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Admin:
     """
-    获取当前管理员
+    获取当前管理员（旧方式，查询 Admin 表）
 
     Args:
         current_user: 当前用户

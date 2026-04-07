@@ -281,6 +281,21 @@ def _run_migrations():
             db.commit()
             logger.info("数据库迁移: 版本 9 已应用 - 创建监控表")
 
+        if current_version < 10:
+            # 版本 10: 创建用户配置表
+            from src.database.models import UserConfig
+
+            # 创建表
+            Base.metadata.create_all(bind=engine, tables=[UserConfig.__table__])
+
+            version_record = SchemaVersion(
+                version=10,
+                description="创建用户配置表（user_configs），用于存储用户级 GitHub Token 等"
+            )
+            db.add(version_record)
+            db.commit()
+            logger.info("数据库迁移: 版本 10 已应用 - 创建用户配置表")
+
     except Exception as e:
         logger.error(f"数据库迁移失败: {e}")
         db.rollback()

@@ -11,8 +11,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from src.database.connection import get_db
-from src.database.models import Admin
-from src.auth.dependencies import get_current_admin
+from src.database.models import User
+from src.auth.dependencies import get_admin_user
 from src.admin.service import AdminService
 from src.admin.schemas import (
     UserListResponse,
@@ -71,7 +71,7 @@ def admin_list_users(
     limit: int = Query(20, ge=1, le=100, description="每页数量"),
     search: str = Query(None, description="搜索关键词"),
     is_banned: bool = Query(None, description="筛选封禁状态"),
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -123,7 +123,7 @@ def admin_list_users(
 @router.get("/users/{user_id}", response_model=dict)
 def admin_get_user_detail(
     user_id: int,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -158,7 +158,7 @@ def admin_get_user_detail(
 def admin_ban_user(
     user_id: int,
     request: BanUserRequest,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -179,7 +179,7 @@ def admin_ban_user(
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
 
-    logger.info(f"管理员 {admin.user_id} 封禁用户: user_id={user_id}, reason={request.reason}")
+    logger.info(f"管理员 {current_user.id} 封禁用户: user_id={user_id}, reason={request.reason}")
 
     return BanUserResponse(
         success=True,
@@ -193,7 +193,7 @@ def admin_ban_user(
 @router.patch("/users/{user_id}/unban", response_model=UnbanUserResponse)
 def admin_unban_user(
     user_id: int,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -213,7 +213,7 @@ def admin_unban_user(
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["message"])
 
-    logger.info(f"管理员 {admin.user_id} 解禁用户: user_id={user_id}")
+    logger.info(f"管理员 {current_user.id} 解禁用户: user_id={user_id}")
 
     return UnbanUserResponse(
         success=True,
@@ -226,7 +226,7 @@ def admin_unban_user(
 def admin_batch_ban_users(
     request: BatchBanRequest,
     http_request: Request,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -245,18 +245,18 @@ def admin_batch_ban_users(
 
     # 获取管理员邮箱
     from src.database.crud import get_user_by_id
-    admin_user = get_user_by_id(db, admin.user_id)
+    admin_user = get_user_by_id(db, current_user.id)
     admin_email = admin_user.email if admin_user else "unknown"
 
     result = service.batch_ban_users(
         user_ids=request.user_ids,
         reason=request.reason,
-        admin_id=admin.user_id,
+        admin_id=current_user.id,
         admin_email=admin_email,
         ip_address=get_client_ip(http_request),
     )
 
-    logger.info(f"管理员 {admin.user_id} 批量封禁用户: count={len(request.user_ids)}, succeeded={result['succeeded']}")
+    logger.info(f"管理员 {current_user.id} 批量封禁用户: count={len(request.user_ids)}, succeeded={result['succeeded']}")
 
     return BatchBanResponse(
         success=result["success"],
@@ -281,7 +281,7 @@ def admin_get_audit_logs(
     target_type: str = Query(None, description="目标类型筛选"),
     start_date: str = Query(None, description="开始日期 (YYYY-MM-DD)"),
     end_date: str = Query(None, description="结束日期 (YYYY-MM-DD)"),
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -340,7 +340,7 @@ def admin_get_audit_logs(
 
 @router.get("/audit-logs/actions")
 def admin_get_audit_actions(
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
 ):
     """
     获取所有审计操作类型（管理员）
@@ -373,7 +373,7 @@ def admin_get_audit_actions(
 
 @router.get("/stats/users", response_model=UserStatsResponse)
 def admin_get_user_stats(
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -394,7 +394,7 @@ def admin_get_user_stats(
 
 @router.get("/stats/revenue", response_model=RevenueStatsResponse)
 def admin_get_revenue_stats(
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -418,7 +418,7 @@ def admin_get_revenue_stats(
 @router.post("/codes/generate", response_model=GenerateCodesResponse)
 def admin_generate_codes(
     request: GenerateCodesRequest,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -440,7 +440,7 @@ def admin_generate_codes(
         note=request.note,
     )
 
-    logger.info(f"管理员 {admin.user_id} 生成兑换码: batch_id={result['batch_id']}, count={request.count}")
+    logger.info(f"管理员 {current_user.id} 生成兑换码: batch_id={result['batch_id']}, count={request.count}")
 
     return GenerateCodesResponse(
         success=True,
@@ -455,7 +455,7 @@ def admin_generate_codes(
 
 @router.get("/codes/batches")
 def admin_list_batches(
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -487,7 +487,7 @@ def admin_list_batches(
 @router.get("/codes/batches/{batch_id}")
 def admin_get_batch_detail(
     batch_id: str,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -526,7 +526,7 @@ def admin_get_batch_detail(
 @router.get("/codes/batches/{batch_id}/export")
 def admin_export_codes(
     batch_id: str,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -546,7 +546,7 @@ def admin_export_codes(
     if not result["success"]:
         raise HTTPException(status_code=404, detail=result["message"])
 
-    logger.info(f"管理员 {admin.user_id} 导出兑换码: batch_id={batch_id}")
+    logger.info(f"管理员 {current_user.id} 导出兑换码: batch_id={batch_id}")
 
     return {
         "success": True,
@@ -561,7 +561,7 @@ def admin_export_codes(
 @router.post("/marketplace/templates", response_model=TemplateResponse)
 def admin_create_template(
     request: TemplateCreateRequest,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -593,7 +593,7 @@ def admin_create_template(
         is_published=request.is_published,
     )
 
-    logger.info(f"管理员 {admin.user_id} 创建模板: id={template.id}, title={template.title}")
+    logger.info(f"管理员 {current_user.id} 创建模板: id={template.id}, title={template.title}")
 
     data = template.to_dict()
     return TemplateResponse(
@@ -615,7 +615,7 @@ def admin_create_template(
 def admin_update_template(
     template_id: int,
     request: TemplateUpdateRequest,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -659,7 +659,7 @@ def admin_update_template(
     if not template:
         raise HTTPException(status_code=404, detail="模板不存在")
 
-    logger.info(f"管理员 {admin.user_id} 更新模板: id={template_id}")
+    logger.info(f"管理员 {current_user.id} 更新模板: id={template_id}")
 
     data = template.to_dict()
     return TemplateResponse(
@@ -681,7 +681,7 @@ def admin_update_template(
 def admin_publish_template(
     template_id: int,
     request: TemplatePublishRequest,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -706,7 +706,7 @@ def admin_publish_template(
         raise HTTPException(status_code=404, detail="模板不存在")
 
     action = "上架" if request.is_published else "下架"
-    logger.info(f"管理员 {admin.user_id} {action}模板: id={template_id}")
+    logger.info(f"管理员 {current_user.id} {action}模板: id={template_id}")
 
     return {
         "success": True,
@@ -719,7 +719,7 @@ def admin_publish_template(
 @router.delete("/marketplace/templates/{template_id}")
 def admin_delete_template(
     template_id: int,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """
@@ -738,7 +738,7 @@ def admin_delete_template(
     if not success:
         raise HTTPException(status_code=404, detail="模板不存在")
 
-    logger.info(f"管理员 {admin.user_id} 删除模板: id={template_id}")
+    logger.info(f"管理员 {current_user.id} 删除模板: id={template_id}")
 
     return {
         "success": True,
@@ -753,7 +753,7 @@ def admin_list_templates(
     include_unpublished: bool = True,
     skip: int = 0,
     limit: int = 50,
-    admin: Admin = Depends(get_current_admin),
+    current_user: User = Depends(get_admin_user),
     db: Session = Depends(get_db),
 ):
     """

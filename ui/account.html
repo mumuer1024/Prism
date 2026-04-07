@@ -51,11 +51,12 @@
       </a>
     </div>
     <nav class="hidden md:flex items-center gap-1">
-      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</a>
-      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</a>
-      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</a>
-      <a href="/" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</a>
-      <a href="/account" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">用户中心</a>
+      <a href="/?tab=console" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</a>
+      <a href="/?tab=reports" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</a>
+      <a href="/?tab=sources" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</a>
+      <a href="/?tab=marketplace" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">Prompt广场</a>
+      <a href="/?tab=config" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</a>
+      <a href="/account" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--accent-text); background: var(--accent-bg);">用户中心</a>
     </nav>
     <div class="flex items-center gap-2">
       <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle" title="切换主题">
@@ -71,10 +72,11 @@
   <!-- Mobile Menu -->
   <div id="mobile-menu" class="hidden md:hidden glass border-b border-border absolute top-14 left-0 right-0 z-40">
     <nav class="flex flex-col p-2 gap-1">
-      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</a>
-      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</a>
-      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</a>
-      <a href="/" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</a>
+      <a href="/?tab=console" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</a>
+      <a href="/?tab=reports" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</a>
+      <a href="/?tab=sources" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</a>
+      <a href="/?tab=marketplace" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">🏪</span> Prompt广场</a>
+      <a href="/?tab=config" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</a>
       <a href="/account" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all bg-accent/10" style="color: var(--accent);"><span class="w-5 text-center">👤</span> 用户中心</a>
     </nav>
   </div>
@@ -134,16 +136,16 @@
           </div>
           <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">付费次数</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">付费次数</p>
                 <p id="paid-count" class="text-2xl font-bold text-accent">0</p>
               </div>
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">今日免费</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">今日免费</p>
                 <p id="free-count" class="text-2xl font-bold text-success">0</p>
               </div>
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">用户类型</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">用户类型</p>
                 <p id="user-type" class="text-2xl font-bold" style="color: var(--text);">免费用户</p>
               </div>
             </div>
@@ -168,19 +170,19 @@
           </div>
           <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">我的邀请码</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">我的邀请码</p>
                 <div class="flex items-center gap-2">
                   <code id="invite-code" class="text-sm font-mono text-accent">-</code>
                   <button onclick="copyInviteCode()" class="text-xs px-2 py-1 rounded bg-accent/10 text-accent hover:bg-accent hover:text-white transition-colors">复制</button>
                 </div>
               </div>
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">已邀请人数</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">已邀请人数</p>
                 <p id="invite-count" class="text-2xl font-bold text-accent">0</p>
               </div>
-              <div class="p-4 rounded-xl" style="background: var(--bg-tertiary);">
-                <p class="text-sm mb-1" style="color: var(--text-secondary);">累计奖励</p>
+              <div class="p-4 rounded-xl" style="background: var(--bg-secondary);">
+                <p class="text-sm mb-1" style="color: var(--text);">累计奖励</p>
                 <p id="invite-reward" class="text-2xl font-bold text-success">0 次</p>
               </div>
             </div>
@@ -211,7 +213,7 @@
     <div class="footer-content">
       <div class="footer-left">
         <span class="footer-brand">🕵️ Prism</span>
-        <span class="footer-version">v2.0.0</span>
+        <span class="footer-version">v2.1.0</span>
       </div>
       <div class="footer-right">
         <button onclick="openLegalModal('privacy')" class="footer-link">隐私政策</button>

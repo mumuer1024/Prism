@@ -3,15 +3,48 @@
 """
 Report Generator - 报告生成模块
 负责将情报数据转换为 Markdown 报告
+
+v2.1 改造：优先读取用户传入的 Key（USER_* 环境变量），回退到全局 .env
 """
 
+import os
 import time
 import logging
 from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# Import from centralized config
+
+def get_user_llm_config():
+    """
+    获取 LLM 配置（优先用户传入，回退全局 .env）
+    
+    Returns:
+        dict: LLM 配置字典
+    """
+    return {
+        'api_key': os.getenv("USER_LLM_API_KEY") or os.getenv("LLM_API_KEY", ""),
+        'base_url': os.getenv("USER_LLM_BASE_URL") or os.getenv("LLM_BASE_URL", ""),
+        'model': os.getenv("USER_LLM_MODEL") or os.getenv("LLM_MODEL", ""),
+        'api_format': os.getenv("USER_LLM_API_FORMAT") or os.getenv("LLM_API_FORMAT", "openai"),
+    }
+
+
+def get_user_translator_config():
+    """
+    获取翻译模型配置（优先用户传入，回退全局 .env）
+    
+    Returns:
+        dict: 翻译配置字典
+    """
+    return {
+        'api_key': os.getenv("USER_TRANSLATOR_API_KEY") or os.getenv("TRANSLATOR_API_KEY", ""),
+        'base_url': os.getenv("USER_TRANSLATOR_BASE_URL") or os.getenv("TRANSLATOR_BASE_URL", ""),
+        'model': os.getenv("USER_TRANSLATOR_MODEL") or os.getenv("TRANSLATOR_MODEL", ""),
+    }
+
+
+# Import rate limit delay from centralized config
 try:
     from config import GEMINI_RATE_LIMIT_DELAY
 except ImportError:
@@ -19,6 +52,24 @@ except ImportError:
         from src.config import GEMINI_RATE_LIMIT_DELAY
     except ImportError:
         GEMINI_RATE_LIMIT_DELAY = 1.5
+
+# --- LLM Client for AI Analysis ---
+try:
+    from llm_client import chat
+    LLM_CLIENT_AVAILABLE = True
+except ImportError:
+    try:
+        from src.llm_client import chat
+        LLM_CLIENT_AVAILABLE = True
+    except ImportError:
+        LLM_CLIENT_AVAILABLE = False
+        logger.info("LLM client not available, AI analysis will be skipped.")
+
+# --- Default Prompts ---
+try:
+    from defaults.prompts import get_default_prompt
+except ImportError:
+    from src.defaults.prompts import get_default_prompt
 
 # --- Gemini Translator ---
 try:
@@ -44,13 +95,20 @@ if not GEMINI_AVAILABLE:
         return ""
 
 
-def generate_report(intel: dict, date_str: str) -> str:
-    """Generate magazine-style markdown report."""
+def generate_report(intel: dict, date_str: str, user_prompt: str = None) -> str:
+    """
+    Generate magazine-style markdown report.
+
+    Args:
+        intel: 情报数据字典
+        date_str: 日期字符串
+        user_prompt: 用户自定义 Prompt（可选），用于生成报告风格说明
+    """
     lines = [
         f"# 🌐 全球情报日报 (Global Intel Briefing)",
         f"**日期:** {date_str}",
         f"**生成时间:** {datetime.now().strftime('%H:%M')}",
-        f"**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X, XHS, DailyHot",
+        f"**数据源:** HN, GitHub, 36Kr, WallStreetCN, V2EX, PH, ArXiv, X, DailyHot",
         "",
         "---",
         ""
@@ -200,21 +258,6 @@ def generate_report(intel: dict, date_str: str) -> str:
     else:
         lines.append("*暂无数据*\n")
 
-# --- XHS Directives ---
-    lines.append("## 📕 小红书雷达 (XHS Radar)")
-    lines.append("> 手动搜索指令 (点击链接进入搜索页)")
-    lines.append("> **💡 提示:** 重点关注帖子中包含「救命」「有偿」「急」「红包」「求教」等关键词\n")
-
-    if intel.get("xhs_directives"):
-        for i, item in enumerate(intel["xhs_directives"][:6], 1):
-            title = item.get("title", "")
-            url = item.get("url", "#")
-
-            lines.append(f"### {i}. [{title}]({url})")
-            lines.append("")
-    else:
-        lines.append("*XHS 传感器不可用*\n")
-
     # --- DailyHot 热榜速递 ---
     lines.append("## 🔥 热榜速递 (Hot News)")
     lines.append("> DailyHotApi 聚合热榜\n")
@@ -302,7 +345,81 @@ def generate_report(intel: dict, date_str: str) -> str:
     lines.append("")
     lines.append("*报告由 Unified Intelligence Engine V2 自动生成*")
 
+    # === AI 深度分析层 ===
+    # 如果 user_prompt 不为空，调用 LLM 生成个性化洞察
+    if user_prompt:
+        logger.info("开始生成 AI 深度分析...")
+        ai_analysis = _generate_ai_analysis(user_prompt, "\n".join(lines))
+        if ai_analysis:
+            lines.append("")
+            lines.append("---")
+            lines.append("")
+            lines.append("## 🔍 个性化洞察")
+            lines.append("> 基于您的关注点生成的深度分析\n")
+            lines.append(ai_analysis)
+            logger.info("AI 深度分析生成完成")
+
     return "\n".join(lines)
+
+
+def _generate_ai_analysis(user_prompt: str, report_content: str) -> str:
+    """
+    调用 LLM 生成基于用户自定义 Prompt 的深度分析
+
+    Args:
+        user_prompt: 用户自定义的分析指令
+        report_content: 当前报告的完整内容
+
+    Returns:
+        AI 生成的深度分析内容，失败时返回空字符串
+    """
+    if not LLM_CLIENT_AVAILABLE:
+        logger.warning("LLM 客户端不可用，跳过 AI 分析")
+        return ""
+
+    # 优先读取用户传入的 LLM 配置
+    llm_config = get_user_llm_config()
+    if not llm_config['api_key']:
+        logger.warning("LLM API Key 未配置，跳过 AI 分析")
+        return ""
+
+    # 获取默认分析 prompt（作为 system prompt 的补充）
+    default_analysis_prompt = get_default_prompt("mission_analysis") or ""
+
+    # 构建完整 prompt
+    system_prompt = f"""你是一位资深的商业分析师和技术情报专家。
+
+{default_analysis_prompt}
+
+用户的个性化分析需求：
+{user_prompt}"""
+
+    user_message = f"""以下是今日情报日报的完整内容，请根据系统指令和您的个性化需求进行分析：
+
+{report_content}"""
+
+    try:
+        logger.info(f"调用 LLM 生成深度分析: model={llm_config['model']}")
+        result = chat(
+            prompt=user_message,
+            system=system_prompt,
+            base_url=llm_config['base_url'],
+            api_key=llm_config['api_key'],
+            model=llm_config['model'],
+            api_format=llm_config['api_format'],
+            temperature=0.7,
+            max_tokens=2048,
+            timeout=180,  # 3分钟超时
+        )
+        if result:
+            logger.info(f"AI 分析生成成功，长度: {len(result)}")
+            return result
+        else:
+            logger.warning("LLM 返回空结果")
+            return ""
+    except Exception as e:
+        logger.error(f"AI 分析生成失败: {e}")
+        return ""
 
 
 __all__ = ['generate_report']

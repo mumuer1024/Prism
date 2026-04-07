@@ -31,31 +31,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ==========================================
-// 主题
-// ==========================================
-
-function initTheme() {
-  const savedTheme = localStorage.getItem('theme');
-  if (savedTheme === 'dark') {
-    document.documentElement.classList.add('dark');
-    document.getElementById('theme-icon-sun').classList.remove('hidden');
-    document.getElementById('theme-icon-moon').classList.add('hidden');
-  }
-}
-
-function toggleTheme() {
-  const isDark = document.documentElement.classList.toggle('dark');
-  localStorage.setItem('theme', isDark ? 'dark' : 'light');
-  document.getElementById('theme-icon-sun').classList.toggle('hidden', !isDark);
-  document.getElementById('theme-icon-moon').classList.toggle('hidden', isDark);
-}
-
-// ==========================================
 // 认证检查
 // ==========================================
 
 async function checkAdminAuth() {
-  const token = localStorage.getItem('access_token');
+  const token = AuthState.getToken();
   if (!token) {
     window.location.href = '/login?redirect=/admin';
     return;
@@ -65,14 +45,21 @@ async function checkAdminAuth() {
     const response = await fetch('/api/auth/me', {
       headers: { 'Authorization': `Bearer ${token}` }
     });
-    
+
     if (!response.ok) {
       window.location.href = '/login?redirect=/admin';
       return;
     }
-    
+
     const data = await response.json();
-    // 这里可以检查用户是否是管理员
+
+    // 检查用户是否是管理员
+    const user = data.data?.user;
+    if (!user || !user.is_admin) {
+      alert('您没有管理员权限');
+      window.location.href = '/';
+      return;
+    }
   } catch (error) {
     console.error('Auth check failed:', error);
     window.location.href = '/login?redirect=/admin';
@@ -104,7 +91,7 @@ function switchAdminTab(tab) {
 // ==========================================
 
 async function apiRequest(endpoint, options = {}) {
-  const token = localStorage.getItem('access_token');
+  const token = AuthState.getToken();
   const headers = {
     'Content-Type': 'application/json',
     ...(token && { 'Authorization': `Bearer ${token}` }),

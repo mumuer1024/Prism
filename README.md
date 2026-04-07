@@ -407,7 +407,6 @@ Intel_Briefing/
 │   │   ├── product_hunt.py
 │   │   ├── v2ex_radar.py       # 含镜像站点支持
 │   │   ├── x_grok_sensor.py
-│   │   ├── xhs_radar.py
 │   │   ├── tavily_search.py
 │   │   ├── dailyhot_sensor.py
 │   │   ├── custom_source.py    # 自定义数据源
