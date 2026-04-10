@@ -19,6 +19,20 @@ let currentPlaceholders = [];
 let validationTimeout = null;
 
 /**
+ * 获取设备 ID
+ */
+function getDeviceId() {
+  return localStorage.getItem('prism_device_id');
+}
+
+/**
+ * 检查是否已激活
+ */
+function isActivated() {
+  return !!getDeviceId();
+}
+
+/**
  * 初始化 Prompt 配置
  */
 async function initPromptConfig() {
@@ -32,14 +46,13 @@ async function loadPromptConfigs() {
   const container = document.getElementById('prompt-config-content');
   if (!container) return;
 
-  // 检查登录状态（使用 AuthState 统一管理）
-  const token = AuthState.getToken();
-  if (!token) {
+  // 检查激活状态
+  const deviceId = getDeviceId();
+  if (!deviceId) {
     container.innerHTML = `
       <div class="prompt-login-notice">
         <div class="notice-icon">🔐</div>
-        <div class="notice-text">请先登录以配置自定义 Prompt</div>
-        <a href="/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}" class="notice-btn">去登录</a>
+        <div class="notice-text">请先激活以配置自定义 Prompt</div>
       </div>
     `;
     return;
@@ -47,15 +60,16 @@ async function loadPromptConfigs() {
 
   try {
     const res = await fetch('/api/user-config/prompt', {
-      headers: { 'Authorization': `Bearer ${token}` }
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
 
     if (res.status === 401) {
       container.innerHTML = `
         <div class="prompt-login-notice">
           <div class="notice-icon">🔐</div>
-          <div class="notice-text">登录已过期，请重新登录</div>
-          <a href="/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}" class="notice-btn">去登录</a>
+          <div class="notice-text">设备未激活，请先激活</div>
         </div>
       `;
       return;
@@ -479,9 +493,9 @@ async function savePrompt(toolType) {
   const textarea = document.getElementById('prompt-editor-textarea');
   const content = textarea?.value?.trim() || '';
 
-  const token = AuthState.getToken();
-  if (!token) {
-    showToast('请先登录', 'err');
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    showToast('请先激活', 'err');
     return;
   }
 
@@ -520,11 +534,8 @@ async function savePrompt(toolType) {
   try {
     const res = await fetch(`/api/user-config/prompt/${toolType}`, {
       method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-      },
-      body: JSON.stringify({ content })
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId, content })
     });
 
     if (!res.ok) {
@@ -561,16 +572,17 @@ async function savePrompt(toolType) {
 async function resetPrompt(toolType) {
   if (!confirm('确定要重置为默认 Prompt 吗？')) return;
 
-  const token = AuthState.getToken();
-  if (!token) {
-    showToast('请先登录', 'err');
+  const deviceId = getDeviceId();
+  if (!deviceId) {
+    showToast('请先激活', 'err');
     return;
   }
 
   try {
     const res = await fetch(`/api/user-config/prompt/${toolType}`, {
       method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${token}` }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ device_id: deviceId })
     });
 
     if (!res.ok) {

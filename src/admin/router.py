@@ -403,22 +403,23 @@ def admin_revoke_activation_code(
 @router.get("/codes/{code_id}/devices", response_model=ActivationCodeDevicesResponse)
 def admin_get_activation_code_devices(
     code_id: int,
+    http_request: Request,
     admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     查看激活码绑定的设备（管理员）
-    
+
     显示该激活码绑定的所有设备信息
     """
     activation_code = db.query(ActivationCode).filter(ActivationCode.id == code_id).first()
-    
+
     if not activation_code:
         raise HTTPException(status_code=404, detail="激活码不存在")
-    
+
     # 查询设备
     devices = db.query(Device).filter(Device.code_id == code_id).all()
-    
+
     device_list = [
         DeviceBindingData(
             id=d.id,
@@ -429,7 +430,26 @@ def admin_get_activation_code_devices(
         )
         for d in devices
     ]
-    
+
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="view_code_devices",
+        action_category="activation_code_management",
+        target_type="activation_code",
+        target_id=str(code_id),
+        action_detail=json.dumps({
+            "code": activation_code.code,
+            "device_count": len(device_list),
+        }),
+        ip_address=get_client_ip(http_request),
+    )
+    db.add(audit_log)
+    db.commit()
+
+    logger.info(f"管理员 {admin.username} 查看激活码设备: id={code_id}, device_count={len(device_list)}")
+
     return ActivationCodeDevicesResponse(
         success=True,
         code_id=code_id,
@@ -568,7 +588,7 @@ def admin_create_template(
             status_code=400,
             detail=f"无效的 tool_type，有效值: {', '.join(VALID_TOOL_TYPES)}"
         )
-    
+
     template = create_template(
         db=db,
         title=request.get("title"),
@@ -579,9 +599,28 @@ def admin_create_template(
         is_official=request.get("is_official", False),
         is_published=request.get("is_published", False),
     )
-    
+
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="create_template",
+        action_category="template_management",
+        target_type="marketplace_template",
+        target_id=str(template.id),
+        action_detail=json.dumps({
+            "title": template.title,
+            "tool_type": template.tool_type,
+            "is_official": template.is_official,
+            "is_published": template.is_published,
+        }),
+        ip_address=get_client_ip(http_request),
+    )
+    db.add(audit_log)
+    db.commit()
+
     logger.info(f"管理员 {admin.username} 创建模板: id={template.id}")
-    
+
     return {"success": True, "template": template.to_dict()}
 
 
@@ -589,42 +628,92 @@ def admin_create_template(
 def admin_update_template(
     template_id: int,
     request: dict,
+    http_request: Request,
     admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     编辑模板（管理员）
     """
+    # 获取原始模板信息用于审计
+    original_template = get_template_by_id(db, template_id)
+    if not original_template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+
     template = update_template(
         db=db,
         template_id=template_id,
         **request
     )
-    
+
     if not template:
         raise HTTPException(status_code=404, detail="模板不存在")
-    
+
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="update_template",
+        action_category="template_management",
+        target_type="marketplace_template",
+        target_id=str(template_id),
+        action_detail=json.dumps({
+            "title": template.title,
+            "tool_type": template.tool_type,
+            "changes": request,
+        }),
+        ip_address=get_client_ip(http_request),
+    )
+    db.add(audit_log)
+    db.commit()
+
     logger.info(f"管理员 {admin.username} 更新模板: id={template_id}")
-    
+
     return {"success": True, "template": template.to_dict()}
 
 
 @router.delete("/marketplace/templates/{template_id}")
 def admin_delete_template(
     template_id: int,
+    http_request: Request,
     admin: AdminUser = Depends(get_admin_from_session),
     db: Session = Depends(get_db),
 ):
     """
     删除模板（管理员）
     """
+    # 获取模板信息用于审计
+    template = get_template_by_id(db, template_id)
+    if not template:
+        raise HTTPException(status_code=404, detail="模板不存在")
+
+    template_title = template.title
+    template_tool_type = template.tool_type
+
     success = delete_template(db=db, template_id=template_id)
-    
+
     if not success:
         raise HTTPException(status_code=404, detail="模板不存在")
-    
+
+    # 记录审计日志
+    audit_log = AuditLog(
+        admin_id=admin.id,
+        admin_username=admin.username,
+        action="delete_template",
+        action_category="template_management",
+        target_type="marketplace_template",
+        target_id=str(template_id),
+        action_detail=json.dumps({
+            "title": template_title,
+            "tool_type": template_tool_type,
+        }),
+        ip_address=get_client_ip(http_request),
+    )
+    db.add(audit_log)
+    db.commit()
+
     logger.info(f"管理员 {admin.username} 删除模板: id={template_id}")
-    
+
     return {"success": True, "message": "模板已删除"}
 
 

@@ -1,17 +1,17 @@
 {
-  "updated_at": "2026-04-07T12:42:34.599218",
+  "updated_at": "2026-04-10T01:32:16.146176",
   "mirrors": {
     "主站": {
       "name": "主站",
       "base_url": "https://www.v2ex.com",
       "priority": 1,
       "is_official": true,
-      "success_count": 42,
-      "fail_count": 41,
-      "success_rate": 0.5060240963855421,
-      "avg_response_time_ms": 0.0006811959402901786,
-      "last_success_at": "2026-04-07T12:42:34.191478",
-      "last_fail_at": "2026-04-07T12:42:34.599209",
+      "success_count": 44,
+      "fail_count": 43,
+      "success_rate": 0.5057471264367817,
+      "avg_response_time_ms": 0.0006231394681063565,
+      "last_success_at": "2026-04-10T01:32:15.726556",
+      "last_fail_at": "2026-04-10T01:32:16.146167",
       "consecutive_failures": 1,
       "status": "degraded"
     },

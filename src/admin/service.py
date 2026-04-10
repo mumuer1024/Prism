@@ -34,7 +34,7 @@ class AdminService:
     def log_action(
         self,
         admin_id: int,
-        admin_email: str,
+        admin_username: str,
         action: str,
         action_category: str,
         target_type: str = None,
@@ -49,7 +49,7 @@ class AdminService:
 
         Args:
             admin_id: 管理员ID
-            admin_email: 管理员邮箱
+            admin_username: 管理员用户名
             action: 操作类型
             action_category: 操作分类
             target_type: 目标类型
@@ -64,7 +64,7 @@ class AdminService:
         """
         log = AuditLog(
             admin_id=admin_id,
-            admin_email=admin_email,
+            admin_username=admin_username,
             action=action,
             action_category=action_category,
             target_type=target_type,
@@ -78,7 +78,7 @@ class AdminService:
         self.db.commit()
         self.db.refresh(log)
 
-        logger.info(f"审计日志: admin={admin_email}, action={action}, target={target_type}:{target_id}")
+        logger.info(f"审计日志: admin={admin_username}, action={action}, target={target_type}:{target_id}")
 
         return log
 
@@ -302,7 +302,7 @@ class AdminService:
         user_ids: List[int],
         reason: str,
         admin_id: int = None,
-        admin_email: str = None,
+        admin_username: str = None,
         ip_address: str = None,
     ) -> dict:
         """
@@ -312,7 +312,7 @@ class AdminService:
             user_ids: 用户ID列表
             reason: 封禁原因
             admin_id: 管理员ID（用于审计日志）
-            admin_email: 管理员邮箱（用于审计日志）
+            admin_username: 管理员用户名（用于审计日志）
             ip_address: IP地址（用于审计日志）
 
         Returns:
@@ -369,10 +369,10 @@ class AdminService:
         self.db.commit()
 
         # 记录审计日志
-        if admin_id and admin_email:
+        if admin_id and admin_username:
             self.log_action(
                 admin_id=admin_id,
-                admin_email=admin_email,
+                admin_username=admin_username,
                 action="batch_ban_users",
                 action_category="user_management",
                 target_type="users",

@@ -50,7 +50,9 @@ async function loadSources() {
       fetch('/api/user-config/dailyhot/category-map').catch(() => null),
       // 获取用户次数（用于判断付费状态）
       userSourceState.isLoggedIn ? fetch('/api/usage/balance', {
-        headers: getAuthHeaders()
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ device_id: getDeviceId() })
       }).catch(() => null) : Promise.resolve(null)
     ]);
 
