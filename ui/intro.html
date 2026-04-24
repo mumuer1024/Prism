@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Prism - 棱镜情报：AI 驱动的开源情报聚合工具，聚合多源公开情报，AI 摘要翻译，隐私友好">
+    <title>Prism - 棱镜情报 | AI 驱动的开源情报聚合工具</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=Lora:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --amber-light: #f5e6d3;
+            --amber: #d4a574;
+            --amber-dark: #b8956a;
+            --brown: #5d4037;
+            --brown-light: #8d6e63;
+            --brown-dark: #3e2723;
+            --text-dark: #2c1810;
+            --text-light: #f8f4f0;
+            --bg-light: #faf7f4;
+            --bg-card: #fff9f5;
+            --border: #e0d4c8;
+            --shadow: rgba(93, 64, 55, 0.12);
+            --prism-gradient: linear-gradient(135deg,
+                #ff6b6b 0%,
+                #feca57 16%,
+                #48dbfb 33%,
+                #ff9ff3 50%,
+                #54a0ff 66%,
+                #5f27cd 83%,
+                #ff6b6b 100%
+            );
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: 'Noto Serif SC', 'Lora', Georgia, serif;
+            background: var(--bg-light);
+            color: var(--text-dark);
+            line-height: 1.7;
+            font-size: 16px;
+        }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 1000;
+            background: rgba(250, 247, 244, 0.95);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid var(--border);
+            padding: 0.75rem 1.5rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: box-shadow 0.3s ease;
+        }
+
+        .header.scrolled {
+            box-shadow: 0 2px 12px var(--shadow);
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            font-weight: 700;
+            font-size: 1.25rem;
+            color: var(--brown-dark);
+        }
+
+        .logo-icon {
+            width: 32px;
+            height: 32px;
+            position: relative;
+        }
+
+        .logo-icon::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: var(--prism-gradient);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            animation: prismRotate 8s linear infinite;
+        }
+
+        @keyframes prismRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .nav {
+            display: flex;
+            gap: 1.5rem;
+        }
+
+        .nav a {
+            color: var(--brown);
+            text-decoration: none;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: color 0.2s ease;
+        }
+
+        .nav a:hover {
+            color: var(--brown-dark);
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 6rem 1.5rem 3rem;
+            text-align: center;
+            background: linear-gradient(180deg, var(--bg-light) 0%, var(--amber-light) 100%);
+        }
+
+        .hero-title {
+            font-size: clamp(2.5rem, 5vw, 4rem);
+            font-weight: 700;
+            color: var(--brown-dark);
+            margin-bottom: 0.5rem;
+            position: relative;
+        }
+
+        .hero-title::after {
+            content: '';
+            position: absolute;
+            bottom: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60%;
+            height: 3px;
+            background: var(--prism-gradient);
+            border-radius: 2px;
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            color: var(--brown-light);
+            margin-bottom: 2rem;
+            max-width: 600px;
+        }
+
+        .hero-screenshot {
+            width: 90%;
+            max-width: 800px;
+            height: auto;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+
+
+
+        .hero-btn {
+            background: var(--amber);
+            color: var(--brown-dark);
+            padding: 1rem 2.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-family: inherit;
+        }
+
+        .hero-btn:hover {
+            background: var(--amber-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+
+        /* Features */
+        .features {
+            padding: 4rem 1.5rem;
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--brown-dark);
+            margin-bottom: 3rem;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .feature-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px var(--shadow);
+            border-color: var(--amber);
+        }
+
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            background: var(--amber-light);
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 1rem;
+            font-size: 1.5rem;
+            color: var(--brown);
+        }
+
+        .feature-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--brown-dark);
+            margin-bottom: 0.75rem;
+        }
+
+        .feature-desc {
+            color: var(--brown-light);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        /* Data Sources */
+        .sources {
+            padding: 4rem 1.5rem;
+            background: var(--amber-light);
+        }
+
+        .sources-container {
+            max-width: 1100px;
+            margin: 0 auto;
+        }
+
+        .sources-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem;
+            margin-top: 2rem;
+        }
+
+        .source-item {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 1rem;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+
+        .source-item:hover {
+            background: white;
+            box-shadow: 0 4px 12px var(--shadow);
+        }
+
+        .sources-more {
+            text-align: center;
+            color: var(--brown-light);
+            font-size: 1.05rem;
+            margin-top: 1rem;
+        }
+
+        .source-name {
+            font-weight: 600;
+            color: var(--brown-dark);
+            font-size: 0.9rem;
+        }
+
+        .source-type {
+            color: var(--brown-light);
+            font-size: 0.8rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Pricing */
+        .pricing {
+            padding: 4rem 1.5rem;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .pricing-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-top: 2rem;
+        }
+
+        .pricing-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+
+        .pricing-card.highlight {
+            border-color: var(--amber);
+            background: white;
+        }
+
+        .pricing-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--brown-dark);
+            margin-bottom: 0.5rem;
+        }
+
+        .pricing-price {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--amber-dark);
+            margin-bottom: 1rem;
+        }
+
+        .pricing-desc {
+            color: var(--brown-light);
+            font-size: 0.9rem;
+        }
+
+        /* Legal */
+        .legal {
+            padding: 4rem 1.5rem;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .accordion {
+            margin-top: 2rem;
+        }
+
+        .accordion-item {
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+        }
+
+        .accordion-header {
+            background: var(--bg-card);
+            padding: 1rem 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            color: var(--brown-dark);
+            transition: background 0.2s ease;
+        }
+
+        .accordion-header:hover {
+            background: white;
+        }
+
+        .accordion-arrow {
+            width: 20px;
+            height: 20px;
+            position: relative;
+            transition: transform 0.3s ease;
+        }
+
+        .accordion-arrow::before,
+        .accordion-arrow::after {
+            content: '';
+            position: absolute;
+            background: var(--brown);
+            height: 2px;
+            width: 12px;
+            top: 9px;
+        }
+
+        .accordion-arrow::before {
+            left: 2px;
+            transform: rotate(45deg);
+        }
+
+        .accordion-arrow::after {
+            right: 2px;
+            transform: rotate(-45deg);
+        }
+
+        .accordion-item.active .accordion-arrow {
+            transform: rotate(180deg);
+        }
+
+        .accordion-content {
+            background: white;
+            padding: 0 1.5rem;
+            max-height: 0;
+            overflow-y: scroll;
+            transition: max-height 0.4s ease, padding 0.4s ease;
+        }
+
+        .accordion-item.active .accordion-content {
+            max-height: 400px;
+            padding: 1.5rem;
+        }
+
+        .accordion-content::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .accordion-content::-webkit-scrollbar-track {
+            background: var(--bg-light);
+            border-radius: 3px;
+        }
+
+        .accordion-content::-webkit-scrollbar-thumb {
+            background: var(--amber);
+            border-radius: 3px;
+        }
+
+        .accordion-content::-webkit-scrollbar-thumb:hover {
+            background: var(--amber-dark);
+        }
+
+        .accordion-content h2 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--brown-dark);
+            margin-bottom: 1rem;
+        }
+
+        .accordion-content h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--brown);
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        .accordion-content p {
+            color: var(--brown-light);
+            margin-bottom: 0.75rem;
+        }
+
+        .accordion-content ul {
+            color: var(--brown-light);
+            margin-bottom: 1rem;
+            padding-left: 1.5rem;
+        }
+
+        .accordion-content li {
+            margin-bottom: 0.5rem;
+        }
+
+        .accordion-content hr {
+            border: none;
+            height: 1px;
+            background: var(--border);
+            margin: 1.5rem 0;
+        }
+
+        .accordion-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 1rem;
+        }
+
+        .accordion-content th,
+        .accordion-content td {
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            text-align: left;
+            color: var(--brown-light);
+        }
+
+        .accordion-content th {
+            background: var(--bg-card);
+            font-weight: 600;
+            color: var(--brown-dark);
+        }
+
+        .accordion-content code {
+            background: var(--bg-card);
+            padding: 0.2rem 0.5rem;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--brown-dark);
+            color: var(--text-light);
+            padding: 2rem 1.5rem;
+            text-align: center;
+        }
+
+        .footer-name {
+            font-size: 1.25rem;
+            font-weight: 700;
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-links {
+            margin-bottom: 0.75rem;
+        }
+
+        .footer-links a {
+            color: var(--amber);
+            text-decoration: none;
+            transition: opacity 0.2s ease;
+        }
+
+        .footer-links a:hover {
+            opacity: 0.8;
+        }
+
+        .footer-meta {
+            font-size: 0.85rem;
+            color: var(--brown-light);
+        }
+
+        .footer-beian {
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--brown-light);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header {
+                padding: 0.5rem 1rem;
+            }
+
+            .nav {
+                gap: 1rem;
+                font-size: 0.85rem;
+            }
+
+            .hero {
+                padding: 5rem 1rem 2rem;
+            }
+
+            .hero-screenshot {
+                height: 250px;
+            }
+
+            .hero-btn {
+                padding: 0.75rem 2rem;
+            }
+
+            .section-title {
+                font-size: 1.5rem;
+            }
+
+            .features {
+                padding: 3rem 1rem;
+            }
+
+            .sources {
+                padding: 3rem 1rem;
+            }
+
+            .pricing {
+                padding: 3rem 1rem;
+            }
+
+            .legal {
+                padding: 3rem 1rem;
+            }
+
+            .accordion-content {
+                font-size: 0.9rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .nav {
+                display: none;
+            }
+
+            .hero-title {
+                font-size: 2rem;
+            }
+
+            .hero-subtitle {
+                font-size: 1rem;
+            }
+
+            .pricing-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="logo">
+            <div class="logo-icon"></div>
+            <span>Prism - 棱镜情报</span>
+        </div>
+        <nav class="nav">
+            <a href="#features">功能</a>
+            <a href="#sources">数据源</a>
+            <a href="#pricing">定价</a>
+            <a href="#legal">关于</a>
+        </nav>
+    </header>
+
+    <!-- Hero -->
+    <section class="hero">
+        <h1 class="hero-title">Prism - 棱镜情报</h1>
+        <p class="hero-subtitle">AI 驱动的开源情报聚合工具，聚合全球科技资讯，智能摘要翻译，隐私友好</p>
+        <img class="hero-screenshot" src="https://lsky-nico.cn-nb1.rains3.com/2026/04/1777001196-ScreenShot-Prism.png" alt="Prism 产品截图">
+        <button class="hero-btn">获取激活码</button>
+    </section>
+
+    <!-- Features -->
+    <section class="features" id="features">
+        <h2 class="section-title">核心功能</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="feature-icon">&#128279;</div>
+                <h3 class="feature-title">多源情报聚合</h3>
+                <p class="feature-desc">聚合 36氪、Hacker News、GitHub Trending、ArXiv 等多个公开数据源，一站式获取全球科技动态。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#127800;</div>
+                <h3 class="feature-title">AI 摘要翻译</h3>
+                <p class="feature-desc">用户自备 API Key 直连 AI 模型，智能摘要英文资讯并翻译为中文，保护隐私的同时获得高质量内容。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#128274;</div>
+                <h3 class="feature-title">隐私友好</h3>
+                <p class="feature-desc">不收集身份信息，API Key 存储在浏览器本地，服务端转发后立即丢弃，不持久存储。</p>
+            </div>
+            <div class="feature-card">
+                <div class="feature-icon">&#9881;</div>
+                <h3 class="feature-title">可定制配置</h3>
+                <p class="feature-desc">数据源开关自由控制，Prompt 模板可自定义，满足不同场景的情报需求。</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Data Sources -->
+    <section class="sources" id="sources">
+        <div class="sources-container">
+            <h2 class="section-title">数据源覆盖</h2>
+            <div class="sources-grid">
+                <div class="source-item">
+                    <div class="source-name">36氪</div>
+                    <div class="source-type">创投快讯</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">华尔街见闻</div>
+                    <div class="source-type">宏观经济</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">V2EX</div>
+                    <div class="source-type">社区热议</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">微博热搜</div>
+                    <div class="source-type">国内热点</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">知乎热榜</div>
+                    <div class="source-type">问答精选</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">Hacker News</div>
+                    <div class="source-type">技术热点</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">GitHub Trending</div>
+                    <div class="source-type">开源趋势</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">ArXiv</div>
+                    <div class="source-type">学术论文</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">Product Hunt</div>
+                    <div class="source-type">新品发布</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">HN Hiring</div>
+                    <div class="source-type">技术招聘</div>
+                </div>
+                <div class="source-item">
+                    <div class="source-name">HN Blogs</div>
+                    <div class="source-type">技术博客</div>
+                </div>
+            </div>
+            <div class="sources-more">…… 更多数据源持续添加中</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing -->
+    <section class="pricing" id="pricing">
+        <h2 class="section-title">使用方式</h2>
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <h3 class="pricing-title">免费试用</h3>
+                <div class="pricing-price">每日 3 次</div>
+                <p class="pricing-desc">无需注册，无需激活码<br>匿名访问即可体验</p>
+            </div>
+            <div class="pricing-card highlight">
+                <h3 class="pricing-title">激活码版</h3>
+                <div class="pricing-price">联系获取</div>
+                <p class="pricing-desc">购买激活码使用<br>不限有效期，按次数计费</p>
+            </div>
+            <div class="pricing-card">
+                <h3 class="pricing-title">私有化部署</h3>
+                <div class="pricing-price">定制方案</div>
+                <p class="pricing-desc">完整源码 + 技术支持<br>数据完全自主可控</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Legal -->
+    <section class="legal" id="legal">
+        <h2 class="section-title">合规声明</h2>
+        <div class="accordion">
+            <!-- 用户协议 -->
+            <div class="accordion-item">
+                <div class="accordion-header">
+                    <span>用户服务协议</span>
+                    <div class="accordion-arrow"></div>
+                </div>
+                <div class="accordion-content">
+                    <h2>用户服务协议</h2>
+
+                    <h3>一、服务范围</h3>
+                    <p>「Prism - 棱镜情报」（以下简称"本产品"）是一款面向技术从业者、内容创作者和信息爱好者的 AI 情报聚合工具。本产品提供以下核心服务：</p>
+                    <ul>
+                        <li>聚合公开渠道（RSS 订阅、公开 API）的科技、AI、经济等领域资讯</li>
+                        <li>使用 AI 技术对原文进行摘要提炼和中文翻译（需用户自备 API Key）</li>
+                        <li>提供可定制的数据源配置和 Prompt 模板</li>
+                        <li>本产品仅为本地运行的辅助工具，用户需自行承担网络环境及数据源访问的合法性责任</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>二、AI 生成内容免责声明</h3>
+                    <p>&#9888; 本产品中标注「AI 生成」的内容由大语言模型自动生成。</p>
+                    <ul>
+                        <li>AI 生成内容可能存在"幻觉"、不准确或过时的情况</li>
+                        <li>AI 生成内容不构成投资建议、法律意见或任何专业决策建议</li>
+                        <li>用户应自行核实信息的准确性，并对基于本产品内容所做的任何决策承担全部责任</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>三、知识产权</h3>
+                    <p><strong>3.1 原文版权</strong></p>
+                    <p>本产品聚合的所有原始文章、新闻报道的版权归其原始作者或出版方所有。本产品仅提供原文链接和 AI 生成的摘要转述，不对原文进行全文复制或再分发。</p>
+                    <p><strong>3.2 AI 摘要</strong></p>
+                    <p>AI 生成的摘要和翻译属于对原文的「转化性使用」（Transformative Use），包括语言转换、要点提炼和观点归纳。摘要内容均附有原文链接，方便用户查阅原文。</p>
+                    <p><strong>3.3 产品本身</strong></p>
+                    <p>本产品的源代码以开源形式发布于 GitHub：https://github.com/mumuer1024/Prism</p>
+
+                    <hr>
+
+                    <h3>四、用户行为规范</h3>
+                    <p>使用本产品时，您同意不得：</p>
+                    <ul>
+                        <li>利用本产品进行任何违反中华人民共和国法律法规的行为</li>
+                        <li>将 AI 生成的内容伪装为人工撰写的原创内容进行传播</li>
+                        <li>通过技术手段大规模爬取本产品的数据</li>
+                        <li>对本产品进行反向工程、破解或恶意攻击</li>
+                        <li>利用本产品生成的内容进行造谣、传播虚假信息</li>
+                        <li>将您的激活码恶意分享给他人用于商业牟利或规避使用限制</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>五、激活码服务条款</h3>
+                    <p><strong>5.1 激活码说明</strong></p>
+                    <p>本产品采用激活码（软件使用权授权）模式提供付费服务：</p>
+                    <ul>
+                        <li>激活码购买后无有效期限制，以使用次数为计量单位</li>
+                        <li>每个激活码最多绑定 3 个设备（浏览器）</li>
+                        <li>次数用完后可另行购买激活码叠加使用</li>
+                        <li>激活码通过官方指定渠道购买，购买后由开发者人工发放</li>
+                    </ul>
+
+                    <p><strong>5.2 设备绑定</strong></p>
+                    <ul>
+                        <li>激活时系统将绑定您当前使用的设备标识</li>
+                        <li>超出设备上限时，需先解绑已有设备方可在新设备上使用</li>
+                        <li>浏览器清除本地存储数据后，原设备标识将失效，系统视为新设备并占用新的绑定名额</li>
+                        <li>因用户主动清除浏览器数据导致的设备绑定失效，开发者不承担责任</li>
+                    </ul>
+
+                    <p><strong>5.3 推荐奖励</strong></p>
+                    <ul>
+                        <li>推荐他人购买并激活本产品可获得额外使用次数奖励</li>
+                        <li>推荐奖励在被推荐人首次消费（使用次数扣减）时触发</li>
+                        <li>推荐人每成功推荐一人获得 3 次奖励，无上限</li>
+                        <li>每个激活码仅能享受一次被推荐奖励，被推荐人获得 3 次奖励</li>
+                        <li>开发者保留调整推荐奖励规则的权利，调整前会提前公告</li>
+                    </ul>
+
+                    <p><strong>5.4 退款政策</strong></p>
+                    <ul>
+                        <li>激活码<strong>一经激活，不支持退款</strong></li>
+                        <li>未激活的激活码可在购买后 7 日内联系开发者申请退款</li>
+                        <li>因用户自身原因（如激活码遗失、设备超限等）导致的损失，开发者不承担退款责任</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>六、服务可用性与额度限制</h3>
+                    <p>本产品作为独立极客项目，以"现状"（as-is）提供服务。以下情况可能导致服务中断或功能限制：</p>
+                    <ul>
+                        <li>激活码次数耗尽</li>
+                        <li>短时间内发起的超高频异常请求</li>
+                        <li>第三方服务（AI 模型服务商）的不可抗力中断</li>
+                        <li>数据源（RSS 订阅等）的反爬拦截或结构变更</li>
+                    </ul>
+                    <p>对于正常的服务中断，我们不承担赔偿责任，但会以最高优先级抢修。</p>
+
+                    <hr>
+
+                    <h3>七、API Key 安全责任</h3>
+                    <p>本产品的 AI 功能需要您自备 API Key，您需自行承担以下责任：</p>
+                    <ul>
+                        <li>妥善保管您的 API Key，不得泄露给他人</li>
+                        <li>定期检查 API Key 的使用情况，发现异常及时更换</li>
+                        <li>因 API Key 泄露导致的损失由您自行承担</li>
+                        <li>遵守您所使用的 AI 服务商的服务条款</li>
+                    </ul>
+                    <p>本产品开发者不持有、不访问、不持久存储用户的 API Key。API Key 的申请、充值、合规性均由用户自行负责。开发者不对因 API Key 被封禁或欠费导致的服务中断负责。</p>
+
+                    <hr>
+
+                    <h3>八、私有化配置服务</h3>
+                    <p>如您购买私有化配置服务（自行部署版本的技术咨询支持），服务范围和费用以双方协商为准。私有化部署后的所有数据由您自行管理和保护，开发者不承担相关数据安全责任。</p>
+
+                    <hr>
+
+                    <h3>九、免责声明</h3>
+                    <ul>
+                        <li>本产品不对 AI 生成内容的准确性、完整性或时效性做出任何明示或暗示的保证</li>
+                        <li>用户基于本产品内容做出的任何投资、商业或个人决策，由用户自行承担风险与后果</li>
+                        <li>对于因第三方服务（AI 服务商、数据源等）故障导致的服务中断，我们不承担责任</li>
+                        <li>用户因未妥善保管 API Key 导致的损失，我们不承担责任</li>
+                        <li>用户因清除浏览器本地数据导致的激活码绑定失效，我们不承担责任</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>十、协议变更</h3>
+                    <p>我们保留随时修改本协议的权利。修改后的协议将在本页面更新并注明最新日期。继续使用本产品即视为接受修改后的协议。重大变更将通过产品内通知方式告知。</p>
+
+                    <hr>
+
+                    <h3>十一、适用法律与争议解决</h3>
+                    <p>本协议的订立、履行、解释及争议解决均适用中华人民共和国法律（不包括港澳台地区法律）。因本协议引发的任何争议，双方应首先友好协商解决；协商不成的，任何一方均可向本产品开发者所在地有管辖权的人民法院提起诉讼。</p>
+
+                    <p style="margin-top: 2rem; color: var(--brown); font-size: 0.9rem;">最后更新：2026 年 4 月</p>
+                </div>
+            </div>
+
+            <!-- 隐私政策 -->
+            <div class="accordion-item">
+                <div class="accordion-header">
+                    <span>隐私政策</span>
+                    <div class="accordion-arrow"></div>
+                </div>
+                <div class="accordion-content">
+                    <h2>隐私政策</h2>
+
+                    <h3>一、引言</h3>
+                    <p>「Prism - 棱镜情报」（以下简称"本产品"）是一款 AI 驱动的开源情报聚合工具，由独立开发者运营。本产品仅提供工具使用权，所有 AI 功能均由用户自备 API Key 直连调用，我们不代理、不持久存储、不触碰您的 API 密钥和 AI 请求内容。</p>
+                    <p>我们深知个人信息保护的重要性，并严格遵守《中华人民共和国个人信息保护法》（PIPL）、《数据安全法》及《网络安全法》等相关法律法规。本政策旨在向您说明我们如何收集、使用和保护信息。</p>
+
+                    <hr>
+
+                    <h3>二、服务模式与信息收集</h3>
+
+                    <p><strong>2.1 免费试用（无需激活）</strong></p>
+                    <p>使用免费试用服务时，我们不要求您提供任何个人信息，也不收集姓名、手机号、邮箱等个人身份信息。</p>
+                    <p>我们仅在您的浏览器本地存储中写入以下技术标识符：</p>
+                    <ul>
+                        <li><strong>访客标识（visitor_id）</strong>：由您的浏览器本地生成的随机 UUID，用于统计每日免费使用次数，不含任何个人隐私数据，仅存储在您的设备本地。</li>
+                        <li><strong>设备标识（device_id）</strong>：同上，由浏览器本地生成，用于激活码设备绑定管理。</li>
+                    </ul>
+
+                    <p><strong>2.2 激活码服务</strong></p>
+                    <p>使用激活码激活本产品时，我们在服务器端存储以下信息：</p>
+                    <ul>
+                        <li><strong>激活码状态</strong>：激活码是否已激活、剩余使用次数、激活时间</li>
+                        <li><strong>设备标识</strong>：绑定的设备 ID（由您的浏览器本地生成的随机字符串，不含任何个人身份信息）。用户主动清除浏览器本地数据后，原设备标识将失效，系统视为新设备并占用新的绑定名额。</li>
+                        <li><strong>推荐关系</strong>：如您激活时填写了推荐码，我们记录推荐码关联关系，用于发放推荐奖励。推荐关系仅关联激活码字符串，不关联任何用户身份信息。每个激活码仅能享受一次被推荐奖励。</li>
+                    </ul>
+
+                    <p>我们<strong>不收集</strong>您的真实姓名、邮箱、手机号、身份证号等任何个人身份信息。</p>
+
+                    <p><strong>2.3 我们不收集的信息</strong></p>
+                    <ul>
+                        <li>&#10060; 不收集真实姓名、身份证号、手机号、邮箱</li>
+                        <li>&#10060; 不收集银行卡等支付信息（支付由第三方平台处理）</li>
+                        <li>&#10060; 不持久存储您的 API Key（存储在您的浏览器本地）</li>
+                        <li>&#10060; 不代理您的 AI 请求（您直连 AI 服务商）</li>
+                        <li>&#10060; 不获取您发送给 AI 的内容（情报内容、Prompt 等）</li>
+                        <li>&#10060; 不使用 Cookie 进行跨站追踪</li>
+                        <li>&#10060; 不进行用户画像或行为分析广告投放</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>三、AI 功能与数据流向说明</h3>
+
+                    <p><strong>3.1 API Key 管理</strong></p>
+                    <p>本产品的 AI 功能需要您自备 API Key。您的 API Key 相关说明：</p>
+                    <ul>
+                        <li><strong>存储位置</strong>：您的浏览器本地存储（localStorage）</li>
+                        <li><strong>传输方式</strong>：仅在您触发任务时，由您的浏览器读取并通过加密通道传输至本产品服务端，服务端用于调用 AI 服务后立即丢弃，不做任何持久化存储</li>
+                        <li><strong>我们的角色</strong>：我们不持久存储您的 API Key，不将其用于任何其他目的</li>
+                    </ul>
+
+                    <p><strong>3.2 AI 请求流向</strong></p>
+                    <pre style="background: var(--bg-card); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">您的浏览器（读取本地 API Key）
+    &#8595; HTTPS 加密传输
+本产品服务端（转发请求，不持久存储 Key）
+    &#8595;
+您选择的 AI 服务商</pre>
+
+                    <p><strong>3.3 您需要注意</strong></p>
+                    <ul>
+                        <li>请妥善保管您的 API Key，不要分享给他人</li>
+                        <li>您与 AI 服务商之间的数据传输遵循该服务商的隐私政策</li>
+                        <li>AI 生成的内容由您选择的模型服务商处理，我们不对其负责</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>四、数据存储与保留</h3>
+
+                    <p><strong>4.1 数据存储位置</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据类型</th><th>存储位置</th><th>说明</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>用户 API Key</td><td>浏览器本地</td><td>不持久存储于服务器</td></tr>
+                            <tr><td>数据源配置</td><td>浏览器本地</td><td>不上传服务器</td></tr>
+                            <tr><td>Prompt 模板</td><td>服务器（按激活码隔离）</td><td>用于多设备同步</td></tr>
+                            <tr><td>生成的报告</td><td>服务器（按激活码隔离）</td><td>30 天自动清理</td></tr>
+                            <tr><td>访客标识</td><td>浏览器本地</td><td>不上传服务器</td></tr>
+                            <tr><td>激活码状态</td><td>服务器</td><td>激活码存续期间保留</td></tr>
+                            <tr><td>设备绑定记录</td><td>服务器</td><td>激活码存续期间保留</td></tr>
+                            <tr><td>推荐关系记录</td><td>服务器</td><td>激活码存续期间保留，仅含激活码字符串</td></tr>
+                            <tr><td>审计日志</td><td>服务器</td><td>滚动保留最近 180 天</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>4.2 关于审计日志</strong></p>
+                    <p>审计日志仅记录管理员在后台执行的操作行为，包括：操作类型、操作时间、管理员标识、被操作对象 ID 及操作详情。不记录普通用户的使用行为、Prompt 内容或 API Key 信息。管理员 IP 地址会被记录用于安全审查，属于技术元数据，不用于识别任何普通用户身份。审计日志滚动保留最近 180 天，符合《网络安全法》关于日志留存不少于 6 个月的要求。</p>
+
+                    <p><strong>4.3 数据保留期限</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据类型</th><th>保留期限</th><th>说明</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>激活码状态</td><td>激活码存续期间</td><td>次数耗尽后可申请清除</td></tr>
+                            <tr><td>设备绑定记录</td><td>激活码存续期间</td><td>可随时解绑设备</td></tr>
+                            <tr><td>云端保存的报告</td><td>30 天</td><td>自动清理过期报告</td></tr>
+                            <tr><td>推荐关系记录</td><td>激活码存续期间</td><td>用于奖励发放</td></tr>
+                            <tr><td>审计日志</td><td>180 天（滚动保留）</td><td>符合《网络安全法》要求</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>4.4 私有化配置服务</strong></p>
+                    <p>如您购买私有化配置服务，所有数据存储在您自己的服务器，由您自行管理和保护。</p>
+
+                    <hr>
+
+                    <h3>五、第三方服务</h3>
+                    <p>本产品使用以下第三方服务，请注意其独立的隐私政策：</p>
+                    <table>
+                        <thead>
+                            <tr><th>服务商</th><th>用途</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>OpenAI / Google Gemini / xAI Grok / 其他</td><td>AI 内容生成（用户自选，经服务端转发，Key 不持久存储）</td></tr>
+                            <tr><td>数据源（Hacker News、36Kr 等）</td><td>资讯聚合</td></tr>
+                        </tbody>
+                    </table>
+
+                    <hr>
+
+                    <h3>六、AI 生成内容声明</h3>
+                    <p>&#129302; 本产品使用 AI 技术对公开资讯进行摘要、翻译和分析。所有 AI 生成的内容均强制显示「AI 生成」标识，本产品不提供关闭此标识的选项，以确保信息透明度和用户知情权，符合《人工智能生成合成内容标识管理办法》（2025 年 9 月 1 日起施行）的要求。</p>
+                    <p>AI 生成内容可能存在"幻觉"、不准确或过时的情况，仅供参考，不代表原文观点，不构成任何投资、法律或专业决策建议。用户应自行核实信息的准确性，并对基于本产品内容所做的任何决策承担全部责任。</p>
+
+                    <hr>
+
+                    <h3>七、用户权利</h3>
+                    <p>根据相关法律法规，您享有以下权利：</p>
+                    <ul>
+                        <li><strong>知情权</strong>：通过本政策了解信息处理规则</li>
+                        <li><strong>访问权</strong>：可随时查看您的激活码状态和设备绑定情况</li>
+                        <li><strong>删除权</strong>：可申请删除您的激活码相关数据</li>
+                        <li><strong>设备管理权</strong>：可随时解绑已绑定的设备</li>
+                        <li><strong>数据可携带权</strong>：可导出您的配置和报告数据</li>
+                    </ul>
+                    <p>如需行使上述权利，请通过本政策底部的联系方式与我们联系。</p>
+
+                    <hr>
+
+                    <h3>八、未成年人保护</h3>
+                    <p>本产品不面向未满 14 周岁的未成年人。由于本产品不收集任何可识别用户身份的个人信息，我们无法主动识别用户年龄。如监护人发现未成年人使用本产品，建议立即停止使用。</p>
+
+                    <hr>
+
+                    <h3>九、安全措施</h3>
+                    <ul>
+                        <li>全链路 HTTPS 加密传输</li>
+                        <li>API Key 仅在请求转发时使用，不做持久化存储</li>
+                        <li>设备标识由用户浏览器本地生成，不含个人信息</li>
+                        <li>审计日志不记录任何普通用户可识别身份的信息</li>
+                        <li>用户数据定期自动清理，减少数据泄露风险</li>
+                        <li>定期审查系统安全状态</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>十、政策更新</h3>
+                    <p>我们可能不时更新本隐私政策。更新后的政策将在本页面发布，并更新"最后更新"日期。重大变更将通过产品内通知方式告知用户。</p>
+
+                    <hr>
+
+                    <h3>十一、联系我们</h3>
+                    <p>如果您对本隐私政策有任何疑问或建议，请通过以下方式联系：</p>
+                    <p>&#128279; GitHub：https://github.com/mumuer1024/Prism</p>
+
+                    <p style="margin-top: 2rem; color: var(--brown); font-size: 0.9rem;">最后更新：2026 年 4 月</p>
+                </div>
+            </div>
+
+            <!-- 数据来源声明 -->
+            <div class="accordion-item">
+                <div class="accordion-header">
+                    <span>数据来源声明</span>
+                    <div class="accordion-arrow"></div>
+                </div>
+                <div class="accordion-content">
+                    <h2>数据来源声明</h2>
+
+                    <h3>一、数据来源概述</h3>
+                    <p>「Prism - 棱镜情报」聚合来自以下公开渠道的信息，所有数据均来自各平台的公开前端接口或官方 API。</p>
+
+                    <hr>
+
+                    <h3>二、数据源详情</h3>
+
+                    <p><strong>2.1 科技前沿与开源趋势</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据源</th><th>获取方式</th><th>内容类型</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Hacker News</td><td>官方公开 API</td><td>技术热点讨论</td></tr>
+                            <tr><td>HN Hiring</td><td>官方公开 API</td><td>技术岗位招聘信息</td></tr>
+                            <tr><td>GitHub Trending</td><td>公开页面</td><td>开源项目趋势</td></tr>
+                            <tr><td>ArXiv</td><td>官方 API</td><td>学术论文</td></tr>
+                            <tr><td>HN Top Blogs</td><td>RSS 订阅</td><td>技术博客</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>2.2 资本动向与宏观经济</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据源</th><th>获取方式</th><th>内容类型</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>36氪（36Kr）</td><td>公开 RSS</td><td>创投快讯</td></tr>
+                            <tr><td>华尔街见闻</td><td>公开 RSS</td><td>宏观经济</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>2.3 产品与社区</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据源</th><th>获取方式</th><th>内容类型</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Product Hunt</td><td>官方 API</td><td>新品发布</td></tr>
+                            <tr><td>V2EX</td><td>公开 RSS</td><td>社区热议与需求</td></tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>2.4 热榜聚合（DailyHotApi）</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据源</th><th>获取方式</th><th>内容类型</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>微博热搜、知乎热榜等</td><td>DailyHotApi（开源项目）</td><td>国内平台热榜</td></tr>
+                        </tbody>
+                    </table>
+                    <p>DailyHotApi 为开源项目，通过各平台公开接口聚合热榜数据，项目地址：https://github.com/imsyy/DailyHotApi</p>
+                    <p>免责说明：对于 DailyHotApi 项目因获取国内平台热榜数据而可能引发的任何法律争议，本产品开发者不承担连带责任。建议用户仅将此类数据用于个人研究目的。</p>
+
+                    <p><strong>2.5 深度搜索（用户自备）</strong></p>
+                    <table>
+                        <thead>
+                            <tr><th>数据源</th><th>获取方式</th><th>内容类型</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Tavily</td><td>用户自备 API Key</td><td>深度网络搜索</td></tr>
+                        </tbody>
+                    </table>
+
+                    <hr>
+
+                    <h3>三、内容获取方式</h3>
+                    <p>本产品仅通过公开 RSS 订阅和官方 API 获取数据，不使用爬虫技术绕过任何网站的访问限制或反爬措施。</p>
+                    <p>具体技术手段包括：</p>
+                    <ul>
+                        <li><strong>RSS/Atom 订阅</strong>：订阅目标网站提供的公开 RSS 源，获取标题、摘要和链接</li>
+                        <li><strong>公开 API</strong>：使用 Hacker News API、ArXiv API、Product Hunt API 等官方接口，遵守其使用条款和速率限制</li>
+                        <li><strong>DailyHotApi</strong>：通过自托管的开源热榜聚合服务获取国内平台公开热榜数据</li>
+                        <li><strong>用户自备 Key</strong>：Tavily 深度搜索由用户自行提供 API Key，本产品不存储相关 Key</li>
+                        <li>严格遵守各数据源的 robots.txt 协议及使用条款，不干扰网站正常运行</li>
+                        <li>我们将定期审查各数据源的使用条款变更，如发现合规风险将及时调整或移除相关数据源</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>四、AI 转述与转化性使用</h3>
+                    <p>&#128260; 本产品对原始内容进行的 AI 摘要属于「转化性使用」（Transformative Use），即在原文基础上进行了实质性转化，包括：语言翻译（英→中）、要点提炼、观点归纳、格式重组。AI 摘要不替代原文阅读，所有摘要均附有原文链接。</p>
+                    <p>转化性使用的具体表现：</p>
+                    <ul>
+                        <li><strong>语言转换</strong>：将英文原文翻译为中文，方便中文用户阅读</li>
+                        <li><strong>信息提炼</strong>：从长篇文章中提取关键要点，生成简明摘要</li>
+                        <li><strong>结构重组</strong>：将原文内容按情报分析框架重新组织</li>
+                        <li><strong>原文溯源</strong>：每条情报均附带原文 URL，用户可一键查阅原文</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>五、原作者权益保护</h3>
+                    <p>本产品尊重所有原始内容创作者的版权和知识产权。</p>
+                    <ul>
+                        <li>所有聚合内容均保留原文出处链接，引导用户访问原始网站</li>
+                        <li>AI 摘要不进行原文的全文复制，仅提供提炼后的要点信息</li>
+                        <li>严格遵守各数据源的 robots.txt 协议及使用条款，不干扰网站正常运行</li>
+                        <li>如原文作者要求移除相关内容，我们将在收到通知后 3 个工作日内处理</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>六、AI 内容标识声明</h3>
+                    <p>根据《人工智能生成合成内容标识管理办法》（2025 年 9 月 1 日起施行），本产品对所有 AI 生成的内容做出如下标识：</p>
+                    <ul>
+                        <li><strong>强制显示</strong>：所有 AI 生成的摘要内容旁强制标注「&#129302; AI 生成」文字标签，不提供关闭选项</li>
+                        <li><strong>模型说明</strong>：本产品支持用户自选 AI 模型（如 Gemini、OpenAI、xAI Grok 等）进行内容生成</li>
+                        <li><strong>能力边界</strong>：AI 摘要可能受模型"幻觉"影响，产生事实偏差或翻译错误，不应作为唯一信息来源</li>
+                    </ul>
+
+                    <hr>
+
+                    <h3>七、侵权反馈渠道</h3>
+                    <p>如果您认为本产品的内容侵犯了您的合法权益（包括但不限于版权、商标权等），请通过以下方式联系：</p>
+                    <p>&#128279; GitHub Issues：https://github.com/mumuer1024/Prism/issues</p>
+                    <p>请在通知中提供以下信息：</p>
+                    <ul>
+                        <li>您的身份证明（个人/机构）</li>
+                        <li>被侵权内容的具体描述和原文链接</li>
+                        <li>本产品中涉嫌侵权的内容描述</li>
+                        <li>您的权利证明文件</li>
+                    </ul>
+                    <p>我们承诺在收到有效通知后 3 个工作日内进行初步审查，并在确认侵权后及时移除相关内容。</p>
+
+                    <p style="margin-top: 2rem; color: var(--brown); font-size: 0.9rem;">最后更新：2026 年 4 月</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="footer-name">Prism - 棱镜情报</div>
+        <div class="footer-links">
+            <a href="https://github.com/mumuer1024/Prism" target="_blank">GitHub</a>
+        </div>
+        <div class="footer-meta">AI 驱动的开源情报聚合工具</div>
+        <div class="footer-beian">备案号待填写</div>
+        <div style="font-size: 0.8rem; color: var(--brown-light); margin-top: 0.5rem;">最后更新：2026 年 4 月</div>
+    </footer>
+
+    <script>
+        // Header scroll effect
+        window.addEventListener('scroll', function() {
+            const header = document.querySelector('.header');
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+
+        // Accordion functionality
+        document.querySelectorAll('.accordion-header').forEach(function(header) {
+            header.addEventListener('click', function() {
+                const item = this.parentElement;
+                const isActive = item.classList.contains('active');
+
+                // Close all other items
+                document.querySelectorAll('.accordion-item').forEach(function(i) {
+                    i.classList.remove('active');
+                });
+
+                // Toggle current item
+                if (!isActive) {
+                    item.classList.add('active');
+                }
+            });
+        });
+
+        // Smooth scroll for nav links
+        document.querySelectorAll('.nav a').forEach(function(link) {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const targetId = this.getAttribute('href');
+                const target = document.querySelector(targetId);
+                if (target) {
+                    const headerHeight = document.querySelector('.header').offsetHeight;
+                    const targetPosition = target.offsetTop - headerHeight;
+                    window.scrollTo({
+                        top: targetPosition,
+                        behavior: 'smooth'
+                    });
+                }
+            });
+        });
+
+        // Hero button scroll to pricing
+        document.querySelector('.hero-btn').addEventListener('click', function() {
+            const target = document.querySelector('#pricing');
+            const headerHeight = document.querySelector('.header').offsetHeight;
+            const targetPosition = target.offsetTop - headerHeight;
+            window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+            });
+        });
+    </script>
+</body>
+</html>
