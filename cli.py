@@ -34,7 +34,7 @@ def main():
     print(f"\n{'='*50}")
     print(f"  Unified Intelligence Fetcher V2")
     print(f"  Date: {date_str} | Limit: {limit}/source")
-    print(f"  Sources: HN, GitHub, 36Kr, WS, V2EX, PH, ArXiv, X, XHS")
+    print(f"  Sources: HN, GitHub, 36Kr, WS, V2EX, PH, ArXiv, X")
     print(f"{'='*50}\n")
     
     # Fetch

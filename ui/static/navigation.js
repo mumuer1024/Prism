@@ -62,12 +62,25 @@ function loadTabData(tab) {
   switch (tab) {
     case 'sources':
       loadSources();
+      // 加载数据源健康状态
+      if (typeof loadSourceHealth === 'function') {
+        loadSourceHealth();
+      }
       break;
     case 'reports':
       loadReports();
       break;
     case 'config':
       loadConfig();
+      break;
+    case 'marketplace':
+      if (typeof initMarketplace === 'function') {
+        initMarketplace();
+      }
+      break;
+    case 'console':
+      // Console tab - no additional data loading needed
+      // User panel is initialized on page load (see index.html DOMContentLoaded)
       break;
     default:
       // console tab doesn't need data loading

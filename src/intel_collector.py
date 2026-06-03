@@ -53,8 +53,6 @@ try:
         SOURCE_ENABLED_WALLSTREET,
         SOURCE_ENABLED_X_GROK,
         SOURCE_ENABLED_HN_BLOGS,
-        SOURCE_ENABLED_CHROME,
-        SOURCE_ENABLED_XHS,
     )
 except ImportError:
     from src.config import (
@@ -67,23 +65,14 @@ except ImportError:
         SOURCE_ENABLED_WALLSTREET,
         SOURCE_ENABLED_X_GROK,
         SOURCE_ENABLED_HN_BLOGS,
-        SOURCE_ENABLED_CHROME,
-        SOURCE_ENABLED_XHS,
     )
 
 # --- Imports: Local Sensors (graceful degradation) ---
 PH_AVAILABLE = False
 ARXIV_AVAILABLE = False
 GROK_AVAILABLE = False
-XHS_AVAILABLE = False
 HN_BLOGS_AVAILABLE = False
 VERIFIER_AVAILABLE = False
-CHROME_AVAILABLE = False
-try:
-    from sensors.chrome_radar import ChromeRadar
-    CHROME_AVAILABLE = True
-except ImportError:
-    logger.info("Chrome Radar sensor not available, skipping.")
 
 try:
     from sensors.product_hunt import fetch_trending_products
@@ -98,16 +87,10 @@ except ImportError:
     logger.info("ArXiv sensor not available, skipping.")
 
 try:
-    from sensors.x_grok_sensor import fetch_grok_intel
+    from sensors.x_grok_sensor import fetch_grok_intel, batch_fetch_grok_intel, GrokSensor
     GROK_AVAILABLE = True
 except ImportError:
     logger.info("Grok (X/Twitter) sensor not available, skipping.")
-
-try:
-    from sensors.xhs_radar import XHSRadar
-    XHS_AVAILABLE = True
-except ImportError:
-    logger.info("XHS (Xiaohongshu) sensor not available, skipping.")
 
 try:
     from sensors.hn_blogs import fetch_hn_blogs
@@ -196,34 +179,68 @@ def _fetch_product_hunt(limit: int) -> List[Dict]:
         return []
     if not PH_AVAILABLE:
         return []
-    # ... 原函数其余代码不变
+
     products_data = []
     try:
         ph_products = fetch_trending_products(limit)
-        for i, p in enumerate(ph_products):
+
+        # 先收集所有产品数据
+        for p in ph_products:
             product_data = {
                 "source": "Product Hunt", "category": "Product Hunt",
                 "title": p.name, "url": p.url,
                 "heat": f"{p.votes_count} votes", "time": "Today",
                 "tagline": p.tagline, "grok_review": None,
             }
-            if GROK_AVAILABLE and i < 3:
-                logger.info(f"Grok sentiment check: {p.name}...")
-                try:
-                    grok_prompt = (
-                        f'You are an X (Twitter) analyst. Search X for the product "{p.name}" '
-                        f'with tagline "{p.tagline}". Provide a market sentiment summary in '
-                        f'Simplified Chinese, including: 1. Overall sentiment 2. 3-5 key findings '
-                        f'3. Pros and Cons. Keep it concise. If no data, say "暂无X平台讨论数据".'
-                    )
-                    grok_result = fetch_grok_intel(f"PH: {p.name}", override_prompt=grok_prompt)
-                    if grok_result and "Error" not in grok_result:
-                        product_data["grok_review"] = grok_result
-                except Exception as e:
-                    logger.warning(f"Grok failed for {p.name}: {e}")
             products_data.append(product_data)
+
+        # 批量舆情核查（优化：合并为一次 API 调用）
+        if GROK_AVAILABLE and products_data:
+            # 取前 5 个产品进行舆情核查
+            check_products = products_data[:5]
+            items = [
+                {"name": p["title"], "description": p["tagline"]}
+                for p in check_products
+            ]
+
+            logger.info(f"Grok 批量舆情核查: {len(items)} 个产品...")
+
+            try:
+                # 使用批量调用
+                batch_results = batch_fetch_grok_intel(items)
+
+                # 将结果分配到各产品
+                for product_data in check_products:
+                    name = product_data["title"]
+                    if name in batch_results:
+                        result = batch_results[name]
+                        if result and "Error" not in result:
+                            product_data["grok_review"] = result
+                        else:
+                            product_data["grok_review"] = f"舆情核查失败: {result}"
+
+                logger.info(f"Grok 批量舆情核查完成")
+
+            except Exception as e:
+                logger.warning(f"Grok 批量舆情核查失败: {e}")
+                # 回退：逐个调用（仅前 3 个）
+                for i, product_data in enumerate(check_products[:3]):
+                    try:
+                        grok_prompt = (
+                            f'You are an X (Twitter) analyst. Search X for the product "{product_data["title"]}" '
+                            f'with tagline "{product_data["tagline"]}". Provide a market sentiment summary in '
+                            f'Simplified Chinese, including: 1. Overall sentiment 2. 3-5 key findings '
+                            f'3. Pros and Cons. Keep it concise. If no data, say "暂无X平台讨论数据".'
+                        )
+                        grok_result = fetch_grok_intel(f"PH: {product_data['title']}", override_prompt=grok_prompt)
+                        if grok_result and "Error" not in grok_result:
+                            product_data["grok_review"] = grok_result
+                    except Exception as ex:
+                        logger.warning(f"Grok failed for {product_data['title']}: {ex}")
+
     except Exception as e:
         logger.warning(f"Product Hunt failed: {e}")
+
     return products_data
 
 
@@ -273,27 +290,6 @@ def _fetch_grok_social() -> List[Dict]:
     return social
 
 
-def _fetch_xhs() -> List[Dict]:
-    if not SOURCE_ENABLED_XHS:  # ← 添加这行
-        logger.info("XHS source disabled, skipping.")  # ← 添加这行
-        return []  # ← 添加这行
-    if not XHS_AVAILABLE:
-        return []
-    # ... 原函数其余代码
-    directives = []
-    try:
-        radar = XHSRadar()
-        leads = radar.fetch_leads()
-        for lead in leads[:8]:
-            directives.append({
-                "source": "小红书", "category": "XHS",
-                "title": lead.title, "url": lead.url, "summary": lead.summary,
-            })
-    except Exception as e:
-        logger.warning(f"XHS failed: {e}")
-    return directives
-
-
 def _fetch_hn_blogs(limit: int) -> List[Dict]:
     if not SOURCE_ENABLED_HN_BLOGS:
         logger.info("HN Blogs source disabled, skipping.")
@@ -314,29 +310,6 @@ def _fetch_hn_blogs(limit: int) -> List[Dict]:
     except Exception as e:
         logger.warning(f"HN Blogs failed: {e}")
     return insights
-
-def _fetch_chrome(limit: int = 5) -> List[Dict]:
-    """Fetch Chrome Web Store opportunities."""
-    if not SOURCE_ENABLED_CHROME:
-        logger.info("Chrome Radar source disabled, skipping.")
-        return []
-    if not CHROME_AVAILABLE:
-        return []
-    results = []
-    try:
-        radar = ChromeRadar()
-        opportunities = radar.scan_opportunities(limit=limit)
-        for opp in opportunities:
-            results.append({
-                "source": "Chrome Radar", "category": "Chrome Extensions",
-                "title": opp.name, "url": opp.url,
-                "rating": opp.rating, "users": opp.user_count_str,
-                "description": opp.description, "kill_shot": opp.kill_shot,
-            })
-        logger.info(f"Chrome Radar: fetched {len(results)} opportunities")
-    except Exception as e:
-        logger.warning(f"Chrome Radar failed: {e}")
-    return results
 
 
 def _dedup_items(items: List[Dict], key: str = "title") -> List[Dict]:
@@ -365,9 +338,7 @@ def fetch_all_sources(limit_per_source: int = 10) -> dict:
         future_ph = executor.submit(_fetch_product_hunt, limit_per_source)
         future_arxiv = executor.submit(_fetch_arxiv, limit_per_source)
         future_social = executor.submit(_fetch_grok_social)
-        future_xhs = executor.submit(_fetch_xhs)
         future_blogs = executor.submit(_fetch_hn_blogs, 5)
-        future_chrome = executor.submit(_fetch_chrome, 5)        
 
         try:
             external = future_external.result(timeout=FETCH_TIMEOUT)
@@ -385,9 +356,7 @@ def fetch_all_sources(limit_per_source: int = 10) -> dict:
         ph_data = _safe_result(future_ph, "Product Hunt")
         arxiv_data = _safe_result(future_arxiv, "ArXiv")
         social_data = _safe_result(future_social, "Grok Social")
-        xhs_data = _safe_result(future_xhs, "XHS")
         blog_data = _safe_result(future_blogs, "HN Blogs")
-        chrome_data = _safe_result(future_chrome, "Chrome Radar")
 
     intel = {
         "tech_trends": _dedup_items(external.get("tech_trends", [])),
@@ -396,9 +365,7 @@ def fetch_all_sources(limit_per_source: int = 10) -> dict:
         "community": _dedup_items(external.get("community", [])),
         "research": arxiv_data,
         "social": social_data,
-        "xhs_directives": xhs_data,
         "insights": blog_data,
-        "chrome_opportunities": chrome_data,
     }
 
     total = sum(len(v) for v in intel.values())

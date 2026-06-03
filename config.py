@@ -7,7 +7,8 @@ import logging
 import sys
 from dotenv import load_dotenv
 
-load_dotenv()
+# 使用 override=True 确保 .env 文件优先于系统环境变量
+load_dotenv(override=True)
 
 # --- Logging ---
 LOG_FORMAT = "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
@@ -105,5 +106,4 @@ SOURCE_ENABLED_36KR = _parse_bool(os.getenv("SOURCE_ENABLED_36KR"), True)
 SOURCE_ENABLED_WALLSTREET = _parse_bool(os.getenv("SOURCE_ENABLED_WALLSTREET"), True)
 SOURCE_ENABLED_X_GROK = _parse_bool(os.getenv("SOURCE_ENABLED_X_GROK"), True)
 SOURCE_ENABLED_HN_BLOGS = _parse_bool(os.getenv("SOURCE_ENABLED_HN_BLOGS"), True)
-SOURCE_ENABLED_CHROME = _parse_bool(os.getenv("SOURCE_ENABLED_CHROME"), True)
-SOURCE_ENABLED_XHS = _parse_bool(os.getenv("SOURCE_ENABLED_XHS"), True)
+# Chrome 扩展雷达已移除

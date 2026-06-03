@@ -2,6 +2,8 @@
 Product Hunt Sensor - Fetches trending products from Product Hunt.
 Uses the official GraphQL API (requires API token for full access).
 Falls back to scraping if no token available.
+
+v2.1 改造：优先读取用户传入的 Token（USER_* 环境变量）
 """
 import sys
 import os
@@ -30,8 +32,17 @@ class PHProduct:
     maker_twitter: Optional[str] = None
     thumbnail_url: Optional[str] = None
 
+
 def load_ph_token() -> Optional[str]:
-    """Load Product Hunt API token from .env or environment variables."""
+    """
+    Load Product Hunt API token.
+    Priority: USER_PRODUCTHUNT_TOKEN (env) > PRODUCTHUNT_TOKEN (env/.env)
+    """
+    # v2.1: 优先读取用户传入的 Token
+    user_token = os.getenv("USER_PRODUCTHUNT_TOKEN")
+    if user_token:
+        return user_token
+    
     # CI environments: env vars are set directly
     env_token = os.getenv("PRODUCTHUNT_TOKEN")
     if env_token:
@@ -39,11 +50,11 @@ def load_ph_token() -> Optional[str]:
 
     # Local: Try multiple possible .env locations
     possible_paths = [
-        os.path.join(os.path.dirname(__file__), "..", "..", ".env"),  # D:\Intel_Briefing\.env
-        os.path.join(os.path.dirname(__file__), "..", ".env"),        # D:\Intel_Briefing\src\.env
+        os.path.join(os.path.dirname(__file__), "..", "..", ".env"),  # Project root
+        os.path.join(os.path.dirname(__file__), "..", ".env"),        # src/.env
         os.path.join(os.getcwd(), ".env"),                            # Current working dir
     ]
-    
+
     for env_path in possible_paths:
         if os.path.exists(env_path):
             with open(env_path, "r", encoding="utf-8-sig") as f:
@@ -53,8 +64,6 @@ def load_ph_token() -> Optional[str]:
                         if len(parts) == 2:
                             token = parts[1].strip().strip('"').strip("'")
                             if token:
-                                # Start hidden to avoid log spam
-                                # print(f"    (Loaded PH token from {os.path.basename(env_path)})")
                                 return token
     return None
 

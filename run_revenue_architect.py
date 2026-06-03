@@ -8,6 +8,8 @@
 - ✍️ 创作机会: 高互动潜力的内容选题
 - 📈 涨粉机会: 可以蹭热度的趋势话题
 - 🤝 背书机会: 参与贡献能建立信誉的开源项目
+
+v2.1 改造：报告按用户隔离，优先读取用户传入的 LLM Key
 """
 import sys
 import os
@@ -16,6 +18,8 @@ import logging
 import datetime
 import glob
 import re
+from pathlib import Path
+from typing import Optional, Dict
 
 # Windows 控制台 UTF-8 支持
 if sys.platform == "win32":
@@ -35,11 +39,49 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
-REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "opportunities")
-DAILY_REPORT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "daily_briefings")
+# 基础目录
+BASE_DIR = Path(__file__).parent.resolve()
 
-# 营收分析专用 Prompt
-REVENUE_ANALYSIS_PROMPT = """你是一位资深的商业分析师和独立开发者导师。请仔细阅读以下情报日报内容，并从中挖掘出具体的商业和个人品牌机会。
+
+def get_user_report_dir() -> Path:
+    """
+    获取用户报告目录（按用户隔离）
+    
+    Returns:
+        报告目录路径
+    """
+    user_id = os.getenv("USER_ID", "anonymous")
+    return BASE_DIR / "reports" / f"user_{user_id}" / "opportunities"
+
+
+def get_user_daily_report_dir() -> Path:
+    """
+    获取日报目录（按用户隔离）
+    
+    Returns:
+        日报目录路径
+    """
+    user_id = os.getenv("USER_ID", "anonymous")
+    return BASE_DIR / "reports" / f"user_{user_id}" / "daily_briefings"
+
+
+def get_user_llm_config() -> Dict:
+    """
+    获取 LLM 配置（优先用户传入，回退全局 .env）
+    
+    Returns:
+        LLM 配置字典
+    """
+    return {
+        'api_key': os.getenv("USER_LLM_API_KEY") or os.getenv("LLM_API_KEY", ""),
+        'base_url': os.getenv("USER_LLM_BASE_URL") or os.getenv("LLM_BASE_URL", ""),
+        'model': os.getenv("USER_LLM_MODEL") or os.getenv("LLM_MODEL", ""),
+        'api_format': os.getenv("USER_LLM_API_FORMAT") or os.getenv("LLM_API_FORMAT", "openai"),
+    }
+
+
+# 营收分析专用 Prompt（默认值）
+DEFAULT_REVENUE_ANALYSIS_PROMPT = """你是一位资深的商业分析师和独立开发者导师。请仔细阅读以下情报日报内容，并从中挖掘出具体的商业和个人品牌机会。
 
 请将机会分为以下 5 个类别，每个类别至少提供 3 个具体的行动建议：
 
@@ -100,12 +142,13 @@ REVENUE_ANALYSIS_PROMPT = """你是一位资深的商业分析师和独立开发
 
 def find_latest_daily_report():
     """找到最近生成的日报文件"""
-    report_pattern = os.path.join(DAILY_REPORT_DIR, "Morning_Report_*.md")
+    daily_report_dir = get_user_daily_report_dir()
+    report_pattern = str(daily_report_dir / "Morning_Report_*.md")
     reports = glob.glob(report_pattern)
 
     if not reports:
         # 也检查周报
-        report_pattern = os.path.join(DAILY_REPORT_DIR, "Weekly_Report_*.md")
+        report_pattern = str(daily_report_dir / "Weekly_Report_*.md")
         reports = glob.glob(report_pattern)
 
     if not reports:
@@ -141,25 +184,28 @@ def read_report_content(report_path: str) -> str:
     return content
 
 
-def call_llm_analysis(content: str) -> str:
-    """调用 LLM 进行营收分析"""
-    prompt = REVENUE_ANALYSIS_PROMPT.format(content=content)
+def call_llm_analysis(content: str, user_prompt: Optional[str] = None) -> str:
+    """调用 LLM 进行营收分析
+    
+    Args:
+        content: 待分析的日报内容
+        user_prompt: 用户自定义Prompt，为None时使用默认Prompt
+    """
+    prompt_template = user_prompt or DEFAULT_REVENUE_ANALYSIS_PROMPT
+    prompt = prompt_template.format(content=content)
 
     if LLM_CLIENT_AVAILABLE:
         try:
-            # 尝试使用 llm_client
-            import os
-            from dotenv import load_dotenv
-            load_dotenv()
-
-            # 获取 LLM 配置
-            base_url = os.getenv("LLM_BASE_URL", os.getenv("XAI_BASE_URL", ""))
-            api_key = os.getenv("LLM_API_KEY", os.getenv("XAI_API_KEY", ""))
-            model = os.getenv("LLM_MODEL", os.getenv("XAI_MODEL", "grok-beta"))
-            api_format = os.getenv("LLM_API_FORMAT", "openai")
+            # 优先读取用户传入的 LLM 配置
+            llm_config = get_user_llm_config()
+            
+            base_url = llm_config['base_url']
+            api_key = llm_config['api_key']
+            model = llm_config['model']
+            api_format = llm_config['api_format']
 
             if not api_key:
-                return "错误: 未配置 LLM API Key。请设置 LLM_API_KEY 或 XAI_API_KEY。"
+                return "错误: 未配置 LLM API Key。请在配置页填写 LLM API Key。"
 
             logger.info(f"调用 LLM: {model}")
             
@@ -213,19 +259,35 @@ def call_llm_analysis(content: str) -> str:
         return "错误: llm_client.py 不可用，无法进行 LLM 分析。"
 
 
-def generate_revenue_architect_report(target_report: str = None):
+def generate_revenue_architect_report(target_report: str = None, user_id: Optional[int] = None):
     """
     分析日报内容并生成营收机会报告。
+    
+    Args:
+        target_report: 指定要分析的日报文件路径
+        user_id: 用户ID，用于读取用户自定义配置。为None时使用默认配置。
     """
     setup_logging()
     date_str = datetime.datetime.now().strftime("%Y-%m-%d")
+
+    # 读取用户配置（如果有 user_id）
+    user_prompt = None
+    if user_id:
+        try:
+            from src.config_loader import get_user_prompt
+            user_prompt = get_user_prompt(user_id, "revenue")
+            logger.info(f"使用用户配置: user_id={user_id}")
+        except Exception as e:
+            logger.warning(f"读取用户配置失败，使用默认配置: {e}")
 
     print("=" * 60)
     print("  🏗️ REVENUE ARCHITECT - 营收分析师")
     print("=" * 60)
 
-    os.makedirs(REPORT_DIR, exist_ok=True)
-    report_file = os.path.join(REPORT_DIR, f"Revenue_Analysis_{date_str}.md")
+    # 获取用户报告目录（按用户隔离）
+    report_dir = get_user_report_dir()
+    report_dir.mkdir(parents=True, exist_ok=True)
+    report_file = report_dir / f"Revenue_Analysis_{date_str}.md"
 
     # 1. 找到要分析的日报
     if target_report and os.path.exists(target_report):
@@ -248,7 +310,7 @@ def generate_revenue_architect_report(target_report: str = None):
     logger.info("调用 LLM 进行营收分析...")
     print("🤖 正在分析商业机会，请稍候...")
 
-    analysis_result = call_llm_analysis(content)
+    analysis_result = call_llm_analysis(content, user_prompt=user_prompt)
 
     if analysis_result.startswith("错误:"):
         print(f"\n❌ {analysis_result}")
@@ -312,6 +374,7 @@ def generate_revenue_architect_report(target_report: str = None):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="营收分析师 - 分析日报并挖掘商业机会")
     parser.add_argument("--report", "-r", type=str, help="指定要分析的日报文件路径")
+    parser.add_argument("--user-id", type=int, default=None, help="用户ID，用于读取用户自定义配置")
     args = parser.parse_args()
 
-    generate_revenue_architect_report(target_report=args.report)
+    generate_revenue_architect_report(target_report=args.report, user_id=args.user_id)

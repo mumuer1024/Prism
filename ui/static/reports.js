@@ -1,6 +1,8 @@
 /**
  * Reports Module - Report listing and viewing
  * 报告模块 - 报告列表和查看
+ *
+ * v2.1 激活码架构：使用 device_id 认证
  */
 
 // 当前选中的报告路径
@@ -11,8 +13,45 @@ let currentReport = null;
 let allReports = [];
 
 /**
+ * 获取设备 ID
+ */
+function getDeviceId() {
+  return localStorage.getItem('prism_device_id');
+}
+
+/**
+ * 获取访客 ID
+ */
+function getVisitorId() {
+  let visitorId = localStorage.getItem('prism_visitor_id');
+  if (!visitorId) {
+    visitorId = 'v_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    localStorage.setItem('prism_visitor_id', visitorId);
+  }
+  return visitorId;
+}
+
+/**
+ * 获取认证参数（用于API调用）
+ * @returns {URLSearchParams} 包含 device_id 或 visitor_id 的参数
+ */
+function getReportAuthParams() {
+  const params = new URLSearchParams();
+
+  // 添加 device_id（如果已激活）
+  const deviceId = getDeviceId();
+  if (deviceId) {
+    params.append('device_id', deviceId);
+  }
+
+  // 添加 visitor_id（用于匿名用户）
+  params.append('visitor_id', getVisitorId());
+
+  return params;
+}
+
+/**
  * Load reports list
- * 加载报告列表
  */
 async function loadReports() {
   const list = document.getElementById('report-list');
@@ -21,7 +60,8 @@ async function loadReports() {
   list.innerHTML = '<div class="text-center py-8 text-text-muted text-sm">加载中...</div>';
 
   try {
-    const res = await fetch('/api/reports');
+    const authParams = getReportAuthParams();
+    const res = await fetch('/api/reports?' + authParams.toString());
     allReports = await res.json();
 
     if (!allReports.length) {
@@ -29,10 +69,7 @@ async function loadReports() {
       return;
     }
 
-    // Group by folder
     const folders = groupByFolder(allReports);
-
-    // Render list
     renderReportList(list, folders);
   } catch (e) {
     list.innerHTML = '<div class="text-center py-8 text-sm" style="color: #ff6b6b;">加载失败</div>';
@@ -41,7 +78,6 @@ async function loadReports() {
 
 /**
  * Group reports by folder
- * 按文件夹分组报告
  */
 function groupByFolder(reports) {
   const folders = {};
@@ -54,20 +90,17 @@ function groupByFolder(reports) {
 
 /**
  * Render report list HTML
- * 渲染报告列表HTML
  */
 function renderReportList(container, folders) {
   container.innerHTML = '';
 
   Object.entries(folders).forEach(([folder, items]) => {
-    // Folder header
     const header = document.createElement('div');
     header.className = 'px-3 py-2 text-xs font-semibold uppercase tracking-wider';
     header.style.color = '#4a4a6a';
     header.textContent = folder || '根目录';
     container.appendChild(header);
 
-    // Report items
     items.forEach(r => {
       const item = createReportItem(r);
       container.appendChild(item);
@@ -77,7 +110,6 @@ function renderReportList(container, folders) {
 
 /**
  * Create report item element
- * 创建报告项元素
  */
 function createReportItem(report) {
   const div = document.createElement('div');
@@ -93,7 +125,7 @@ function createReportItem(report) {
   });
 
   div.innerHTML = `
-    <input type="checkbox" class="report-checkbox mt-1 flex-shrink-0" 
+    <input type="checkbox" class="report-checkbox mt-1 flex-shrink-0"
            onchange="toggleReportSelection('${report.path}', this.checked)"
            onclick="event.stopPropagation()">
     <div class="flex-1 min-w-0" onclick="loadReport('${report.path}', this.parentElement)">
@@ -107,7 +139,6 @@ function createReportItem(report) {
 
 /**
  * Toggle report selection
- * 切换报告选中状态
  */
 function toggleReportSelection(path, checked) {
   if (checked) {
@@ -120,18 +151,15 @@ function toggleReportSelection(path, checked) {
 
 /**
  * Toggle select all
- * 全选/取消全选
  */
 function toggleSelectAll() {
   const checkboxes = document.querySelectorAll('.report-checkbox');
   const allSelected = selectedReports.size === allReports.length && allReports.length > 0;
 
   if (allSelected) {
-    // 取消全选
     selectedReports.clear();
     checkboxes.forEach(cb => cb.checked = false);
   } else {
-    // 全选
     selectedReports.clear();
     allReports.forEach(r => selectedReports.add(r.path));
     checkboxes.forEach(cb => cb.checked = true);
@@ -141,7 +169,6 @@ function toggleSelectAll() {
 
 /**
  * Clear all selections
- * 清除所有选择
  */
 function clearSelection() {
   selectedReports.clear();
@@ -151,7 +178,6 @@ function clearSelection() {
 
 /**
  * Update batch actions UI
- * 更新批量操作界面
  */
 function updateBatchActions() {
   const batchActions = document.getElementById('batch-actions');
@@ -165,14 +191,12 @@ function updateBatchActions() {
     batchActions.classList.add('hidden');
   }
 
-  // 更新全选按钮文字
   const allSelected = selectedReports.size === allReports.length && allReports.length > 0;
   selectAllBtn.textContent = allSelected ? '取消' : '全选';
 }
 
 /**
  * Clear all selected report items
- * 清除所有选中的报告项
  */
 function clearSelectedReportItems() {
   document.querySelectorAll('.report-item').forEach(e => {
@@ -183,17 +207,13 @@ function clearSelectedReportItems() {
 
 /**
  * Load and display report content
- * 加载并显示报告内容
  */
 async function loadReport(path, element) {
-  // Update selection state
   clearSelectedReportItems();
   element.classList.add('selected');
 
-  // 保存当前报告路径
   currentReport = path;
 
-  // 显示报告标题栏
   const reportHeader = document.getElementById('report-header');
   const reportTitle = document.getElementById('report-title');
   reportHeader.classList.remove('hidden');
@@ -202,7 +222,6 @@ async function loadReport(path, element) {
   const content = document.getElementById('report-content');
   if (!content) return;
 
-  // Show loading
   content.innerHTML = `
     <div class="flex items-center justify-center h-full" style="color: #8888aa;">
       <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24">
@@ -214,10 +233,10 @@ async function loadReport(path, element) {
   `;
 
   try {
-    const res = await fetch('/api/reports/content?path=' + encodeURIComponent(path));
+    const authParams = getReportAuthParams();
+    const res = await fetch('/api/reports/content?path=' + encodeURIComponent(path) + '&' + authParams.toString());
     const data = await res.json();
 
-    // Render markdown
     const div = document.createElement('div');
     div.className = 'md max-w-4xl mx-auto';
     div.innerHTML = marked.parse(data.content);
@@ -231,21 +250,20 @@ async function loadReport(path, element) {
 
 /**
  * Download current report
- * 下载当前报告
  */
 function downloadCurrent(format) {
   if (!currentReport) {
     showToast('请先选择报告', 'warn');
     return;
   }
-  
-  const url = `/api/reports/download?path=${encodeURIComponent(currentReport)}&format=${format}`;
+
+  const authParams = getReportAuthParams();
+  const url = `/api/reports/download?path=${encodeURIComponent(currentReport)}&format=${format}&${authParams.toString()}`;
   window.location.href = url;
 }
 
 /**
  * Download batch reports
- * 批量下载报告
  */
 function downloadBatch(format) {
   if (selectedReports.size === 0) {
@@ -253,14 +271,14 @@ function downloadBatch(format) {
     return;
   }
 
+  const authParams = getReportAuthParams();
   const paths = Array.from(selectedReports).join(',');
-  const url = `/api/reports/batch-download?paths=${encodeURIComponent(paths)}&format=${format}`;
+  const url = `/api/reports/batch-download?paths=${encodeURIComponent(paths)}&format=${format}&${authParams.toString()}`;
   window.location.href = url;
 }
 
 /**
  * Show toast notification
- * 显示提示消息
  */
 function showToast(message, type = 'info') {
   const toast = document.getElementById('toast');

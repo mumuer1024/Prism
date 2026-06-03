@@ -1,342 +1,371 @@
+**English** | **[中文](README_zh.md)**
+
 <div align="center">
 
-# 🕵️ Prism - 棱镜情报 - AI 情报聚合系统
+# 🕵️ Prism - AI Intelligence Aggregation System
 
-**棱镜情报，Your industry, your signal.**
+**Your industry, your signal.**
 
-用 AI 自动从 10+ 数据源抓取、翻译、分析情报，生成一份中文日报。
+AI-powered intelligence system that automatically collects, translates, and analyzes data from 13+ sources to generate Chinese daily briefings.
 
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
-[![Version](https://img.shields.io/badge/Version-1.3.0-blue.svg)](https://github.com/mumuer1024/Prism)
+[![Version](https://img.shields.io/badge/Version-2.1.0-blue.svg)](https://github.com/mumuer1024/Prism)
 
 </div>
 
 ---
 
-## 🙏 鸣谢
+## 🙏 Acknowledgements
 
-本项目基于 [77AutumN/Intel_Briefing](https://github.com/77AutumN/Intel_Briefing) 进行二次开发。
+This project is built on top of [77AutumN/Intel_Briefing](https://github.com/77AutumN/Intel_Briefing).
 
-- **原项目作者:** [@77AutumN](https://github.com/77AutumN)
-- **原项目地址:** https://github.com/77AutumN/Intel_Briefing
+- **Original Author:** [@77AutumN](https://github.com/77AutumN)
+- **Original Repository:** https://github.com/77AutumN/Intel_Briefing
 
-在原项目的数据采集核心基础上，新增了 Web UI、赏金猎人/Alpha雷达/营收分析师三大工具、数据源管理、多 LLM 端点分离等功能。
+Building on the original data collection core, this project adds Web UI, activation code system, three analysis tools (Bounty Hunter / Alpha Radar / Revenue Architect), data source management, and separated multi-LLM endpoint configuration.
 
-备注说明：*赏金猎人/Alpha雷达/营收分析师* 这三个工具原项目自带但原作者并没有发布，所以本项目的这三个工具作者是我。
-
----
-
-## 🤔 这是什么？
-
-一个**开箱即用的情报采集+分析引擎**。你可以把它理解为：一个帮你自动"刷"全网科技新闻的 AI 助手，刷完以后还会帮你整理成中文报告。
-
-> 💡 **产品定位**：本产品仅提供工具使用权，所有 AI 功能均由用户自备 API Key 直连调用，我们不代理、不存储、不触碰您的 API 密钥和 AI 请求内容。
-
-**V1.3 版本已支持：**
-- ✅ Web UI 可视化操作界面
-- ✅ 4 大分析工具（日报/赏金猎人/Alpha雷达/营收分析师）
-- ✅ 12 个数据源（可开关管理，含 Tavily AI 搜索）
-- ✅ 多 LLM 端点配置（通用推理/X搜索/翻译分离）
-- ✅ 实时日志流式输出
-- ✅ 报告在线浏览与下载（Markdown/Word）
-- ✅ 深色/浅色主题切换
-- ✅ 隐私政策/用户协议/数据来源声明
-- ✅ AI 生成内容标识（符合法规要求）
-
-**适合谁用？**
-- 想每天快速了解科技圈动态的开发者
-- 做竞品分析、行业研究的产品经理
-- 想找灵感和机会的独立开发者 / 创业者
-- 任何对"信息不对称套利"感兴趣的人
+Note: *Bounty Hunter, Alpha Radar, and Revenue Architect* were included in the original project but never published by the original author, so the author of these three tools is the current maintainer.
 
 ---
 
-## ✨ 功能特性
+## 🤔 What Is This?
 
-### 📊 情报日报 (`run_mission.py`)
-从 10+ 数据源抓取最新信息，生成一份包含 8 大板块的中文日报：
+A **ready-to-use intelligence collection + analysis engine**. Think of it as an AI assistant that automatically "scrolls" through tech news across the web, then organizes it into a Chinese daily report.
 
-| 板块 | 数据源 | 你能看到什么 |
-|:--|:--|:--|
-| 🛠️ 技术趋势 | Hacker News, GitHub Trending | 今天程序员们在聊什么 |
-| 💰 资本动向 | 36Kr, WallStreetCN | 谁在融资、谁在并购 |
-| 📚 学术前沿 | ArXiv AI/ML | 最新 AI 论文，自动翻译摘要 |
-| 🚀 产品精选 | Product Hunt | 今天发布了什么新产品 |
-| 💬 社区热议 | V2EX | 中文开发者社区在讨论什么 |
-| 🐦 社交舆情 | X (Twitter) via Grok | Twitter 上的技术热话题 |
-| 📖 深度洞察 | HN Top Blogs | 热门技术博客全文分析 |
-| 🔍 AI 搜索 | Tavily | 基于自定义关键词的实时 AI 搜索 |
-| 🔗 链接验证 | 自动核查 | 每个链接都经过有效性检测 |
+> 💡 **Product Positioning:** This product only provides tool access. All AI features use API keys you provide directly — we don't proxy, store, or touch your API keys or AI request content.
 
-### 💰 赏金猎人 (`run_bounty_hunter.py`)
-自动扫描 V2EX 和 Chrome 扩展商店，寻找：
-- **V2EX 急单** — 筛选"有偿"、"求助"等关键词，按紧急程度打分
-- **Chrome 扩展机会** — 找到"用户多但评分差"的扩展（适合重写竞品）
+**V2.1 Features:**
+- ✅ Activation code system (replaces user registration)
+- ✅ Device binding & usage quota management
+- ✅ Referral code system with mutual rewards
+- ✅ Anonymous visitor free tier (3 uses/day)
+- ✅ Web UI with visual interface
+- ✅ 4 analysis tools (Daily Briefing / Bounty Hunter / Alpha Radar / Revenue Architect)
+- ✅ 13 data sources (individually toggleable, including Tavily AI Search)
+- ✅ Multi-LLM endpoint configuration (general reasoning / X search / translation)
+- ✅ Real-time streaming log output
+- ✅ Online report browsing & download (Markdown/Word)
+- ✅ Dark/Light theme toggle
+- ✅ Privacy Policy / Terms of Service / Data Source Disclosure
+- ✅ AI-generated content labeling (regulatory compliance)
+- ✅ Admin dashboard (activation code management, audit logs)
+- ✅ Prompt template marketplace
+- ✅ Custom Prompt configuration
+- ✅ Data source health monitoring
+- ✅ Payment interface (reserved)
 
-### ⛏️ Alpha 雷达 (`run_alpha_radar.py`)
-通过 Grok 搜索 X/Twitter 上最新的开源项目，专注于：
-- Solana / Web3 领域的 CLI 工具
-- 有"包装变现"潜力的开源代码
-- 自动验证 GitHub 链接是否有效（防 AI 幻觉）
+**Who is this for?**
+- Users who want a quick daily overview of industry trends
+- Product managers / content creators doing competitive analysis or industry research
+- Indie developers / entrepreneurs looking for inspiration and opportunities
 
-### 🏗️ 营收分析师 (`run_revenue_architect.py`)
-读取日报内容，用 LLM 自动分析出 5 类机会：
+---
 
-| 类别 | 说明 |
+## ✨ Features
+
+### 🎫 Activation Code System (V2.1)
+
+| Feature | Description |
 |:--|:--|
-| 💰 变现机会 | 能直接赚钱的项目/需求 |
-| 🧠 学习机会 | 值得深入研究的技术 |
-| ✍️ 创作机会 | 高互动潜力的内容选题 |
-| 📈 涨粉机会 | 可以蹭热度的趋势话题 |
-| 🤝 背书机会 | 参与贡献能建立信誉的开源项目 |
+| 🔑 Code Activation | Activate with codes (PRISM-XXXX-XXXX-XXXX format) |
+| 📱 Device Binding | Each code binds up to 3 devices |
+| 💎 Quota Tiers | S=3, M=6, L=10, XL=20, XXL=50, XXXL=100 uses |
+| 🤝 Referral Rewards | Referral codes (REF-XXXXXX) give +3 uses to both parties |
+| 👻 Anonymous Access | Visitors get 3 free uses per day |
+
+### 🔧 Admin Dashboard
+
+| Feature | Description |
+|:--|:--|
+| 🎫 Activation Code Mgmt | Generate, view, export activation codes |
+| 📝 Audit Logs | Admin operation tracking |
+| 📊 Statistics | Usage and system metrics |
+
+### 🏪 Prompt Template Marketplace
+
+| Feature | Description |
+|:--|:--|
+| 📚 Official Templates | Preset prompts for each tool |
+| 🔍 Browse & Filter | Filter templates by tool type |
+| 📥 One-click Import | Import templates to personal config |
+| ⭐ Featured | Highlighted popular templates |
+
+### ✏️ Custom Prompts
+
+| Feature | Description |
+|:--|:--|
+| 📝 Online Editor | Edit prompts in the Web UI |
+| 📜 Version History | Track prompt changes |
+| ↩️ Rollback | Revert to previous versions |
+| ✅ Live Validation | Placeholder detection & syntax checking |
+| 💡 Autocomplete | Suggest supported placeholders |
+
+### 📡 Data Source Management
+
+| Feature | Description |
+|:--|:--|
+| 🔌 Independent Toggles | 13 data sources individually controllable |
+| 📊 Health Monitoring | Real-time source status checks |
+| 🔄 V2EX Mirrors | Auto-failover across mirror sites |
+| 📥 Custom Sources | Add custom RSS/webpage sources |
+| ⚙️ DailyHot Config | Customizable hot-list categories |
+
+### 📊 Daily Intelligence Briefing (`run_mission.py`)
+Collects latest info from 10+ sources, generates a Chinese daily report with 8 sections:
+
+| Section | Data Source | What You'll See |
+|:--|:--|:--|
+| 🛠️ Industry Trends | Hacker News, GitHub Trending | What leaders are talking about |
+| 💰 Capital Moves | 36Kr, WallStreetCN | Funding rounds, M&A activity |
+| 📚 Academic Frontier | ArXiv AI/ML | Latest papers with auto-translated abstracts |
+| 🚀 Product Picks | Product Hunt | New product launches |
+| 💬 Community Buzz | V2EX | Chinese developer community discussions |
+| 🐦 Social Sentiment | X (Twitter) via Grok | Trending industry topics on Twitter |
+| 📖 Deep Insights | HN Top Blogs | Full-text analysis of popular blogs |
+| 🔍 AI Search | Tavily | Real-time AI search with custom keywords |
+| 🔗 Link Verification | Auto-check | Every link verified for validity |
+
+### 💰 Bounty Hunter (`run_bounty_hunter.py`)
+Scans market demand signals and discovers real opportunity gaps. Defaults to tracking V2EX urgent jobs and HN hiring trends.
+
+### ⛏️ Alpha Radar (`run_alpha_radar.py`)
+Searches X/Twitter via Grok for latest open-source projects, focusing on:
+- Solana / Web3 CLI tools
+- Open-source code with "wrap-and-monetize" potential
+- Auto-verifies GitHub link validity (prevents AI hallucination)
+
+### 🏗️ Revenue Architect (`run_revenue_architect.py`)
+Reads the daily report, uses LLM to analyze 5 types of opportunities:
+
+| Category | Description |
+|:--|:--|
+| 💰 Monetization | Projects/needs that can directly generate revenue |
+| 🧠 Learning | Technologies worth deep study |
+| ✍️ Content | Topics with high engagement potential |
+| 📈 Growth | Trending topics to leverage for audience growth |
+| 🤝 Credibility | Open-source projects where contributing builds reputation |
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 1. 克隆仓库
+### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/yourusername/Intel_Briefing.git
-cd Intel_Briefing
+git clone https://github.com/mumuer1024/Prism.git
+cd Prism
 ```
 
-### 2. 安装依赖
+### 2. Create Virtual Environment (Recommended)
+
+```bash
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+
+# Linux/macOS
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 3. 配置 API 密钥
+### 4. Configure API Keys
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入你自己的 API Key
+# Edit .env and fill in your API keys
 ```
 
-### 4. 启动 Web UI（推荐）
+### 5. Start Web UI (Recommended)
 
 ```bash
 python server.py
 ```
 
-然后打开浏览器访问 http://localhost:8680
+Then open http://localhost:8680 in your browser.
 
-### 5. 或命令行运行
+### 6. Or Run from Command Line
 
 ```bash
-# 📊 生成情报日报
+# 📊 Generate daily intelligence briefing
 python run_mission.py
 
-# 💰 寻找赏金机会
+# 💰 Find bounty opportunities
 python run_bounty_hunter.py
 
-# ⛏️ 扫描 Web3 开源工具
+# ⛏️ Scan Web3 open-source tools
 python run_alpha_radar.py
 
-# 🏗️ 分析机会并生成行动计划
+# 🏗️ Analyze opportunities and generate action plans
 python run_revenue_architect.py
 ```
 
-报告会保存在 `reports/` 目录下。
+Reports are saved in the `reports/` directory.
 
-### 6. Docker 部署（推荐生产环境）
+### 7. Docker Deployment (Recommended for Production)
 
 ```bash
-# 1. 复制配置文件
+# 1. Copy config
 cp .env.example .env
-# 编辑 .env，填入你自己的 API Key
+# Edit .env and fill in your API keys
 
-# 2. 构建并启动
+# 2. Build and start
 docker-compose up -d
 
-# 3. 查看日志
+# 3. View logs
 docker-compose logs -f
 
-# 4. 停止服务
+# 4. Stop services
 docker-compose down
 ```
 
-访问地址：http://localhost:8680
+Access at: http://localhost:8680
 
-**Docker 部署优势：**
-- 环境隔离，无需配置 Python 环境
-- 一键启动，自动安装所有依赖
-- 数据持久化，容器重启数据不丢失
-
-> 💡 **提示**：端口可通过 `.env` 中的 `PORT` 变量修改，默认 8680
+> 💡 **Tip:** Port can be changed via the `PORT` variable in `.env` (default: 8680)
 
 ---
 
-## 🔑 API 密钥说明
+## 🔌 API Documentation
 
-| 密钥 | 用途 | 是否必需 | 费用 |
+After starting the server, visit:
+
+- **Swagger UI**: http://localhost:8680/docs
+- **ReDoc**: http://localhost:8680/redoc
+
+### Key API Endpoints
+
+| Module | Prefix | Description |
+|:--|:--|:--|
+| Activation | `/api/activation` | Code activation, device binding |
+| Usage | `/api/usage` | Balance, permission check, consumption |
+| User Config | `/api/user-config` | Prompt & source configuration |
+| Marketplace | `/api/marketplace` | Template listing, import |
+| Admin | `/api/admin` | Activation code mgmt, audit logs |
+| Source Health | `/api/sources/health` | Data source status |
+| Payment | `/api/payment` | Plans, orders, payment (reserved) |
+
+---
+
+## 🔑 API Key Requirements
+
+| Key | Purpose | Required | Cost |
 |:--|:--|:--|:--|
-| `GITHUB_TOKEN` | GitHub Trending (GraphQL API) | **必需** | ✅ [免费申请 PAT](https://github.com/settings/tokens) |
-| `LLM_API_KEY` | 通用 LLM 推理（营收分析等） | 推荐 | 使用任意 OpenAI 兼容端点 |
-| `XAI_API_KEY` | Grok API (X/Twitter 搜索) | 可选 |  ([申请](https://console.x.ai/)) |
-| `PRODUCTHUNT_TOKEN` | Product Hunt 数据 | 可选 | ✅ [免费申请](https://www.producthunt.com/v2/oauth/applications) |
-| `TAVILY_TOKEN` | Tavily AI 搜索 | 可选 | ✅ [免费申请](https://tavily.com/) |
-| `TRANSLATOR_API_KEY` | 中文翻译（Gemini/OpenAI） | 可选 | ✅ 免费额度充足 |
+| `GITHUB_TOKEN` | GitHub Trending (GraphQL API) | **Yes** (minimum) | ✅ [Free PAT](https://github.com/settings/tokens) |
+| `LLM_API_KEY` | General LLM reasoning | Recommended | Any OpenAI-compatible endpoint |
+| `XAI_API_KEY` | Grok API (X/Twitter search) | Optional | ([Apply](https://console.x.ai/)) |
+| `PRODUCTHUNT_TOKEN` | Product Hunt data | Optional | ✅ [Free](https://www.producthunt.com/v2/oauth/applications) |
+| `TAVILY_TOKEN` | Tavily AI Search | Optional | ✅ [Free](https://tavily.com/) |
+| `TRANSLATOR_API_KEY` | Chinese translation (Gemini/OpenAI) | Optional | ✅ Generous free tier |
 
-> ⚠️ **最低要求：拿到 `GITHUB_TOKEN` 就能跑基础日报**（HN、GitHub Trending、ArXiv、V2EX、36Kr 等）。其他密钥根据需求配置，没有则跳过对应数据源。
+> ⚠️ **Minimum requirement:** Get a `GITHUB_TOKEN` to run the basic daily briefing (HN, GitHub Trending, ArXiv, V2EX, 36Kr, etc.). Other keys are optional — skip the corresponding sources if not configured.
 
 ---
 
-## 📁 项目结构
+## 📁 Project Structure
 
 ```
-Intel_Briefing/
-├── server.py                   # 🌐 Web UI 入口 (FastAPI)
+Prism/
+├── server.py                   # 🌐 Web UI entry (FastAPI)
 ├── ui/
-│   ├── index.html              # 前端页面
-│   └── static/                 # 静态资源
-│       ├── style.css           # 样式表
-│       ├── core.js             # 核心工具函数
-│       ├── navigation.js       # 导航模块
-│       ├── console.js          # 控制台模块
-│       ├── sources.js          # 数据源管理模块
-│       ├── config.js           # 配置管理模块
-│       ├── reports.js          # 报告模块
-│       └── legal.js            # 法律声明模块（隐私政策/用户协议/数据来源）
-├── run_mission.py              # 🎯 情报日报
-├── run_bounty_hunter.py        # 💰 赏金猎人
-├── run_alpha_radar.py          # ⛏️ Alpha 雷达
-├── run_revenue_architect.py    # 🏗️ 营收分析师
-├── llm_client.py               # 统一 LLM 客户端
-├── config.py                   # 配置模块
-├── fetch_unified_intel.py      # 统一情报采集器
+│   ├── index.html              # Frontend page
+│   └── static/                 # Static assets
+├── run_mission.py              # 🎯 Daily Intelligence Briefing
+├── run_bounty_hunter.py        # 💰 Bounty Hunter
+├── run_alpha_radar.py          # ⛏️ Alpha Radar
+├── run_revenue_architect.py    # 🏗️ Revenue Architect
+├── llm_client.py               # Unified LLM client
+├── config.py                   # Configuration module
+├── fetch_unified_intel.py      # Unified intelligence collector
 ├── src/
-│   ├── sensors/                # 数据源传感器
+│   ├── activation/             # Activation code module
+│   ├── usage/                  # Usage tracking module
+│   ├── admin/                  # Admin module
+│   ├── marketplace/            # Prompt template marketplace
+│   ├── config_router.py        # User config API
+│   ├── database/               # Database (SQLite)
+│   ├── sensors/                # Data source sensors
 │   │   ├── arxiv_ai.py
-│   │   ├── chrome_radar.py
 │   │   ├── github_trending.py
 │   │   ├── hacker_news.py
-│   │   ├── hn_blogs.py
 │   │   ├── product_hunt.py
 │   │   ├── v2ex_radar.py
 │   │   ├── x_grok_sensor.py
-│   │   ├── xhs_radar.py
-│   │   └── tavily_search.py    # Tavily AI 搜索
-│   ├── generators/
-│   ├── utils/
-│   └── external/
-├── reports/                    # 📄 生成的报告目录
-│   ├── daily_briefings/        # 情报日报
-│   ├── tactical/               # 赏金猎人报告
-│   ├── web3/                   # Alpha 雷达报告
-│   └── opportunities/          # 营收分析报告
-├── .env.example                # API 密钥模板
+│   │   ├── tavily_search.py
+│   │   ├── dailyhot_sensor.py
+│   │   ├── custom_source.py
+│   │   └── source_health.py
+│   ├── defaults/               # Default configs
+│   └── utils/                  # Utilities
+├── tests/                      # 🧪 Tests
+├── reports/                    # 📄 Generated reports
+├── docs/                       # 📚 Documentation
+├── .env.example                # API key template
 ├── requirements.txt
-├── Dockerfile                  # Docker 镜像构建文件
-├── docker-compose.yml          # Docker Compose 编排文件
-└── .dockerignore               # Docker 构建排除文件
+├── Dockerfile
+├── docker-compose.yml
+└── LICENSE                     # GPL-3.0
 ```
 
 ---
 
-## 🎨 Web UI 功能
+## 🗺️ Roadmap
 
-### 仪表盘
-- 一键运行四大分析工具
-- 实时查看日志输出
-- 在线浏览生成的报告
-- 深色/浅色主题切换
-- 页脚版本号与作者署名
+### V1.x ✅
 
-### 配置管理
-- LLM 端点配置（通用推理/X搜索/翻译分离）
-- API Key 管理（支持明文查看/隐藏）
-- 模型列表自动拉取
-- 模型连通性一键测试
+- [x] **Web UI** — Modern design, dark mode, mobile-responsive
+- [x] **API Configuration** — Key management, model testing, connectivity check
+- [x] **Tavily Search** — Custom search keywords
+- [x] **Report Management** — Categorize, search, batch download
+- [x] **Docker Deployment** — One-click containerized deployment
+- [x] **Legal Pages** — Privacy policy, terms, data source disclosure
+- [x] **AI Content Labeling** — Mark all AI-generated content
 
-### 数据源管理
-- 12 个数据源独立开关（包括 Tavily AI 搜索）
-- Tavily 搜索支持自定义关键词
-- 显示数据源状态和 API Key 配置情况
-- 持久化到 `.env` 文件
+### V2.0 ✅
 
-### 报告管理
-- 报告分类浏览（日报/赏金猎人/Alpha雷达/营收分析）
-- 关键词搜索过滤
-- 批量下载为 Markdown/Word 格式
+- [x] **User System** — Registration, login, OAuth, password management
+- [x] **Usage Quota System** — Paid quota, free tier, anonymous access
+- [x] **Redemption Code System** — Activation codes, batch management, expiry
+- [x] **Referral System** — Referral codes, rewards, first-use bonus
+- [x] **Report Cache** — Caching for paid users
+- [x] **Database Migration** — SQLite with version management
 
-### 法律声明
-- 隐私政策（用户数据保护说明）
-- 用户协议（使用条款与免责声明）
-- 数据来源（12 个数据源详情）
-- AI 生成内容标识（符合法规要求）
+### V2.1 ✅
 
----
+- [x] **Admin Dashboard** — User management, audit logs, statistics
+- [x] **Batch Code Generation** — CLI tool, batch management, export
+- [x] **Prompt Marketplace** — Official templates, one-click import
+- [x] **Custom Prompts** — Online editor, version history, rollback
+- [x] **Prompt Validation** — Placeholder detection, live validation, autocomplete
+- [x] **Source Health Monitoring** — Real-time status, error tracking
+- [x] **V2EX Mirror Support** — Auto-failover across mirrors
+- [x] **Custom Data Sources** — RSS/webpage collectors
+- [x] **Payment Interface (Reserved)** — Plan management, order system, channel abstraction
 
-## 🗺️ 路线图
+### V2.2 Planned
 
-### V1.1 优化（已完成）
+- [ ] **Payment Integration** — WeChat Pay / Alipay
+- [ ] **Multi-language Support** — English UI
 
-- [x] **优化 WebUI 界面** — 现代化设计，深色模式配色优化，更好的移动端适配
-- [x] **API 配置增强** —
-  - API Key 明文查看/隐藏切换
-  - 模型连通性一键测试
-  - 拉取模型列表
-- [x] **Tavily 搜索增强** — 支持自定义搜索关键词（前端存储）
+### V3.0 Vision
 
-### V1.2 优化（已完成）
+- [ ] Stay tuned
 
-- [x] **社交热议格式优化** — 统一 X/Twitter 板块输出格式，强制包含标题行和结构化事件列表
-- [x] **营收分析师稳定性增强** — 
-  - 增加超时重试机制（首次 300 秒，重试 420 秒）
-  - 添加超时提示信息
-- [x] **配置页面修复** — 添加全局"保存配置"按钮，修复配置无法保存的问题
-
-### V1.3 已完成
-
-- [x] **报告管理和下载** — 支持报告分类、搜索、批量下载为 Markdown/Word
-- [x] **Docker 部署支持** — 提供 Dockerfile 和 docker-compose.yml，一键容器化部署
-- [x] **法律声明页面** — 隐私政策、用户协议、数据来源声明
-- [x] **AI 生成标识** — 所有 AI 输出内容添加「AI 生成」标记，符合法规要求
-- [x] **页脚优化** — 版本号、作者署名、声明链接
-
-### V2.0 愿景（规划中）
-
-*预计发布时间：2026 Q4*
-
-- [ ] **自定义 Prompt** — 支持用户编辑各工具的 LLM Prompt
-- [ ] **自定义数据源** — 支持用户新增数据源
-
-> 💡 **产品定位**：棱镜仅提供工具使用权，所有 AI 功能均由用户自备 API Key 直连调用。
-
-#### 付费功能
-- [ ] **目标领域及数据源预设广场** — 用户可以购买/订阅特定行业的数据源配置包
-  - 例：Web3 赛道包、SaaS 创业包、AI 工具包
-  - 一键导入 curated 数据源组合
-
-- [ ] **Prompt 预设广场** — 专业分析师撰写的 Prompt 模板市场
-  - 行业专属分析模板
-  - 高级营收分析策略
-
-#### 多用户支持
-- [ ] **用户注册与登录** — 邮箱+密码+验证码 / 第三方 OAuth（GitHub/Google）
-- [ ] **激活码系统** — 支持邀请码、优惠码、邀请返利
-- [ ] **数据隔离** — 多租户架构，数据完全隔离
-- [ ] **订阅功能** —
-  - 免费版：基础数据源 + 每日 1 次运行（无需注册）
-  - 专业版：全部数据源 + 无限制运行 + 高级报告
-  - 买断版：完整功能部署包，客户自行部署
-
-#### 数据安全
-- [ ] **用户 API Key 本地存储** — 不上传服务器，用户直连 AI 服务商
-- [ ] **数据自动清理** — 用户数据保留 30 天，到期自动清理
-- [ ] **隐私合规** — 完善的隐私政策和用户协议
+> 💡 **Product Positioning:** Prism only provides tool access. All AI features use API keys you provide directly.
 
 ---
 
-## 🔧 高级配置
+## 🔧 Advanced Configuration
 
-### 代理 / VPN 配置
+### Proxy / VPN
 
-如果你需要通过代理访问外部 API，设置环境变量：
+If you need a proxy to access external APIs:
 
 ```bash
 export HTTP_PROXY=http://127.0.0.1:7890
@@ -344,79 +373,102 @@ export HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
 > [!IMPORTANT]
-> `httpx` 默认不支持 SOCKS 代理。如果你的代理客户端只提供 SOCKS 端口，需要额外安装：
+> `httpx` does not support SOCKS proxies by default. If your proxy only provides a SOCKS port:
 > ```bash
 > pip install httpx[socks]
 > ```
 
-### LLM 端点分离配置
+### LLM Endpoint Separation
 
-`.env` 支持三组独立的 LLM 配置：
+`.env` supports three independent LLM configurations:
 
 ```bash
-# 通用 LLM 端点（营收分析等推理任务）
+# General LLM endpoint (reasoning tasks like revenue analysis)
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_API_KEY=your_key
 LLM_MODEL=gpt-4
 LLM_API_FORMAT=openai  # openai | gemini | claude
 
-# X/Twitter 搜索专用（必须 xAI 官方，只有 Grok 能访问 X 实时数据）
+# X/Twitter search (must be xAI official — only Grok can access X real-time data)
 XAI_BASE_URL=https://api.x.ai/v1/chat/completions
 XAI_API_KEY=your_xai_key
 XAI_MODEL=grok-3
 
-# 翻译专用
+# Translation
 TRANSLATOR_BASE_URL=https://generativelanguage.googleapis.com/v1beta
 TRANSLATOR_API_KEY=your_gemini_key
 TRANSLATOR_MODEL=gemini-1.5-flash
 TRANSLATOR_API_FORMAT=gemini
 ```
 
+### Activation Code System Configuration
+
+```bash
+# Admin credentials (default: admin/admin123)
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=admin123
+```
+
 ---
 
-## ⚠️ 免责声明
+## 🧪 Testing
 
-### AI 生成内容
+```bash
+# Run all tests
+python -m pytest tests/ -v
 
-🤖 **本产品使用 AI 技术对公开资讯进行摘要、翻译和分析。所有 AI 生成的内容均标注「AI 生成」标识，符合《人工智能生成合成内容标识管理办法》（2025 年 9 月 1 日起施行）的要求。**
+# Run specific test file
+python -m pytest tests/test_auth_unit.py -v
 
-AI 生成内容可能存在"幻觉"、不准确或过时的情况，仅供参考，不代表原文观点，不构成任何投资、法律或专业决策建议。用户应自行核实信息的准确性，并对基于本产品内容所做的任何决策承担全部责任。
+# Run with coverage
+python -m pytest tests/ --cov=src --cov-report=html
+```
 
-### API Key 安全
+---
 
-- 您的 API Key 存储在浏览器本地，不会上传至我们的服务器
-- AI 请求由您的浏览器直接发送至您选择的 AI 服务商
-- 请妥善保管您的 API Key，不要分享给他人
-- 您与 AI 服务商之间的数据传输遵循该服务商的隐私政策
+## ⚠️ Disclaimer
+
+### AI-Generated Content
+
+🤖 **This product uses AI to summarize, translate, and analyze public information. All AI-generated content is labeled accordingly, complying with China's "AI-Generated Synthetic Content Labeling Management Measures" (effective September 1, 2025).**
+
+AI-generated content may contain hallucinations, inaccuracies, or outdated information. It is for reference only, does not represent the views of the original authors, and does not constitute investment, legal, or professional advice. Users should independently verify information accuracy and bear full responsibility for decisions made based on this product's content.
+
+### API Key Security
+
+- Your API keys are stored in your browser's localStorage and never uploaded to our servers
+- AI requests are sent directly from your browser to your chosen AI service provider
+- Keep your API keys secure and do not share them with others
+- Data transmission between you and AI service providers follows that provider's privacy policy
 
 ---
 
 ## 📄 License
 
-本项目采用 [GNU General Public License v3.0](LICENSE) 开源协议。
+This project is licensed under the [GNU General Public License v3.0](LICENSE).
 
-### 你可以做什么 ✅
+### What You Can Do ✅
 
-- **自由使用** — 个人或商业用途
-- **修改分发** — 修改后可以分发，但必须开源
-- **专利授权** — 获得贡献者的专利授权
+- **Free Use** — Personal, educational, or open-source projects
+- **Modify & Distribute** — Modifications and distribution allowed, including commercial use
+- **Patent License** — Receive patent license from contributors
 
-### 义务 ⚠️
+### Obligations ⚠️
 
-- **开源义务** — 如果你分发或提供网络服务，必须开源你的修改
-- **保留版权声明** — 必须保留原作者版权声明
-- **相同协议** — 衍生作品必须使用 GPL-3.0 或兼容协议
+- **Open Source Requirement** — When distributing or providing network services, you must open-source your modifications under GPL-3.0
+- **Preserve Copyright** — Must retain original author copyright notices
+- **Same License** — Derivative works must use GPL-3.0 or a compatible license
 
-### 原项目协议
+### Original Project License
 
-原项目 [77AutumN/Intel_Briefing](https://github.com/77AutumN/Intel_Briefing) 采用 MIT 协议。本项目在保留 MIT 部分的同时，新增代码采用 GPL-3.0，整体以 GPL-3.0 分发。
+The original project [77AutumN/Intel_Briefing](https://github.com/77AutumN/Intel_Briefing) uses the MIT license. This project retains the MIT-licensed portions while new code uses GPL-3.0, distributed as a whole under GPL-3.0.
 
 ---
 
 <div align="center">
 
-**如果觉得有用，给个 ⭐ 就是最大的支持。**
+**If you find this useful, a ⭐ is the best support.**
 
-[提交 Bug](https://github.com/mumuer1024/Prism/issues) · [功能建议](https://github.com/mumuer1024/Prism/discussions)
+[Report Bug](https://github.com/mumuer1024/Prism/issues) · [Feature Request](https://github.com/mumuer1024/Prism/discussions)
 
 </div>

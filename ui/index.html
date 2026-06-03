@@ -13,17 +13,22 @@
         extend: {
           colors: {
             bg: {
-              DEFAULT: '#f8fafc',
-              secondary: '#ffffff',
-              tertiary: '#f1f5f9',
-              dark: { DEFAULT: '#0a0a0f', secondary: '#141420', tertiary: '#1e1e2e' }
+              DEFAULT: '#FDFAF4',
+              secondary: '#F3EAD5',
+              tertiary: '#E7D0A9',
+              dark: { DEFAULT: '#1C1A16', secondary: '#252118', tertiary: '#352D1E' }
             },
-            accent: { DEFAULT: '#7c5cfc', light: '#9b7dff', dark: '#6344d9' },
-            success: '#00d4aa',
-            error: '#ff6b6b',
-            warn: '#ffaa44',
-            border: { DEFAULT: 'var(--border)', light: '#cbd5e1', dark: 'var(--border)' },
-            text: { DEFAULT: '#1e293b', secondary: '#64748b', muted: '#94a3b8', dark: { DEFAULT: '#f0f0f5', secondary: '#a0a0c0', muted: '#6a6a8a' }}
+            accent: { DEFAULT: '#F0C06D', light: '#F5CC85', dark: '#D4A84E', text: '#6B3D00' },
+            success: '#3D9E6A',
+            error: '#C0392B',
+            warn: '#B8730A',
+            border: { DEFAULT: 'var(--border)', light: 'rgba(90,65,30,0.10)', dark: 'var(--border)' },
+            text: {
+              DEFAULT: '#3E2E1B',
+              secondary: '#6B4E2E',
+              muted: '#A8896A',
+              dark: { DEFAULT: '#F0E8D4', secondary: '#C8A87A', muted: '#7A6448' }
+            }
           },
           fontFamily: {
             sans: ['Inter', 'system-ui', 'sans-serif'],
@@ -41,16 +46,17 @@
   <!-- Header -->
   <header class="glass border-b border-border h-14 md:h-16 flex items-center justify-between px-3 md:px-6 flex-shrink-0 z-50">
     <div class="flex items-center gap-3">
-      <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: linear-gradient(135deg, #7c5cfc, #00d4aa);">🕵️</div>
+      <div class="w-8 h-8 md:w-9 md:h-9 rounded-lg flex items-center justify-center text-lg shadow-lg" style="background: var(--accent);">🕵️</div>
       <span class="font-bold text-base md:text-lg tracking-wide hidden sm:block" style="color: var(--text);">Prism</span>
     </div>
     <nav class="hidden md:flex items-center gap-1">
       <button onclick="switchTab('console')" id="nav-console" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">控制台</button>
       <button onclick="switchTab('reports')" id="nav-reports" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">报告</button>
       <button onclick="switchTab('sources')" id="nav-sources" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">信息源</button>
+      <button onclick="switchTab('marketplace')" id="nav-marketplace" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">Prompt广场</button>
       <button onclick="switchTab('config')" id="nav-config" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-all" style="color: var(--text);">配置</button>
     </nav>
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2" id="header-right">
       <!-- Theme Toggle Button -->
       <button onclick="toggleTheme()" class="theme-toggle" id="theme-toggle" title="切换主题">
         <svg id="theme-icon-sun" class="hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
@@ -68,6 +74,7 @@
       <button onclick="switchTab('console'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📊</span> 控制台</button>
       <button onclick="switchTab('reports'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📄</span> 报告</button>
       <button onclick="switchTab('sources'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">📡</span> 信息源</button>
+      <button onclick="switchTab('marketplace'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">🏪</span> Prompt广场</button>
       <button onclick="switchTab('config'); toggleMobileMenu()" class="px-4 py-3 rounded-lg text-sm font-medium text-left flex items-center gap-3 transition-all" style="color: var(--text);"><span class="w-5 text-center">⚙️</span> 配置</button>
     </nav>
   </div>
@@ -86,14 +93,14 @@
           <div id="card-mission" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
             <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(124,92,252,0.1);">📊</div>
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: var(--accent-bg);">📊</div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span id="dot-mission" class="w-2 h-2 rounded-full bg-text-muted"></span>
                   <span class="font-semibold text-sm truncate" style="color: var(--text);">情报日报</span>
                 </div>
-                <p class="text-xs text-text-secondary line-clamp-2">从 10+ 数据源抓取，生成 8 大板块中文日报</p>
-                <button id="btn-mission" onclick="runScript('mission')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                <p class="text-xs text-text-secondary line-clamp-3">从 10+ 数据源抓取，生成 8 大板块中文日报</p>
+                <button id="btn-mission" onclick="runScript('mission')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: var(--accent-bg-strong); border: 1px solid var(--accent); color: var(--accent-text);">
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
                 </button>
               </div>
@@ -104,14 +111,14 @@
           <div id="card-bounty" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
             <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(0,212,170,0.1);">💰</div>
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(61, 158, 106, 0.1);">💰</div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span id="dot-bounty" class="w-2 h-2 rounded-full bg-text-muted"></span>
                   <span class="font-semibold text-sm truncate" style="color: var(--text);">赏金猎人</span>
                 </div>
-                <p class="text-xs text-text-secondary line-clamp-2">扫描 V2EX 急单与 Chrome 扩展商店机会</p>
-                <button id="btn-bounty" onclick="runScript('bounty')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                <p class="text-xs text-text-secondary line-clamp-3">扫描市场需求信号，发现真实存在的机会缺口。默认追踪 V2EX 急单与 HN 招聘动态。</p>
+                <button id="btn-bounty" onclick="runScript('bounty')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: var(--accent-bg-strong); border: 1px solid var(--accent); color: var(--accent-text);">
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
                 </button>
               </div>
@@ -122,14 +129,14 @@
           <div id="card-alpha" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
             <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(255,170,68,0.1);">⛏️</div>
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(184, 115, 10, 0.1);">⛏️</div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span id="dot-alpha" class="w-2 h-2 rounded-full bg-text-muted"></span>
                   <span class="font-semibold text-sm truncate" style="color: var(--text);">Alpha 雷达</span>
                 </div>
-                <p class="text-xs text-text-secondary line-clamp-2">搜索 X/Twitter 上 Web3 开源工具与变现机会</p>
-                <button id="btn-alpha" onclick="runScript('alpha')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                <p class="text-xs text-text-secondary line-clamp-3">使用 Grok 搜索 X/Twitter 上的行业动态，默认聚焦 Web3/Solana 开源项目方向，可通过自定义 Prompt 调整搜索方向。</p>
+                <button id="btn-alpha" onclick="runScript('alpha')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: var(--accent-bg-strong); border: 1px solid var(--accent); color: var(--accent-text);">
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
                 </button>
               </div>
@@ -140,14 +147,14 @@
           <div id="card-revenue" class="card-hover bg-bg-tertiary border border-border rounded-xl p-4 cursor-pointer relative overflow-hidden group">
             <div class="absolute left-0 top-0 bottom-0 w-1 bg-accent opacity-0 group-hover:opacity-100 transition-opacity"></div>
             <div class="flex items-start gap-3">
-              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(255,107,107,0.1);">🏗️</div>
+              <div class="w-10 h-10 rounded-lg flex items-center justify-center text-xl flex-shrink-0" style="background: rgba(192, 57, 43, 0.1);">🏗️</div>
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 mb-1">
                   <span id="dot-revenue" class="w-2 h-2 rounded-full bg-text-muted"></span>
                   <span class="font-semibold text-sm truncate" style="color: var(--text);">营收分析师</span>
                 </div>
-                <p class="text-xs text-text-secondary line-clamp-2">分析日报内容，输出 5 类商业机会</p>
-                <button id="btn-revenue" onclick="runScript('revenue')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+                <p class="text-xs text-text-secondary line-clamp-3">基于今日情报日报，由 AI 深度解读行业动态，提炼 5 类商业机会与可执行建议。</p>
+                <button id="btn-revenue" onclick="runScript('revenue')" class="mt-3 w-full text-xs font-semibold py-2 rounded-lg transition-all flex items-center justify-center gap-2" style="background: var(--accent-bg-strong); border: 1px solid var(--accent); color: var(--accent-text);">
                   <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z"/></svg> 运行
                 </button>
               </div>
@@ -186,11 +193,50 @@
       </div>
       <div class="flex-1 overflow-y-auto p-4 md:p-6">
         <div class="max-w-3xl mx-auto space-y-6">
+          <!-- Source Health Status Section -->
+          <div class="source-health-section">
+            <div class="source-health-header">
+              <h3>数据源健康状态</h3>
+              <button onclick="refreshSourceHealth()" class="health-refresh-btn">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+                刷新
+              </button>
+            </div>
+            <div id="source-health-container" class="source-health-container">
+              <div class="health-loading">检测中...</div>
+            </div>
+            <div id="health-summary"></div>
+          </div>
+
           <!-- Sources will be loaded dynamically -->
           <div id="sources-list" class="space-y-3">
             <div class="flex items-center justify-center py-12 text-text-secondary">
               <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
               加载中...
+            </div>
+          </div>
+
+          <!-- Custom RSS Sources Section -->
+          <div class="custom-sources-section">
+            <div class="custom-sources-header">
+              <h3>自定义 RSS 数据源</h3>
+              <div class="custom-sources-limit">
+                <span id="custom-sources-count">0</span> / <span id="custom-sources-max">3</span> 条
+              </div>
+            </div>
+            <p class="custom-sources-desc">添加自定义 RSS 源，扩展情报采集范围。免费用户最多 3 条，付费用户最多 10 条。</p>
+
+            <!-- Add Custom Source Button -->
+            <div class="custom-sources-actions">
+              <button onclick="openAddCustomSourceModal()" id="btn-add-custom-source" class="btn-add-custom-source">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                添加 RSS 源
+              </button>
+            </div>
+
+            <!-- Custom Sources List -->
+            <div id="custom-sources-list" class="custom-sources-list">
+              <div class="custom-sources-loading">加载中...</div>
             </div>
           </div>
         </div>
@@ -216,11 +262,11 @@
             <button onclick="clearSelection()" class="text-xs px-2 py-1 rounded transition-colors hover:bg-bg" style="color: var(--text-secondary);">取消</button>
           </div>
           <div class="flex gap-2">
-            <button onclick="downloadBatch('md')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+            <button onclick="downloadBatch('md')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: var(--accent-bg); border: 1px solid var(--border-strong); color: var(--accent);">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               .md
             </button>
-            <button onclick="downloadBatch('txt')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+            <button onclick="downloadBatch('txt')" class="flex-1 text-xs font-medium py-2 px-3 rounded-lg transition-all flex items-center justify-center gap-1" style="background: var(--accent-bg); border: 1px solid var(--border-strong); color: var(--accent);">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               .txt
             </button>
@@ -232,11 +278,11 @@
         <div id="report-header" class="hidden h-12 border-b border-border flex items-center justify-between px-4 flex-shrink-0">
           <span id="report-title" class="font-medium text-sm truncate" style="color: var(--text);"></span>
           <div class="flex items-center gap-2">
-            <button onclick="downloadCurrent('md')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+            <button onclick="downloadCurrent('md')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: var(--accent-bg); border: 1px solid var(--border-strong); color: var(--accent);">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               .md
             </button>
-            <button onclick="downloadCurrent('txt')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: rgba(124,92,252,0.1); border: 1px solid rgba(124,92,252,0.3); color: #7c5cfc;">
+            <button onclick="downloadCurrent('txt')" class="text-xs font-medium px-3 py-1.5 rounded-lg transition-all flex items-center gap-1 hover:opacity-80" style="background: var(--accent-bg); border: 1px solid var(--border-strong); color: var(--accent);">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
               .txt
             </button>
@@ -252,6 +298,45 @@
     </div>
 
 
+    <!-- Marketplace Panel -->
+    <div id="panel-marketplace" class="panel hidden h-full flex flex-col">
+      <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
+        <div>
+          <h2 class="font-semibold" style="color: var(--text);">Prompt广场</h2>
+          <p class="text-xs text-text-secondary" style="color: var(--text);">官方模板库 + 我的自定义 Prompt</p>
+        </div>
+      </div>
+      <!-- Channel Tabs -->
+      <div class="border-b border-border flex-shrink-0 overflow-x-auto">
+        <div class="flex px-4 md:px-6 min-w-max">
+          <button onclick="switchMarketplaceChannel('my_prompts')" id="marketplace-tab-my_prompts" class="marketplace-tab active px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text); border-color: var(--accent);">
+            ✏️ 我的Prompt
+          </button>
+          <button onclick="switchMarketplaceChannel('mission')" id="marketplace-tab-mission" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            📊 情报日报
+          </button>
+          <button onclick="switchMarketplaceChannel('alpha')" id="marketplace-tab-alpha" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            ⛏️ Alpha雷达
+          </button>
+          <button onclick="switchMarketplaceChannel('bounty_v2ex')" id="marketplace-tab-bounty_v2ex" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            💰 赏金·V2EX
+          </button>
+          <button onclick="switchMarketplaceChannel('revenue')" id="marketplace-tab-revenue" class="marketplace-tab px-4 py-3 text-sm font-medium border-b-2 transition-all whitespace-nowrap" style="color: var(--text-secondary); border-color: transparent;">
+            🏗️ 营收分析
+          </button>
+        </div>
+      </div>
+      <div class="flex-1 overflow-y-auto p-4 md:p-6">
+        <div id="marketplace-content" class="max-w-4xl mx-auto">
+          <!-- 模板内容将由 marketplace.js 动态加载 -->
+          <div class="flex items-center justify-center py-12 text-text-secondary">
+            <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+            加载模板中...
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Config Panel -->
     <div id="panel-config" class="panel hidden h-full flex flex-col">
       <div class="h-14 border-b border-border flex items-center px-4 md:px-6 flex-shrink-0">
@@ -261,12 +346,27 @@
         </div>
       </div>
       <div class="flex-1 overflow-y-auto p-4 md:p-6">
+        <!-- System Config Content -->
         <div id="config-content" class="max-w-3xl mx-auto space-y-6">
           <!-- 配置内容将由 config.js 动态加载 -->
           <div class="flex items-center justify-center py-12 text-text-secondary">
             <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
             加载配置中...
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- User Panel (Right Side) - Always visible, hidden on mobile -->
+    <div id="user-panel" class="hidden md:flex w-60 bg-bg-secondary border-l border-border flex-col flex-shrink-0 absolute right-0 top-0 bottom-0 z-10">
+      <div class="p-3 md:p-4 border-b border-border">
+        <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">用户状态</h2>
+      </div>
+      <div id="user-panel-content" class="flex-1 overflow-y-auto p-4">
+        <!-- 内容由 user-panel.js 动态加载 -->
+        <div class="flex items-center justify-center py-8 text-text-secondary">
+          <svg class="w-5 h-5 animate-spin mr-2" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+          加载中...
         </div>
       </div>
     </div>
@@ -284,7 +384,7 @@
     <div class="footer-content">
       <div class="footer-left">
         <span class="footer-brand">🕵️ Prism</span>
-        <span class="footer-version" id="footer-version">v1.3.0</span>
+        <span class="footer-version" id="footer-version">v2.1.0</span>
         <span class="footer-divider">|</span>
         <span class="footer-author">by <a href="https://github.com/mumuer1024" target="_blank">mumuer1024</a></span>
       </div>
@@ -300,12 +400,14 @@
 
   <!-- Scripts -->
   <script src="/static/core.js"></script>
+  <script src="/static/user-panel.js"></script>
   <script src="/static/legal.js"></script>
   <script src="/static/navigation.js"></script>
   <script src="/static/console.js"></script>
   <script src="/static/reports.js"></script>
   <script src="/static/config.js"></script>
   <script src="/static/sources.js"></script>
+  <script src="/static/marketplace.js"></script>
   <script>
     // Initialize on load
     window.addEventListener('resize', () => {
@@ -313,18 +415,29 @@
         document.getElementById('mobile-menu')?.classList.add('hidden');
       }
     });
-    
-    // Initialize theme
+
+    // Initialize theme and user state
     document.addEventListener('DOMContentLoaded', async () => {
       initTheme();
+
       // Set version in footer
       const versionEl = document.getElementById('footer-version');
       if (versionEl && window.APP_VERSION) {
         versionEl.textContent = window.APP_VERSION;
       }
+
+      // Initialize user panel
+      if (typeof initUserPanel === 'function') {
+        initUserPanel();
+      }
+
+      // Parse URL tab parameter and switch to corresponding tab
+      const urlParams = new URLSearchParams(window.location.search);
+      const tabParam = urlParams.get('tab');
+      const validTabs = ['console', 'reports', 'sources', 'marketplace', 'config'];
+      const initialTab = validTabs.includes(tabParam) ? tabParam : 'console';
+      switchTab(initialTab);
     });
-    
-    switchTab('console');
   </script>
 </body>
 </html>
